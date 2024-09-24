@@ -113,7 +113,7 @@ class CatalystUtil(
   private val whereClauseOpt = Option(filters)
     .filter(_.nonEmpty)
     .map { w =>
-      s"${w.mkString(" AND ")}"
+      s"${w.map(s => s"($s)").mkString(" AND ")}"
     }
 
   private val (transformFunc: (InternalRow => Option[InternalRow]), outputSparkSchema: types.StructType) = initialize()

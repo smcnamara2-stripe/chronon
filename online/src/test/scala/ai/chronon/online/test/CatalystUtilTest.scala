@@ -610,4 +610,19 @@ class CatalystUtilTest extends TestCase with CatalystUtilTestSparkSQLStructs {
     assertTrue(res.get("created") == 1000L)
     assertTrue(res.get("score") == 0.5)
   }
+
+  def testParenthesisAreApplied(): Unit = {
+    val selects = Map(
+      "id" -> "key",
+      "created" -> "created_ts",
+      "score" -> "CAST(get_json_object(json_prediction, '$.score') as Double)"
+    ).toSeq
+    val wheres = Seq(
+      "tag is null",
+      "false or true"
+    )
+    val cu = new CatalystUtil(selects, inputEventStruct, wheres)
+    val res = cu.performSql(inputEventRow)
+    assertTrue(res.isEmpty)
+  }
 }
