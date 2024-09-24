@@ -654,5 +654,6 @@ def ModelTransformation(
     return api.ModelTransformation(
         model = model,
         outputMappings = output_mappings,
-        passThroughFields = pass_through_fields
+        passThroughFields = pass_through_fields,
+        metaData=api.MetaData()
     )
