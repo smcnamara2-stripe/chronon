@@ -30,6 +30,7 @@ DEFAULT_BACKOFF_LIMIT = 6
 DEFAULT_DEPLOY_STAGE = "main"
 DEFAULT_CONTAINER_WORKING_DIR = "/deploy/pay-server/current"
 DEFAULT_CLUSTERS = ["northwest"]
+DEFAULT_NAME = "teamslug--your-cronjob-name"
 DEFAULT_PAY_SERVER_IMAGE = image_defaults(
     # if they try to use defaults, their service yaml should have the artifact specified.
     # if not, they're not explicitly relying on any images, so defaults doesn't know what to do.
@@ -210,6 +211,9 @@ def pay_server_cronjob(
     Fails:
         If the name contains an "_" or if the schedule is not a valid cron schedule
     """
+    # Fail if using default template provided cronjob name
+    if name == DEFAULT_NAME:
+        _fail_with_message('Cannot use default template cronjob name, please change to be specific to your team-slug & cronjob')
     # Deploy to the default primary shard.
     if shards_by_cluster == None:
         # Default the values to DEFAULT_SHARD of kubemaster for all regions.
@@ -465,6 +469,13 @@ def _pay_server_cronjob(
         "STRIPE_BUNDLE_USE_SORBET_RUBY": "true",
         "STRIPE_CRON_TIER": cron_tier,
     }
+
+    if get_env(ctx) in ["qa", "preprod"]:
+        cron_env_variables["STRIPE_BUNDLE_MSP_OVERRIDE_RBENV_VERSION"] = "sorbet_ruby_3_3"
+    else:
+        if cron_tier in ["low", "standard", "critical"]:
+            cron_env_variables["STRIPE_BUNDLE_MSP_OVERRIDE_RBENV_VERSION"] = "sorbet_ruby_3_3"
+
 
     if namespace == DEFAULT_NAMESPACE:
         # aws_credentials.ini is only used for kubeacronnoegress cronjobs, not cronops

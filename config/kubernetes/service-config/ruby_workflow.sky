@@ -16,7 +16,7 @@ load("config/kubernetes/helpers/context.sky",
 load("config/kubernetes/helpers/graviton.sky", "is_graviton_instance", "smart_graviton_instance")
 load("config/kubernetes/helpers/images.sky", "image_defaults")
 load("config/kubernetes/helpers/resource_requirements.sky", "attempt_to_get_pod_sizing_from_compute_config")
-load("config/kubernetes/helpers/security.sky", "add_security_groups")
+load("config/kubernetes/helpers/security.sky", "add_security_groups", "use_global_iam_role_annotation")
 load("config/kubernetes/meta/metadata.sky", "labels")
 load("config/kubernetes/public/workflow_engine/workflow_worker.sky", "ruby_workflow_worker_shared_msp")
 load("config/kubernetes/service-config/compute.sky", "get_merged_compute_v2_config", "get_num_replicas", "get_dynamic_replicas")
@@ -157,8 +157,12 @@ def _build_args(ctx, compute_config, is_canary=False):
     if platform_options:
         plugins += get_networking_config(ctx, platform_options)
 
+        # helpers from helpers/security.sky
         if len(platform_options["add_security_groups"]) > 0:
             plugins.append(add_security_groups(*platform_options["add_security_groups"]))
+
+        if platform_options.get("use_global_iam_role") and platform_options.get("use_global_iam_role") == True:
+            plugins.append(use_global_iam_role_annotation())
 
         # env vars
         if platform_options["env_vars"]:
@@ -274,6 +278,7 @@ def deployments(ctx):
         hack_kick_interval = hack_kick_interval,
         resource_requirements_spec = pod_resources,
         serverless = is_faas_managed(ctx),
+        blue_green = is_blue_green(compute_config),
         strict_packaging = _strict_packaging(compute_config),
         image = image_defaults(
           name = None,
@@ -313,5 +318,30 @@ def get_separate_canary_by_name(compute_config):
         if "canary_config" in compute_config["ruby_process"] and compute_config["ruby_process"]["canary_config"] != None:
             if "suffix" in compute_config["ruby_process"]["canary_config"] and compute_config["ruby_process"]["canary_config"]["suffix"] != None:
                 return True
+
+    return False
+
+def is_blue_green(compute_config):
+    """
+    Determines whether the Ruby workflow worker service has blue-green mode enabled.
+
+    This is controlled by the `.workflow_engine_worker.enable_ruby_blue_green`
+    flag in the ComputeV2 config. The default if the flag is unset is False
+    (this will eventually change).
+
+    Args:
+      compute_config: The merged ComputeV2 config for the service
+    Returns:
+      True if the service should use blue-green mode, False otherwise
+    """
+    if compute_config == None:
+        return False
+
+    # TODO(WOFLO-2334): update this helper to interpret unset as True once we switch the default:
+    if "workflow_engine_worker" in compute_config and compute_config["workflow_engine_worker"] != None:
+        worker_config = compute_config["workflow_engine_worker"]
+
+        if "enable_ruby_blue_green" in worker_config and worker_config["enable_ruby_blue_green"] != None:
+            return worker_config["enable_ruby_blue_green"]
 
     return False

@@ -779,3 +779,15 @@ def should_use_sansshell_sidecar_gocode(ctx):
 
 def is_isolated_account_identity_enabled(ctx):
     return ctx.vars.get("cloudsec.isolated_account_identity_enabled", False)
+
+def get_instance_generation_override(ctx):
+    """
+    Gets the instance generation override, which is an emergency fallback processor version
+    to deploy in case the selected instance type is unavailable.
+
+    Args:
+        ctx: The context containing Henson and the Centralized Service Configurations.
+    Returns:
+        The instance generation override, if set. If unset, returns None.
+    """
+    return ctx.vars.get("henson.instance_generation_override", None)

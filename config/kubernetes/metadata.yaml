@@ -13,7 +13,7 @@ review_requirements:
   - codeowners-service-deployments
   - codeowners-feature-deployments
   - codeowners-cloud
-  - codeowners-infra-platform
+  - codeowners-cash
   - codeowners-fleet-automation
   - codeowners-core-events # for vendor mirroring
 - files:
@@ -60,7 +60,6 @@ review_requirements:
   reviewers:
   - codeowners-orchestration
   reviewers_in_training:
-  - qzsun
   - ronaldso
 - files:
   - sidecars/memcontainer.sky

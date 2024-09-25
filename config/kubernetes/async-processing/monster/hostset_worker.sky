@@ -74,6 +74,7 @@ def cluster(
         graviton_migration_enabled=False,
         graviton_migration_size=0,
         graviton_migration_target_6g=False,
+        image_artifact='pay-server-image',
 ):
     return struct(
         consume=consume_replicas,
@@ -83,6 +84,7 @@ def cluster(
         graviton_migration_enabled=graviton_migration_enabled,
         graviton_migration_size=graviton_migration_size,
         graviton_migration_target_6g=graviton_migration_target_6g,
+        image_artifact=image_artifact,
     )
 
 # (Private API) Helper function to return the first non-None value from a list
@@ -108,6 +110,7 @@ def _global_default_template_cluster():
         graviton_migration_enabled=False,
         graviton_migration_size=0,
         graviton_migration_target_6g=False,
+        image_artifact='pay-server-image',
     )
 
 # (Test API) Defines a "worker defaults" to hold default values. Only test
@@ -184,6 +187,7 @@ def render_cluster(env_name, cluster_map, cluster_name, defs):
             "graviton_migration_enabled": _first_set(c.graviton_migration_enabled, defs.template.graviton_migration_enabled),
             "graviton_migration_size": _first_set(c.graviton_migration_size, defs.template.graviton_migration_size),
             "graviton_migration_target_6g": _first_set(c.graviton_migration_target_6g, defs.template.graviton_migration_target_6g),
+            "image_artifact": _first_set(c.image_artifact, defs.template.image_artifact),
         }
     }
 
@@ -215,7 +219,8 @@ def hostset(name,
             disable_preloading=False,
             defs=worker_defs(),
             suffix="",
-            autoscaling = None):
+            autoscaling = None,
+            rate_limiter_namespace_override=None):
     # Setting suffix will add to it to the k8s service name
     # nothing else would change, so that capacity would share the same consul service name as main capacity
     # Similarly, setting is_canary will add "-canary" (after the suffix, if any)
@@ -233,4 +238,5 @@ def hostset(name,
         is_canary=is_canary,
         disable_preloading=disable_preloading,
         suffix=suffix,
-        autoscaling = autoscaling)
+        autoscaling = autoscaling,
+        rate_limiter_namespace_override=rate_limiter_namespace_override)

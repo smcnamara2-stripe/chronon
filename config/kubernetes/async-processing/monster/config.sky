@@ -42,6 +42,8 @@ def monster_deployment_config(
     graviton_migration_size = 0,
     graviton_migration_target_6g = False,
     autoscaling_plugin = None,
+    rate_limiter_namespace_override=None,
+    image_artifact='pay-server-image',
 ):
     return struct(
         monster_service = monster_service,
@@ -65,4 +67,6 @@ def monster_deployment_config(
         graviton_migration_size = graviton_migration_size,
         graviton_migration_target_6g = graviton_migration_target_6g,
         autoscaling_plugin = autoscaling_plugin,
+        rate_limiter_namespace_override=rate_limiter_namespace_override,
+        image_artifact=image_artifact,
     )

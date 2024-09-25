@@ -53,6 +53,31 @@ def all_available_shards_info(ctx, shared_msp=None, shard_states=None, shard_typ
 def all_available_shards(ctx, shared_msp=None, shard_states=None, shard_types=None, binpacking_states=None, _override_shards_map=None):
     return [s.name for s in all_available_shards_info(ctx, shared_msp, shard_states, shard_types, binpacking_states, _override_shards_map )]
 
+def all_deployable_shards_info(ctx, shared_msp=None, shard_types=None, binpacking_states=None, _override_shards_map=None):
+    """
+    Returns all shards to which henson can deploy. Excludes DECOMMISSIONING
+    """
+    return all_available_shards_info(
+        ctx=ctx,
+        shared_msp=shared_msp,
+        shard_states=[SHARD_STATE.PROVISIONING, SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
+        shard_types=shard_types,
+        binpacking_states=binpacking_states,
+        _override_shards_map=_override_shards_map,
+    )
+
+def all_deployable_shards(ctx, shared_msp=None, shard_types=None, binpacking_states=None, _override_shards_map=None):
+    """
+    Returns all shard names to which henson can deploy. Excludes DECOMMISSIONING
+    """
+    return all_available_shards(
+        ctx=ctx,
+        shared_msp=shared_msp,
+        shard_states=[SHARD_STATE.PROVISIONING, SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
+        shard_types=shard_types,
+        binpacking_states=binpacking_states,
+        _override_shards_map=_override_shards_map,
+    )
 
 def all_canary_shards_info(ctx, _override_shards_map=None):
     """
@@ -60,7 +85,7 @@ def all_canary_shards_info(ctx, _override_shards_map=None):
     """
     return all_available_shards_info(
         ctx=ctx,
-        shard_states=SHARD_STATE.GA,
+        shard_states=[SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
         shard_types=[SHARD_TYPE.CANARY],
         _override_shards_map=_override_shards_map,
     )
@@ -71,7 +96,7 @@ def all_canary_shards(ctx, _override_shards_map=None):
     """
     return all_available_shards(
         ctx=ctx,
-        shard_states=SHARD_STATE.GA,
+        shard_states=[SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
         shard_types=[SHARD_TYPE.CANARY],
         _override_shards_map=_override_shards_map,
     )
@@ -134,6 +159,7 @@ def all_available_shards_with_cron(ctx):
       ctx: The Henson context.
     """
     shards = get_shards_from_context(ctx)
+    shards = [s for s in shards if s.shard_state != SHARD_STATE.DECOMMISSIONING]
     return [s.name for s in shards if s.cron == True]
 
 def msp_shard(shard):

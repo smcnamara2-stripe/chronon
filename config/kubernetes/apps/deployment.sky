@@ -34,6 +34,7 @@ load("config/kubernetes/core/container.sky", "container", "container_resources")
 load("config/kubernetes/helpers/quantities.sky", "millicores", "mebibytes")
 load("config/kubernetes/helpers/multi_arch_deployment_transition.sky", "calculate_multi_arch_replica_split", "multi_arch_dynamic_replicas_desired_size","multi_arch_override_node_selector","add_arch_suffix","graviton_deployment_0_replicas")
 load("config/kubernetes/helpers/aws_instance_sizes.sky","get_graviton_eq_instance_type","aws_instance_size")
+load("config/kubernetes/helpers/aws_availability_zones.sky","aws_az_valid")
 load("config/kubernetes/helpers/tags.sky", "priority_tier_label")
 load("config/kubernetes/core/env_var.sky", "container_env_vars", "all_containers_env_vars")
 load("config/kubernetes/helpers/binpacking.sky", "bin_packing")
@@ -470,11 +471,22 @@ def _validate_deployment(ctx, deployment):
 
     annotations = deployment.metadata.annotations
     _validate_dynamic_replicas_desired_count(ctx, name, replicas, annotations)
+    _validate_az_affinity(ctx, name, annotations)
 
     strategy = deployment.kwargs["strategy"]
     _validate_strategy_max_unavailable(ctx, name, replicas, strategy)
 
 # see config/kubernetes/helpers/dynamic.sky
+def _validate_az_affinity(ctx, name, annotations):
+    az = annotations.get("mspfleetmanager.stripe.io/preferred-availability-zone", "")
+    if az == "":
+        return
+    else:
+        if aws_az_valid(az):
+            return
+        else:
+            fail("%s has unexpected AZ set" %(name))
+
 def _validate_dynamic_replicas_desired_count(ctx, name, replicas, annotations):
     enabled = annotations.get("stripe.io/dynamic-replicas-enabled", "no")
     if enabled != "yes":

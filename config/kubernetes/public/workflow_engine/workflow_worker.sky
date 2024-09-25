@@ -11,6 +11,7 @@ load("config/kubernetes/core/probe.sky", "command_probe", "probes")
 load("config/kubernetes/crds/keda/scaledobject.sky", "scaled_object_plugin_from_compute_config")
 load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A400")
 load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
+load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_metrics_tagging")
 load("config/kubernetes/helpers/context.sky", "get_env", "get_name", "get_owner", "get_target_shard")
 load("config/kubernetes/helpers/external_scaling_control.sky", "external_scaling_control")
 load("config/kubernetes/helpers/images.sky", "image_defaults")
@@ -65,6 +66,7 @@ def ruby_workflow_worker_shared_msp(
         separate_canary_by_name = False,
         hack_kick_interval = None,
         serverless = False,
+        blue_green = False,
         cpu = None,
         memory = None,
         requires_consul = None,
@@ -118,6 +120,9 @@ def ruby_workflow_worker_shared_msp(
             of needing more complex search query to find all log lines in Splunk.
         hack_kick_interval: How often to restart einhorn workers
         serverless: Run the worker in a serverless configuration
+        blue_green: Run the worker in a blue-green configuration. This is experimental.
+            Do NOT use without speaking with #proj-workflow-engine-safe-deploys first.
+            TODO(WOFLO-2328): remove this comment once the feature is stable.
         cpu: The amount of CPU the main container needs, provided using a single `cores` or `millicores` if you are setting both request
             and limits to the same value. Or a tuple (requests, limits) if you are specifying different values.
         memory: The amount of memory the main container needs, provided using a single `gigabytes` or `megabytes` if you are setting both
@@ -132,7 +137,8 @@ def ruby_workflow_worker_shared_msp(
             limits will be provided by the Orchestration team through rightsizing recommendations.
 
     Returns:
-        A struct with two members, canary and main. These are functions
+        A struct with two members, canary and main (except for blue-green
+        workers, which will only have a 'main' memeber). These are functions
         which can be called in your service configuration entrypoints with
         the deployment context. When called these functions return a
         single-element array of deployments.
@@ -146,10 +152,12 @@ def ruby_workflow_worker_shared_msp(
         if type(plugins) == 'struct':
             plugins = plugins.canary
 
+        if blue_green:
+            fail("Blue-green workers do not have canaries. This function should never be instantiated when compiling the MSP config for a blue-green worker.")
+
         if serverless:
             _maybe_enable_binpacking(ctx)
             _validate_serverless_canary_replicas(replicas)
-
         elif replicas != 1:
             fail("Cannot set canary replicas to anything besides 1 when serverless is not enabled.")
 
@@ -167,6 +175,7 @@ def ruby_workflow_worker_shared_msp(
             drain_timeout = drain_timeout,
             replicas = replicas,
             is_canary = True,
+            is_blue_green = blue_green,
             manage_workers = manage_workers,
             separate_canary_by_name = separate_canary_by_name,
             hack_kick_interval = hack_kick_interval,
@@ -207,10 +216,18 @@ def ruby_workflow_worker_shared_msp(
             memory_mib = aws_instance_size(instance_type.name).memory_mib
             _validate_packaging_settings(name, startup_timeout, workers_per_replica, memory_mib)
 
+        if serverless and blue_green:
+            # This is a temporary check until we build proper blue-green support for FaaS:
+            fail("Cannot currently create a deployment that is both serverless and blue-green (the options are mutually exclusive)")
+
+        if separate_canary_by_name and blue_green:
+            fail("Blue-green workers do not have canaries, so the `separate_canary_by_name` option will not have any effect.")
+
         replicas = replicas_func(ctx)
         if not serverless:
             _validate_replicas(ctx, replicas)
-            replicas = replicas - 1  # the canary counts for one in non-serverless workers
+            if not blue_green:
+                replicas = replicas - 1  # the canary counts for one in non-serverless, non-blue-green workers
 
         _validate_drain_timeout(drain_timeout)
 
@@ -231,6 +248,7 @@ def ruby_workflow_worker_shared_msp(
             drain_timeout = drain_timeout,
             replicas = replicas,
             is_canary = False,
+            is_blue_green = blue_green,
             manage_workers = manage_workers,
             separate_canary_by_name = separate_canary_by_name,
             hack_kick_interval = hack_kick_interval,
@@ -242,10 +260,15 @@ def ruby_workflow_worker_shared_msp(
             resource_requirements_spec = resource_requirements_spec,
         )
 
-    return struct(
-        canary = _canary,
-        main = _main,
-    )
+    if blue_green:
+        return struct(
+            main = _main,
+        )
+    else:
+        return struct(
+            canary = _canary,
+            main = _main,
+        )
 
 def ruby_workflow_worker_dedicated_msp(
         *,
@@ -260,7 +283,8 @@ def ruby_workflow_worker_dedicated_msp(
         plugins_func = None,
         startup_timeout,
         drain_timeout = 300,
-        separate_canary_by_name = False):
+        separate_canary_by_name = False,
+        blue_green = False):
     """
     Create deployments for a Ruby Workflow Engine worker that runs on Dedicated MSP.
 
@@ -295,9 +319,13 @@ def ruby_workflow_worker_dedicated_msp(
             the replicas. This means that you can detect issues with ambient
             health detectors that are specifically target the canary at the cost
             of needing more complex search query to find all log lines in Splunk.
+        blue_green: Run the worker in a blue-green configuration. This is experimental.
+            Do NOT use without speaking with #proj-workflow-engine-safe-deploys first.
+            TODO(WOFLO-2328): remove this comment once the feature is stable.
 
     Returns:
-        A struct with two members, canary and main. These are functions
+        A struct with two members, canary and main (except for blue-green
+        workers, which will only have a 'main' memeber). These are functions
         which can be called in your service configuration entrypoints with
         the deployment context. When called these functions return a
         single-element array of deployments.
@@ -307,6 +335,9 @@ def ruby_workflow_worker_dedicated_msp(
         plugins = []
         if plugins_func:
             plugins = plugins_func(ctx)
+
+        if blue_green:
+            fail("Blue-green workers do not have canaries. This function should never be instantiated when compiling the MSP config for a blue-green worker.")
 
         return _service_dedicated_msp(
             ctx,
@@ -322,6 +353,7 @@ def ruby_workflow_worker_dedicated_msp(
             drain_timeout = drain_timeout,
             replicas = 1,
             is_canary = True,
+            is_blue_green = blue_green,
             separate_canary_by_name = separate_canary_by_name,
         )
 
@@ -332,7 +364,13 @@ def ruby_workflow_worker_dedicated_msp(
 
         replicas = replicas_func(ctx)
         _validate_replicas(ctx, replicas)
+        if not blue_green:
+            replicas = replicas - 1  # the canary counts for one in non-blue-green workers
+
         _validate_drain_timeout(drain_timeout)
+
+        if separate_canary_by_name and blue_green:
+            fail("Blue-green workers do not have canaries, so the `separate_canary_by_name` option will not have any effect.")
 
         return _service_dedicated_msp(
             ctx,
@@ -346,15 +384,21 @@ def ruby_workflow_worker_dedicated_msp(
             workers_per_replica = workers_per_replica,
             startup_timeout = startup_timeout,
             drain_timeout = drain_timeout,
-            replicas = replicas - 1,  # the canary counts for one
+            replicas = replicas,
             is_canary = False,
+            is_blue_green = blue_green,
             separate_canary_by_name = separate_canary_by_name,
         )
 
-    return struct(
-        canary = _canary,
-        main = _main,
-    )
+    if blue_green:
+        return struct(
+            main = _main,
+        )
+    else:
+        return struct(
+            canary = _canary,
+            main = _main,
+        )
 
 def _service_shared_msp(
         ctx,
@@ -374,6 +418,7 @@ def _service_shared_msp(
         separate_canary_by_name,
         hack_kick_interval = None,
         serverless,
+        is_blue_green,
         cpu = None,
         memory = None,
         requires_consul = None,
@@ -394,6 +439,9 @@ def _service_shared_msp(
         envs["WORKER_CANARY"] = "true"
         file_to_wait_for = "/tmp/workflowworker-canarycheck"
 
+    if is_blue_green:
+        file_to_wait_for = "/tmp/workflowworker-canarycheck"
+
     envs["WORKFLOW_ENGINE_WORKER"] = "true"
 
     # Configure this worker to listen on the deployed task queue rather than the local one,
@@ -401,6 +449,8 @@ def _service_shared_msp(
     command = command + ["--worker-location=remote"]
     if serverless:
         command = command + ["--serverless"]
+    if is_blue_green:
+        command = command + ["--blue-green"]
 
     if image == None:
         image = image_defaults(
@@ -457,6 +507,9 @@ def _service_shared_msp(
     ]
     all_plugins.extend(*plugins)
 
+    if is_blue_green:
+        all_plugins.append(add_blue_green_metrics_tagging())
+
     compute_config = ctx.vars.get("service.config.compute_v2")
     if compute_config and not is_canary:
         compute_config = get_merged_compute_v2_config(ctx)
@@ -507,6 +560,7 @@ def _service_dedicated_msp(
         drain_timeout,
         replicas,
         is_canary,
+        is_blue_green,
         separate_canary_by_name):
     envs = {}
     file_to_wait_for = "/tmp/workflowworker-alive"
@@ -522,6 +576,15 @@ def _service_dedicated_msp(
         envs["WORKER_CANARY"] = "true"
         file_to_wait_for = "/tmp/workflowworker-canarycheck"
 
+    if is_blue_green:
+        file_to_wait_for = "/tmp/workflowworker-canarycheck"
+
+    # Configure this worker to listen on the deployed task queue rather than the local one,
+    # which is used on devboxes.
+    command = command + ["--worker-location=remote"]
+    if is_blue_green:
+        command = command + ["--blue-green"]
+
     all_plugins = [
         pay_server_pod(
             ctx,
@@ -530,10 +593,7 @@ def _service_dedicated_msp(
             host_type = host_type,
             cpu = cpu,
             memory = memory,
-
-            # Configure this worker to listen on the deployed task queue rather than the local one,
-            # which is used on devboxes.
-            command = command + ["--worker-location=remote"],
+            command = command,
         ),
         einhorn_service(
             ctx,
@@ -557,6 +617,9 @@ def _service_dedicated_msp(
         grace_period(drain_timeout),
     ]
     all_plugins.extend(*plugins)
+
+    if is_blue_green:
+        all_plugins.append(add_blue_green_metrics_tagging())
 
     deploy = deployment(
         ctx,

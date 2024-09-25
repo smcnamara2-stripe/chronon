@@ -15,6 +15,8 @@ load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 SECGROUP_KEY = "stripe.io/extra-security-groups"
 UNIQUE_HORIZON_IDENTITY_ANNOTATION_KEY = "horizon.stripe.io/bundle-unique-identity"
 IAM_ROLE_ACCOUNT_AFFINITY_ANNOTATION_KEY = "stripe.io/iam-role-account-affinity"
+USE_GLOBAL_IAM_ROLE_ANNOTATION_KEY = "stripe.io/iam-role-use-global-role"
+USE_GLOBAL_IAM_ROLE_ANNOTATION_VALUE = "true"
 
 def run_as_unprivileged(uid = None, gid = None, container_name = None, supplementalGroups = None):
     """
@@ -247,6 +249,26 @@ def _unique_horizon_identity_annotation(ctx, plugin, pod_def):
             pod_def['resource']["metadata"]["annotations"][UNIQUE_HORIZON_IDENTITY_ANNOTATION_KEY] = str(plugin.enableUniqueIdentities).lower()
             return
     fail("Pod isn't a Horizon pod, this plugin expects the label stripe.io/platform=horizon")
+
+def use_global_iam_role_annotation():
+    """
+        Conditionally adds or removes the annotation to/from the pod that is used to determine if the de-regionalized IAM role MUST be used.
+
+        This plugin should only be used for Shared MSP services.
+
+        Args:
+            enabled: If true, adds the annotation and with value of `TRUE`. If false or None, removes the annotation.
+
+        Returns:
+            A plugin for managing the (`stripe.io/iam-role-require-global-role`) annotation on a pod.
+    """
+    return pod_plugin(
+        _use_global_iam_role_annotation,
+    )
+
+def _use_global_iam_role_annotation(ctx, plugin, pod_def):
+    annotations = pod_def['resource']["metadata"]["annotations"]
+    annotations[USE_GLOBAL_IAM_ROLE_ANNOTATION_KEY] = USE_GLOBAL_IAM_ROLE_ANNOTATION_VALUE
 
 def iam_role_account_affinity_annotation(affinity):
     """

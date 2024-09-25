@@ -55,5 +55,6 @@ HOST_ISOLATION_ALLOWLIST = [
     "climate-bapi-srv",
     "deep-bapi-srv",
     "payins-records-bridge-srv",
+    "verification-srv",
     "confirmation-of-payee-requester-srv",
 ]

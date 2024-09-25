@@ -25,7 +25,8 @@ def add_worker_sidecar(
     puma_statefile_name = None,
     hack_kick_interval = None,
     hack_kick_start_delay = None,
-    hack_kick_restart_only = None):
+    hack_kick_restart_only = None,
+    hack_kick_start_jitter = None):
 
     # TODO: make einhorn_socket_dir optional when mode is 'puma-cluster'
     if mode == "einhorn":
@@ -49,6 +50,7 @@ def add_worker_sidecar(
        "hack_kick_interval": hack_kick_interval,
        "hack_kick_start_delay": hack_kick_start_delay,
        "hack_kick_restart_only": hack_kick_restart_only,
+       "hack_kick_start_jitter": hack_kick_start_jitter,
     }
 
     pod = pod_plugin(
@@ -170,6 +172,8 @@ def _go_worker_command(config):
         cmd += ["--hack-kick-start-delay={}".format(config["hack_kick_start_delay"])]
     if config["hack_kick_restart_only"]:
         cmd += ["--hack-kick-restart-only={}".format(config["hack_kick_restart_only"])]
+    if config["hack_kick_start_jitter"]:
+        cmd += ["--hack-kick-start-jitter={}".format(config["hack_kick_start_jitter"])]
 
     if config["mode"] == "einhorn":
         cmd += ["--einhorn-socket-path={}/{}".format(config["einhorn_socket_dir"], config["einhorn_socket_name"])]

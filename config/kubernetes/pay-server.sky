@@ -36,7 +36,21 @@ def default_gem_override_policy(ctx, **kwargs):
     """
     The default policy for whether services should opt in to the current gem upgrade experiment
     """
-    return False
+    # TODO(WOFLO-2341): Update this override policy throughout the course of the rollout.
+    #
+    # See the following links for more information:
+    # - https://go.corp.stripe.com/einhorn-10-2-0-rollout
+    # - https://go/j/WOFLO-2341
+    # - https://go/j/RUN_RUBYINFRA-4566
+
+    availability_tier = get_availability_tier(ctx)
+    env = get_env(ctx)
+
+    # Current stage: enabled for all services in QA only:
+    if env == "qa":
+        return True
+    else:
+        return False
 
 def _gem_override_plugin(ctx, value):
     # Circuit breaker to disable Gem overrides regardless of the gem policy
@@ -171,6 +185,7 @@ def einhorn_service(
     hack_kick_interval = None,
     hack_kick_start_delay = None,
     hack_kick_restart_only = None,
+    hack_kick_start_jitter = None,
     **kwargs
 ):
     """
@@ -207,6 +222,7 @@ def einhorn_service(
             up as requests are made every 1 second by default.
         hack_kick_interval: How often to restart einhorn workers
         hack_kick_start_delay: Minimum time to wait on server boot before starting to cycle workers
+        hack_kick_start_jitter: How much time to use to jitter worker restarts. Defaults to hack_kick_interval
         hack_kick_restart_only: Do not reload master process before resarting processes
         **kwargs: Additional arguments to set up Einhorn. See `einhorn` for possible options.
 
@@ -252,6 +268,7 @@ def einhorn_service(
             hack_kick_interval = hack_kick_interval,
             hack_kick_start_delay = hack_kick_start_delay,
             hack_kick_restart_only = hack_kick_restart_only,
+            hack_kick_start_jitter = hack_kick_start_jitter,
         )
 
     consul_tags = []
@@ -453,6 +470,9 @@ def puma_cluster_service(
     worker_availability_threshold = "0.7", # skycfg doesn't support floats
     startup_failure_threshold = 600,
     include_config_srv_sidecar = True,
+    hack_kick_interval = None,
+    hack_kick_start_delay = None,
+    hack_kick_restart_only = None,
     **kwargs
 ):
     """
@@ -484,6 +504,9 @@ def puma_cluster_service(
         include_config_srv_sidecar: Defaults to True. If you want to configure
             config-srv-sidecar's ports yourself, set this to False and add the config-srv-sidecar
             plugin yourself.
+        hack_kick_interval: How often to restart einhorn workers
+        hack_kick_start_delay: Minimum time to wait on server boot before starting to cycle workers
+        hack_kick_restart_only: Do not reload master process before resarting processes
         **kwargs: Additional arguments to set up Puma cluster. See `puma_cluster` for possible
             options.
 
@@ -528,6 +551,9 @@ def puma_cluster_service(
             service = daemoncommon_svcname,
             mode = "puma-cluster",
             puma_statefile_name = "puma_state_{}.yaml".format(name),
+            hack_kick_interval = hack_kick_interval,
+            hack_kick_start_delay = hack_kick_start_delay,
+            hack_kick_restart_only = hack_kick_restart_only
         )
 
     consul_tags = []

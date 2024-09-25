@@ -12,7 +12,7 @@ load("config/kubernetes/core/feature_flags.sky", "use_feature_flags")
 load("config/kubernetes/core/pod.sky", "pod", "pod_host_network", "pod_scheduler_name")
 load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "host_volume")
 load("config/kubernetes/helpers/availability_tiers.sky", "A400")
-load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
+load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size", "get_instance_type_by_name", "get_override_eq_instance_type")
 load("config/kubernetes/helpers/images.sky", "image_architecture_annotation")
 load("config/kubernetes/helpers/msp_shard.sky", "autoset_shard_shared_msp")
 load("config/kubernetes/helpers/node_selectors.sky", "node_selectors", host_type_plugin="host_type", "SHARED_MSP_HOST_TYPE")
@@ -20,7 +20,7 @@ load("config/kubernetes/helpers/quantities.sky", "millicores", "mebibytes")
 load("config/kubernetes/helpers/security.sky", "run_as_unprivileged")
 load("config/kubernetes/meta/metadata.sky", "annotations", "labels", "metadata")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "get_env", "get_name", "get_henson_config", "is_isolated_deploy", "is_onebox", "get_service_variant")
+load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "get_env", "get_name", "get_henson_config", "is_isolated_deploy", "is_onebox", "get_service_variant", "get_instance_generation_override")
 load("config/kubernetes/helpers/tolerations.sky", "add_toleration")
 load("config/kubernetes/networking/internal/envoy-config-srv.sky", "henson_listener_config")
 load("config/kubernetes/networking/public/networking.sky", "mount_pod_networking", "proxyless_mount_admin_server_dir", "proxyless_container_env_vars")
@@ -111,6 +111,10 @@ def stripe_pod(
 
     if command_required and str(type(command)) != 'list':
         fail("Invalid command specified in stripe_pod " + str(name) + ": was not of type list, was " + str(type(command)))
+
+    if get_instance_generation_override(ctx):
+        new_instance_type_name = get_override_eq_instance_type(ctx, instance_type.name)
+        instance_type = get_instance_type_by_name(new_instance_type_name)
 
     # For most of the history of this function, the cpu and memory was of the Quantity type.
     # However this doesn't allow users to specify both requests & limits, which allows further

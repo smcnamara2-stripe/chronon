@@ -618,6 +618,127 @@ _CRONS = [
 		"name": "hadoop-currant-decom-hosts-fetcher",
 		"namespace": "hadoopresourcesec"
 	},
+    # hadoop*-capacity-agent does not interact with financial data. It fetches hadoop cluster scheduler config.
+    {
+    "name": "hadoopresourcepri-apricot-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-apricot-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-blueberry-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-blueberry-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-blueberryarm64-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-blueberryarm64-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-concord-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-concord-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-currant-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-currant-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-foley-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-foley-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-indigo-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-indigo-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-mdmsnapshot-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-mdmsnapshot-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-plum-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-plum-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-qosarm64-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-qosarm64-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-snapshot-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-snapshot-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-strawberry-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-strawberry-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-strawberryarm64-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-strawberryarm64-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-test-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-test-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
+    {
+    "name": "hadoopresourcepri-testarm64-capacity-agent",
+    "namespace": "hadoopresourcepri"
+    },
+    {
+    "name": "hadoopresourcesec-testarm64-capacity-agent",
+    "namespace": "hadoopresourcesec"
+    },
     {
         #dbricks-infra-monitor is an MSP cron which does not handle any financial data
         "name": "dbricks-infra-monitor",

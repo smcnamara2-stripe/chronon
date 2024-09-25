@@ -15,7 +15,7 @@ load("config/kubernetes/helpers/msp_shard.sky", "autoset_shard")
 load("config/kubernetes/helpers/node_selectors.sky", "host_set")
 load("config/kubernetes/helpers/security.sky", "add_security_groups")
 load("config/kubernetes/meta/metadata.sky", "labels")
-load("config/kubernetes/networking/public/config.sky", "networking_config")
+load("config/kubernetes/networking/public/config.sky", "networking_config", "global_ratelimit")
 load("config/kubernetes/pay-server.sky", "default_pay_server_image", "pay_server_pod", "einhorn_service")
 load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
 load("config/kubernetes/sidecars/envoy_ratelimit.sky", "ratelimit_sidecar")
@@ -70,7 +70,7 @@ def yjit_rollout_env_var(ctx, group):
             return {"STRIPE_BUNDLE_USE_YJIT_PCT_ENABLED": "100"}
 
         if get_env(ctx) == "prod":
-            return {"STRIPE_BUNDLE_USE_YJIT_PCT_ENABLED": "0"}
+            return {"STRIPE_BUNDLE_USE_YJIT_PCT_ENABLED": "100"}
     return {}
 
 def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
@@ -196,6 +196,10 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
     env_vars.update(yjit_rollout_env_var(ctx, config.monster_isolation_group))
 
     env_vars.update(config.extra_env or [])
+    if config.rate_limiter_namespace_override:
+        global_ratelimiter_config = global_ratelimit(enable=True, namespace_override=config.rate_limiter_namespace_override)
+    else:
+        global_ratelimiter_config = global_ratelimit(enable=True)
 
     return deployment(
         ctx,
@@ -204,7 +208,7 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
             ctx,
             # Example for consuming workers: monster-smsp-workers-radar, maybe with "-canary"
             name = name,
-            image = default_pay_server_image,
+            image = image(ctx, artifact=config.image_artifact),
             # Namespaces replace host types for service identity in Shared MSP
             namespace = "monsterworkersbox",
             command = ["/deploy/pay-server/current/{}".format(config.script)],
@@ -278,8 +282,8 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
         failure_threshold(config.failure_threshold),
 
         networking_config(
-            enable_global_ratelimit = True,
             envoy_concurrency = 5,
+            global_ratelimit = global_ratelimiter_config
         ),
 
         use_offload_profiles(),

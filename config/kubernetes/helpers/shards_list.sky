@@ -40,7 +40,8 @@ def get_shards_from_context(ctx):
         shards.append(shard(
             name,
             account=shard_dict["account"],
-            cron=shard_dict["supports_cron"],
+            shared_msp=False if shard_dict["shard_type"] == SHARD_TYPE.DEDICATED_MSP else True,
+            cron=shard_dict["supports_cron"].lower() == "true",
             shard_type=shard_dict["shard_type"],
             shard_state=shard_dict["shard_state"],
             binpacking_state="ENABLED" if shard_dict["supports_binpacking"] == "true" else "DISABLED",

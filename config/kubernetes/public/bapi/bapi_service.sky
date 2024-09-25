@@ -126,7 +126,10 @@ def bapi_service(ctx,
   override_name = None,
   name_suffix = None,
   env_vars_override = None,
-  gem_override_policy = default_gem_override_policy
+  gem_override_policy = default_gem_override_policy,
+  hack_kick_interval = "90m",
+  hack_kick_start_delay = "30m",
+  hack_kick_start_jitter = None
 ):
   if image_artifact:
     image = image_defaults(
@@ -197,9 +200,10 @@ def bapi_service(ctx,
       # either way prefer crashing at deploy time instead of allowing the
       # bad change to rollout so reduce startup time from 600s => 450s
       startup_failure_threshold = 450,
-      hack_kick_interval = "90m",
-      hack_kick_start_delay = "30m",
+      hack_kick_interval = hack_kick_interval,
+      hack_kick_start_delay = hack_kick_start_delay,
       hack_kick_restart_only = True,
+      hack_kick_start_jitter = hack_kick_start_jitter,
     ),
     networking_config(
         enable_global_ratelimit = True,

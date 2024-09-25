@@ -8,7 +8,7 @@ def chromium_sidecar(ctx):
         container(
             "chromium",
             command = [
-                "chromium",
+                "/usr/local/bin/chromium-wrapper.sh",
                 "--headless",
                 "--disable-gpu",
                 "--disable-software-rasterizer",

@@ -1,0 +1,21 @@
+# DO NOT EDIT: http://go/vendor-skycfg
+SUPPORTED_AVAILABILITY_ZONES = [
+    "us-east-1a",
+    "us-east-1d",
+    "us-east-1e",
+    "us-east-2a",
+    "us-east-2b",
+    "us-east-2c",
+    "ap-south-1a",
+    "ap-south-1b",
+    "ap-south-1c",
+    "us-west-2a",
+    "us-west-2b",
+    "us-west-2c"
+]
+
+def aws_az_valid(az):
+    if az in SUPPORTED_AVAILABILITY_ZONES:
+        return True
+    else:
+        return False
