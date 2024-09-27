@@ -24,6 +24,7 @@ load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_env",
 load("config/kubernetes/core/volume.sky", "volume_mount_all_containers")
 load("config/kubernetes/helpers/ldap.sky", "mount_ldap_host_volumes", "LDAP_MOUNT_NAME")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Deployment", "DeploymentSpec")
+load("config/kubernetes/helpers/context.sky", "get_cluster")
 load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
 load("config/kubernetes/autoscaling/horizontalpodautoscaler.sky", "horizontal_pod_autoscaler")
 load("config/kubernetes/autoscaling/verticalpodautoscaler.sky", "vertical_pod_autoscaler")
@@ -482,10 +483,11 @@ def _validate_az_affinity(ctx, name, annotations):
     if az == "":
         return
     else:
-        if aws_az_valid(az):
+        valid, reason = aws_az_valid(az, get_cluster(ctx))
+        if valid:
             return
         else:
-            fail("%s has unexpected AZ set" %(name))
+            fail("%s has unexpected AZ set: %s" % (name, reason))
 
 def _validate_dynamic_replicas_desired_count(ctx, name, replicas, annotations):
     enabled = annotations.get("stripe.io/dynamic-replicas-enabled", "no")

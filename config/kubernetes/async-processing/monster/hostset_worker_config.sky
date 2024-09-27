@@ -619,6 +619,13 @@ A200_HOST_SETS = struct(
         hostset("link",
                 suffix="low-cpu",
                 default=            cluster(mb_per_worker=2600),
+                qa={
+                    "northwest":    cluster(consume_replicas=2,
+                                            fanout_replicas=2),
+                    "bom":          cluster(),
+                    "cmh":          cluster(consume_replicas=2,
+                                            fanout_replicas=2),
+                },
                 preprod={
                     "northwest":    cluster(consume_replicas=4),
                     "cmh":          cluster(consume_replicas=3),

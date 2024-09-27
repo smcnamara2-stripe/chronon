@@ -1,4 +1,6 @@
 # DO NOT EDIT: http://go/vendor-skycfg
+# Please consult https://go/sansshell-agent-systemd when updating this file
+
 load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/probe.sky", "probes", "tcp_probe")
 load("config/kubernetes/helpers/context.sky", "get_env", "should_use_sansshell_sidecar_gocode")
@@ -8,9 +10,23 @@ load("config/kubernetes/plugins/types.sky", "container_plugin")
 load("config/kubernetes/sidecars/variables.sky", "SANSSHELL_CONTAINER_FALLBACK_DIGEST", "SANSSHELL_CONTAINER_FALLBACK_ENV", "SANSSHELL_GOCODE_CONTAINER_FALLBACK_DIGEST", "SANSSHELL_GOCODE_CONTAINER_FALLBACK_ENV")
 
 ALLOWED_CLIENTS = {
-    "qa": ["forserversbox.global.prod.deploy.stripe.net", "forserversbox.global.qa.deploy.stripe.net", "java-restart-manager.global.qa.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"],
-    "preprod": ["forserversbox.global.prod.deploy.stripe.net", "java-restart-manager.global.preprod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"],
-    None: ["forserversbox.global.prod.deploy.stripe.net", "java-restart-manager.global.prod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"],  # default
+    "qa": [
+        "forserversbox.global.prod.deploy.stripe.net",
+        "forserversbox.global.qa.deploy.stripe.net",
+        "sansshellproxybox.global.prod.manage.stripe.net",
+        "sansshellproxybox.global.qa.manage.stripe.net",
+        "java-restart-manager.global.qa.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"
+        ],
+    "preprod": [
+        "forserversbox.global.prod.deploy.stripe.net",
+        "sansshellproxybox.global.prod.manage.stripe.net",
+        "java-restart-manager.global.preprod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"
+        ],
+    None: [
+        "forserversbox.global.prod.deploy.stripe.net",
+        "sansshellproxybox.global.prod.manage.stripe.net",
+        "java-restart-manager.global.prod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"
+        ],  # default
 }
 
 def sansshell_sidecar(ctx):

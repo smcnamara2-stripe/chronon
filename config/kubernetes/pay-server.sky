@@ -46,8 +46,10 @@ def default_gem_override_policy(ctx, **kwargs):
     availability_tier = get_availability_tier(ctx)
     env = get_env(ctx)
 
-    # Current stage: enabled for all services in QA only:
+    # Current stage: enabled for all services in QA, and A400 services in Prod/Preprod:
     if env == "qa":
+        return True
+    elif availability_tier in ["A400"]:
         return True
     else:
         return False

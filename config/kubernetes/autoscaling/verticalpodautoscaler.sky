@@ -6,8 +6,8 @@ load("config/kubernetes/helpers/context.sky", "get_env", "get_blue_green_color",
 load("config/kubernetes/helpers/warning.sky", "warn")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 
-NUM_RECOMMENDATION_BUCKETS = 3
-NUM_A100_RECOMMENDATION_BUCKETS = 2
+NUM_RECOMMENDATION_BUCKETS = 2
+NUM_A100_RECOMMENDATION_BUCKETS = 1
 
 def vertical_pod_autoscaler():
     """

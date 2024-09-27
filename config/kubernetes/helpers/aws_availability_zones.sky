@@ -14,8 +14,25 @@ SUPPORTED_AVAILABILITY_ZONES = [
     "us-west-2c"
 ]
 
-def aws_az_valid(az):
-    if az in SUPPORTED_AVAILABILITY_ZONES:
-        return True
-    else:
-        return False
+STRIPE_CLUSTER_TO_AWS_REGION = {
+    "northwest": "us-west-2",
+    "cmh": "us-east-2",
+    "east": "us-east-1",
+    "bom": "ap-south-1"
+}
+
+def aws_az_valid(az, cluster):
+    if az not in SUPPORTED_AVAILABILITY_ZONES:
+        return False, "unsupported availability zone"
+
+    if not cluster:
+        return True, "" # skip
+
+    if cluster not in STRIPE_CLUSTER_TO_AWS_REGION.keys():
+        return False, "unknown stripe cluster: %s" % cluster
+
+    aws_region = STRIPE_CLUSTER_TO_AWS_REGION[cluster]
+    if not az.startswith(aws_region):
+        return False, "specified AZ %s does not match with the current cluster's AWS region of %s" % (az, aws_region)
+
+    return True, ""

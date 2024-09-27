@@ -563,7 +563,7 @@ def _update_resource(ctx, args, resource_def):
         scale_up_behavior["policies"] = args.scale_up_scaling_policies
 
     if args.scale_up_select_policy != None:
-         scale_up_behavior["select_policy"] = args.scale_up_select_policy
+        scale_up_behavior["select_policy"] = args.scale_up_select_policy
 
     if args.scale_up_stabilization_window_seconds != None:
         scale_up_behavior["stabilization_window_seconds"] = args.scale_up_stabilization_window_seconds
@@ -607,6 +607,12 @@ def _update_resource(ctx, args, resource_def):
             "stripe.io/hpa-max-replicas": "%d" % args.max_replicas,
         })
 
+    is_shared_msp = resource_def["shared_msp"] or resource_def["pod"]["shared_msp"]
+    if _is_autoscaling_supported(ctx, is_shared_msp):
+        # mark the deployment as autoscaled
+        resource_def['metadata']['labels'].update({
+            "msp.stripe.io/autoscaled": "true",
+        })
 
     resource_def["scaledobject"] = {
         "render": _render_scaledobject,
@@ -629,7 +635,7 @@ def _update_resource(ctx, args, resource_def):
     }
 
 def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
-    if not shared_msp or is_onebox(ctx) or is_isolated_deploy(ctx):
+    if not _is_autoscaling_supported(ctx, shared_msp):
         # We don't support HPAs for dedicated MSP, onebox, or isolated deploys.
         return None
 
@@ -833,3 +839,6 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
     so_obj["metadata"] = metadata_obj
 
     return yaml.marshal(so_obj)
+
+def _is_autoscaling_supported(ctx, is_shared_msp):
+    return is_shared_msp and not is_onebox(ctx) and not is_isolated_deploy(ctx)

@@ -187,6 +187,7 @@ def consul_grpc_check(
         notes = None,
         use_tls = None,
         tls_skip_verify = None,
+        timeout = None,
 ):
     """
     Creates a Consul check to perform gRPC healthchecking on the service.
@@ -198,6 +199,7 @@ def consul_grpc_check(
         notes: Optional notes to add to the check.
         use_tls: Optional, instructs the health-agent to use TLS when performing this health check
         tls_skip_verify: Optional, instructs the health-agent whether to verify the server's TLS certs. Only makes sense when using TLS.
+        timeout: Optional string (ex. 5s, 10s), configures the timeout for each check attempt. The health-agent defaults to 10s for non-script checks.
 
     Returns:
         A check that can be used with `consul_service`.
@@ -220,6 +222,9 @@ def consul_grpc_check(
 
     if tls_skip_verify != None:
         check["tls_skip_verify"] = tls_skip_verify
+
+    if timeout != None:
+        check["timeout"] = timeout
 
     return check
 

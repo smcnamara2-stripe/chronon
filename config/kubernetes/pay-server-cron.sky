@@ -468,14 +468,8 @@ def _pay_server_cronjob(
         "DISABLE_PRELOAD": str(disable_ruby_preload).upper(),
         "STRIPE_BUNDLE_USE_SORBET_RUBY": "true",
         "STRIPE_CRON_TIER": cron_tier,
+        "STRIPE_BUNDLE_MSP_OVERRIDE_RBENV_VERSION": "sorbet_ruby_3_3",
     }
-
-    if get_env(ctx) in ["qa", "preprod"]:
-        cron_env_variables["STRIPE_BUNDLE_MSP_OVERRIDE_RBENV_VERSION"] = "sorbet_ruby_3_3"
-    else:
-        if cron_tier in ["low", "standard", "critical"]:
-            cron_env_variables["STRIPE_BUNDLE_MSP_OVERRIDE_RBENV_VERSION"] = "sorbet_ruby_3_3"
-
 
     if namespace == DEFAULT_NAMESPACE:
         # aws_credentials.ini is only used for kubeacronnoegress cronjobs, not cronops

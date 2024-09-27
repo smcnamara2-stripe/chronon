@@ -2,6 +2,7 @@
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 
 MSP_FLEET_MANAGER_SCHEDULING_DELAY_KEY = "mspfleetmanager.stripe.io/scheduling-delay"
+MSP_FLEET_MANAGER_PREFERRED_AZ_KEY = "mspfleetmanager.stripe.io/preferred-availability-zone"
 
 def msp_fleet_manager_scheduling_delay(delay):
     """
@@ -29,4 +30,41 @@ def msp_fleet_manager_scheduling_delay(delay):
     )
 
 def _add_msp_fleet_manager_scheduling_delay(ctx, plugin, pod_def):
-    pod_def['resource']["metadata"]["annotations"][MSP_FLEET_MANAGER_SCHEDULING_DELAY_KEY] = plugin.delay
+    meta = pod_def['resource'].get("metadata")
+    if "annotations" in meta:
+        meta["annotations"][MSP_FLEET_MANAGER_SCHEDULING_DELAY_KEY] = plugin.delay
+
+
+def msp_fleet_manager_preferred_availability_zone(availability_zone):
+    """
+        Adds an annotation to the Pod that controls whether msp-fleet-manager
+        will prefer to schedule all pods of this workload to a single AZ.
+
+        Note: This plugin should ONLY be used if you've been told by the Orchestration
+        team that it is safe to use for your use case. Your service will ONLY
+        BE PRESENT IN THE SPECIFIED AVAILABILITY ZONE, if capacity allows it to
+        be scheduled there. Please ensure that any underlying infra dependencies
+        relied on by your service are aware of the intentional AZ skew resulting
+        from use of this plugin.
+
+        Args:
+            availability_zone: The EC2 availability zone name to prefer pod scheduling
+            (e.g., 'us-west-2a'). No sanity-checking is performed.
+
+        Returns:
+            A plugin that adds annotations and labels with key
+            (`mspfleetmanager.stripe.io/preferred-availability-zone`) to a pod.
+            Note that msp-fleet-manager only reads the annotation, the use of a
+            label is only to expose this state to Prometheus via kube_pod_labels.
+    """
+    return pod_plugin(
+        _add_msp_fleet_manager_preferred_availability_zone,
+        availability_zone = availability_zone
+    )
+
+def _add_msp_fleet_manager_preferred_availability_zone(ctx, plugin, pod_def):
+    meta = pod_def['resource'].get("metadata")
+    if "annotations" in meta:
+        meta["annotations"][MSP_FLEET_MANAGER_PREFERRED_AZ_KEY] = plugin.availability_zone
+    if "labels" in meta:
+        meta["labels"][MSP_FLEET_MANAGER_PREFERRED_AZ_KEY] = plugin.availability_zone
