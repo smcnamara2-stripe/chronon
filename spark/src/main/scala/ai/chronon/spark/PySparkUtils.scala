@@ -132,7 +132,7 @@ object PySparkUtils {
       tableUtils,
       skipFirstHole = skipFirstHole
     )
-    val resultDf = join.computeJoin(stepDays, sampleNumOfRows)
+    val resultDf = join.computeJoin(stepDays)
     println(s"Finished executing Join ${joinConf.metaData.name}")
     resultDf
   }

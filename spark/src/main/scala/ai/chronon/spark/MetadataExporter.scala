@@ -1,5 +1,22 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.spark
 
+import org.slf4j.LoggerFactory
 import java.io.{BufferedWriter, File, FileWriter}
 import ai.chronon.api
 import ai.chronon.api.{DataType, ThriftJsonCodec}
@@ -12,6 +29,7 @@ import java.nio.file.Paths
 import scala.collection.immutable.Map
 
 object MetadataExporter {
+  @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
   val GROUPBY_PATH_SUFFIX = "/group_bys"
   val JOIN_PATH_SUFFIX = "/joins"
@@ -33,22 +51,22 @@ object MetadataExporter {
   def enrichMetadata(path: String): String = {
     val configData = mapper.readValue(new File(path), classOf[Map[String, Any]])
     val analyzer = new Analyzer(tableUtils, path, yesterday, today, silenceMode = true)
-    val enrichedData: Map[String, Any] = try {
-      if (path.contains(GROUPBY_PATH_SUFFIX)) {
-        val groupBy = ThriftJsonCodec.fromJsonFile[api.GroupBy](path, check = false)
-        configData + {"features" -> analyzer.analyzeGroupBy(groupBy).map(_.asMap)}
-      } else {
-        val join = ThriftJsonCodec.fromJsonFile[api.Join](path, check = false)
-        val joinAnalysis = analyzer.analyzeJoin(join)
-        val featureMetadata: Seq[Map[String, String]] = joinAnalysis._2.toSeq.map(_.asMap)
-        val statsSchema: Map[String, String] = joinAnalysis._3.map(st => st._1 -> DataType.toString(st._2))
-        configData + {"features" -> featureMetadata} + {"stats" -> statsSchema}
+    val enrichedData: Map[String, Any] =
+      try {
+        if (path.contains(GROUPBY_PATH_SUFFIX)) {
+          val groupBy = ThriftJsonCodec.fromJsonFile[api.GroupBy](path, check = false)
+          configData + { "features" -> analyzer.analyzeGroupBy(groupBy)._1.map(_.asMap) }
+        } else {
+          val join = ThriftJsonCodec.fromJsonFile[api.Join](path, check = false)
+          val joinAnalysis = analyzer.analyzeJoin(join)
+          val featureMetadata: Seq[Map[String, String]] = joinAnalysis._2.toSeq.map(_.asMap)
+          configData + { "features" -> featureMetadata }
+        }
+      } catch {
+        case exception: Throwable =>
+          logger.error(s"Exception while processing entity $path: ${ExceptionUtils.getStackTrace(exception)}")
+          configData
       }
-    } catch {
-      case exception: Throwable =>
-        println(s"Exception while processing entity $path: ${ExceptionUtils.getStackTrace(exception)}")
-        configData
-    }
     mapper.writeValueAsString(enrichedData)
   }
 
@@ -59,7 +77,7 @@ object MetadataExporter {
     val writer = new BufferedWriter(new FileWriter(file))
     writer.write(data)
     writer.close()
-    println(s"${path} : Wrote to output directory successfully")
+    logger.info(s"${path} : Wrote to output directory successfully")
   }
 
   def processEntities(inputPath: String, outputPath: String, suffix: String): Unit = {
@@ -73,8 +91,9 @@ object MetadataExporter {
       }
     }
     val failuresAndTraces = processSuccess.filter(!_._2)
-    println(s"Successfully processed ${processSuccess.filter(_._2).length} from $suffix \n " +
-      s"Failed to process ${failuresAndTraces.length}: \n ${failuresAndTraces.mkString("\n")}")
+    logger.info(
+      s"Successfully processed ${processSuccess.filter(_._2).length} from $suffix \n " +
+        s"Failed to process ${failuresAndTraces.length}: \n ${failuresAndTraces.mkString("\n")}")
   }
 
   def run(inputPath: String, outputPath: String): Unit = {

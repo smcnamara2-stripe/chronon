@@ -1,3 +1,19 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.online
 
 import ai.chronon.aggregator.row.RowAggregator
@@ -6,7 +22,7 @@ import org.apache.avro.generic.GenericData
 import ai.chronon.api.Extensions.{AggregationOps, MetadataOps, WindowUtils}
 
 import scala.collection.JavaConverters._
-import scala.util.ScalaVersionSpecificCollectionsConverter
+import scala.util.ScalaJavaConversions.ListOps
 
 object TileCodec {
   def buildRowAggregator(groupBy: GroupBy, inputSchema: Seq[(String, DataType)]): RowAggregator = {
@@ -26,21 +42,14 @@ object TileCodec {
     val unpackedAggs = groupBy.aggregations.asScala.flatMap(_.unpack)
     new RowAggregator(inputSchema, unpackedAggs)
   }
-
-  // Check if tiling is enabled for a given GroupBy. Defaults to false if the 'enable_tiling' flag isn't set.
-  def isTilingEnabled(groupBy: GroupBy): Boolean =
-    groupBy.getMetaData.customJsonLookUp("enable_tiling") match {
-      case s: Boolean => s
-      case _ => false
-    }
 }
 
 /**
- * TileCodec is a helper class that allows for the creation of pre-aggregated tiles of feature values.
- * These pre-aggregated tiles can be used in the serving layer to compute the final feature values along
- * with batch pre-aggregates produced by GroupByUploads.
- * The pre-aggregated tiles are serialized as Avro and indicate whether the tile is complete or not (partial aggregates)
- */
+  * TileCodec is a helper class that allows for the creation of pre-aggregated tiles of feature values.
+  * These pre-aggregated tiles can be used in the serving layer to compute the final feature values along
+  * with batch pre-aggregates produced by GroupByUploads.
+  * The pre-aggregated tiles are serialized as Avro and indicate whether the tile is complete or not (partial aggregates)
+  */
 class TileCodec(groupBy: GroupBy, inputSchema: Seq[(String, DataType)]) {
 
   import TileCodec._
@@ -86,22 +95,23 @@ class TileCodec(groupBy: GroupBy, inputSchema: Seq[(String, DataType)]) {
     val flattenedIr = windowedRowAggregator.init
     var irPos = 0
     var bucketPos = 0
-    groupBy.aggregations.asScala.foreach {
-      aggr =>
-        val buckets =
-          Option(aggr.buckets).getOrElse(java.util.Arrays.asList(null)).asScala
-        val windows =
-          Option(aggr.windows).getOrElse(java.util.Arrays.asList(WindowUtils.Unbounded)).asScala
-        // for each aggregation we have 1/more buckets and 1/more windows
-        // we need to iterate over the baseIr and clone a given counter's values n times where
-        // n is the number of windows for that counter
-        for(_ <- buckets) {
-          for(_ <- windows) {
-            flattenedIr(irPos) = rowAggregator.columnAggregators(bucketPos).clone(baseIr(bucketPos))
-            irPos += 1
-          }
-          bucketPos += 1
+    groupBy.aggregations.asScala.foreach { aggr =>
+      val buckets = Option(aggr.buckets)
+        .map(_.toScala)
+        .getOrElse(Seq(null))
+      val windows = Option(aggr.windows)
+        .map(_.toScala)
+        .getOrElse(Seq(WindowUtils.Unbounded))
+      // for each aggregation we have 1/more buckets and 1/more windows
+      // we need to iterate over the baseIr and clone a given counter's values n times where
+      // n is the number of windows for that counter
+      for (_ <- buckets) {
+        for (_ <- windows) {
+          flattenedIr(irPos) = rowAggregator.columnAggregators(bucketPos).clone(baseIr(bucketPos))
+          irPos += 1
         }
+        bucketPos += 1
+      }
     }
     flattenedIr
   }

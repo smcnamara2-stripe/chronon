@@ -1,7 +1,25 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.online
 
+import org.slf4j.LoggerFactory
 import ai.chronon.api.{Constants, StructType}
 import ai.chronon.online.KVStore.{GetRequest, GetResponse, PutRequest}
+import org.apache.spark.sql.SparkSession
 
 import java.util.function.{Consumer}
 import scala.collection.Seq
@@ -24,7 +42,7 @@ object KVStore {
 // the main system level api for key value storage
 // used for streaming writes, batch bulk uploads & fetching
 trait KVStore {
-
+  @transient lazy val logger = LoggerFactory.getLogger(getClass)
   private val metrics = Metrics.Context(Metrics.Environment.ThreadPool)
 
   implicit val executionContext: ExecutionContext = FlexibleExecutionContext.buildInstrumentedExecutionContext(
@@ -59,7 +77,7 @@ trait KVStore {
       .map(_.head)
       .recover {
         case e: java.util.NoSuchElementException =>
-          println(
+          logger.error(
             s"Failed request against ${request.dataset} check the related task to the upload of the dataset (GroupByUpload or MetadataUpload)")
           throw e
       }
@@ -124,6 +142,10 @@ abstract class StreamDecoder extends Serializable {
   def schema: StructType
 }
 
+trait StreamBuilder {
+  def from(topicInfo: TopicInfo)(implicit session: SparkSession, props: Map[String, String]): DataStream
+}
+
 object ExternalSourceHandler {
   private[ExternalSourceHandler] val executor = FlexibleExecutionContext.buildExecutionContext
 }
@@ -158,7 +180,6 @@ abstract class Api(userConf: Map[String, String]) extends Serializable {
   private var timeoutMillis: Long = 10000
 
   private var asyncLogging: Boolean = false
-
   private var flagStore: FlagStore = new FlagStore {
     override def isSet(flagName: String, attributes: java.util.Map[String, String]): java.lang.Boolean = {
       false
@@ -168,6 +189,9 @@ abstract class Api(userConf: Map[String, String]) extends Serializable {
   def setFlagStore(customFlagStore: FlagStore): Unit = { flagStore = customFlagStore }
 
   def setTimeout(millis: Long): Unit = { timeoutMillis = millis }
+
+  // kafka has built-in support - but one can add support to other types using this method.
+  def generateStreamBuilder(streamType: String): StreamBuilder = null
 
   def setAsyncLogging(enabled: Boolean): Unit = { asyncLogging = enabled }
 

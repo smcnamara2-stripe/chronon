@@ -3,7 +3,7 @@ package ai.chronon.online
 import ai.chronon.aggregator.windowing.FinalBatchIr
 import ai.chronon.api.Extensions.MetadataOps
 import ai.chronon.api.GroupBy
-import ai.chronon.online.BaseFetcher.GroupByRequestMeta
+import ai.chronon.online.FetcherBase.GroupByRequestMeta
 import ai.chronon.online.Fetcher.Request
 import ai.chronon.online.FetcherCache.{
   BatchIrCache,

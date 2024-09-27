@@ -3,7 +3,7 @@
     "name": "sample_team.sample_online_join.v1",
     "online": 1,
     "production": 0,
-    "customJson": "{\"check_consistency\": true, \"lag\": 0, \"additional_args\": {\"custom_arg\": \"custom_value\"}, \"additional_env\": {\"custom_env\": \"custom_env_value\"}, \"join_tags\": null, \"join_part_tags\": {}}",
+    "customJson": "{\"check_consistency\": true, \"lag\": 0, \"additional_args\": [\"--step-days 14\"], \"additional_env\": {\"custom_env\": \"custom_env_value\"}, \"join_tags\": null, \"join_part_tags\": {}}",
     "dependencies": [
       "{\"name\": \"wait_for_sample_namespace.sample_table_group_by_ds\", \"spec\": \"sample_namespace.sample_table_group_by/ds={{ ds }}\", \"start\": \"2021-04-09\", \"end\": null}",
       "{\"name\": \"wait_for_sample_table.sample_entity_snapshot_ds\", \"spec\": \"sample_table.sample_entity_snapshot/ds={{ ds }}\", \"start\": \"2021-03-01\", \"end\": null}",
@@ -17,8 +17,8 @@
     "outputNamespace": "chronon_db",
     "team": "sample_team",
     "samplePercent": 100.0,
-    "offlineSchedule": "@daily",
-    "consistencySamplePercent": 5.0
+    "consistencySamplePercent": 5.0,
+    "batchPartitionCadence": 0
   },
   "left": {
     "events": {
@@ -50,7 +50,8 @@
           },
           "outputNamespace": "sample_namespace",
           "team": "sample_team",
-          "offlineSchedule": "@daily"
+          "offlineSchedule": "@daily",
+          "batchPartitionCadence": 0
         },
         "sources": [
           {
@@ -96,7 +97,8 @@
               "percentiles": "[0.99, 0.95, 0.5]"
             }
           }
-        ]
+        ],
+        "module_name": "group_bys.sample_team.event_sample_group_by"
       },
       "keyMapping": {
         "subject": "group_by_subject"
@@ -117,7 +119,8 @@
           },
           "outputNamespace": "chronon_db",
           "team": "sample_team",
-          "offlineSchedule": "@daily"
+          "offlineSchedule": "@daily",
+          "batchPartitionCadence": 0
         },
         "sources": [
           {
@@ -157,7 +160,8 @@
               }
             ]
           }
-        ]
+        ],
+        "module_name": "group_bys.sample_team.entity_sample_group_by_from_module"
       },
       "keyMapping": {
         "subject": "group_by_subject"
@@ -178,7 +182,8 @@
           },
           "outputNamespace": "chronon_db",
           "team": "sample_team",
-          "offlineSchedule": "@daily"
+          "offlineSchedule": "@daily",
+          "batchPartitionCadence": 0
         },
         "sources": [
           {
@@ -239,7 +244,8 @@
               }
             ]
           }
-        ]
+        ],
+        "module_name": "group_bys.sample_team.group_by_with_kwargs"
       },
       "keyMapping": {
         "subject": "group_by_subject"

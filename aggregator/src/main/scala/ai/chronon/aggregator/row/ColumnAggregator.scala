@@ -1,3 +1,19 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.aggregator.row
 
 import ai.chronon.aggregator.base._
@@ -7,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 
 import java.util
 import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.util.ScalaJavaConversions.IteratorOps
 
 abstract class ColumnAggregator extends Serializable {
   def outputType: DataType
@@ -154,16 +171,24 @@ object ColumnAggregator {
                                     columnIndices: ColumnIndices,
                                     toTypedInput: Any => Input,
                                     bucketIndex: Option[Int] = None,
-                                    isVector: Boolean = false): ColumnAggregator = {
+                                    isVector: Boolean = false,
+                                    isMap: Boolean = false): ColumnAggregator = {
+
+    assert(!(isVector && isMap), "Input column cannot simultaneously be map or vector")
     val dispatcher = if (isVector) {
       new VectorDispatcher(agg, columnIndices, toTypedInput)
     } else {
       new SimpleDispatcher(agg, columnIndices, toTypedInput)
     }
-    if (bucketIndex.isEmpty) {
-      new DirectColumnAggregator(agg, columnIndices, dispatcher)
-    } else {
+
+    // TODO: remove the below assertion and add support
+    assert(!(isMap && bucketIndex.isDefined), "Bucketing over map columns is currently unsupported")
+    if (isMap) {
+      new MapColumnAggregator(agg, columnIndices, toTypedInput)
+    } else if (bucketIndex.isDefined) {
       new BucketedColumnAggregator(agg, columnIndices, bucketIndex.get, dispatcher)
+    } else {
+      new DirectColumnAggregator(agg, columnIndices, dispatcher)
     }
   }
 
@@ -208,18 +233,24 @@ object ColumnAggregator {
     // to support vector aggregations when input column is an array.
     // avg of [1, 2, 3], [3, 4], [5] = 18 / 6 => 3
     val vectorElementType: Option[DataType] = (aggregationPart.operation.isSimple, baseInputType) match {
-      case (true, ListType(elementType)) =>
-        elementType match {
-          case IntType | LongType | ShortType | DoubleType | FloatType | StringType | BinaryType =>
-            Some(elementType)
-        }
-      case _ => None
+      case (true, ListType(elementType)) if DataType.isScalar(elementType) => Some(elementType)
+      case _                                                               => None
     }
-    val inputType = vectorElementType.getOrElse(baseInputType)
+
+    val mapElementType: Option[DataType] = (aggregationPart.operation.isSimple, baseInputType) match {
+      case (true, MapType(StringType, elementType)) => Some(elementType)
+      case _                                        => None
+    }
+    val inputType = (mapElementType ++ vectorElementType ++ Some(baseInputType)).head
 
     def simple[Input, IR, Output](agg: SimpleAggregator[Input, IR, Output],
                                   toTypedInput: Any => Input = cast[Input] _): ColumnAggregator = {
-      fromSimple(agg, columnIndices, toTypedInput, bucketIndex, isVector = vectorElementType.isDefined)
+      fromSimple(agg,
+                 columnIndices,
+                 toTypedInput,
+                 bucketIndex,
+                 isVector = vectorElementType.isDefined,
+                 isMap = mapElementType.isDefined)
     }
 
     def timed[Input, IR, Output](agg: TimedAggregator[Input, IR, Output]): ColumnAggregator = {

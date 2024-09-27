@@ -1,3 +1,19 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.aggregator.windowing
 
 import ai.chronon.api.Extensions.WindowOps
@@ -147,12 +163,6 @@ class SawtoothMutationAggregator(aggregations: Seq[Aggregation],
                                     headStreamingTiledIrs: Seq[TiledIr],
                                     queryTs: Long,
                                     batchEndTs: Long) = {
-    // fill 2D array where each entry corresponds to the windowedAggregator column aggregators, and contains an array of
-    // the streaming tiles we need to aggregate
-    // ex) mergeBuffers = [ [1,2,3], [2,4] ]
-    //     windowedAggregators.columnAggregators = [ Sum, Average ]
-    //     resultIr = [ 6, 3 ]
-
     // This works as a sliding window over the sorted list of tiles, where the sort is done by
     // timestamp in ascending fashion (oldest -> newest tiles), and then secondarily done by
     // tile size. So for example this becomes:

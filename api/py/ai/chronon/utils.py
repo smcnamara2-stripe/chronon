@@ -1,3 +1,18 @@
+
+#     Copyright (C) 2023 The Chronon Authors.
+#
+#     Licensed under the Apache License, Version 2.0 (the "License");
+#     you may not use this file except in compliance with the License.
+#     You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+
 import ai.chronon.api.ttypes as api
 import ai.chronon.repo.extract_objects as eo
 import gc
@@ -10,6 +25,8 @@ import subprocess
 import tempfile
 from collections.abc import Iterable
 from typing import List, Union, cast, Optional
+from ai.chronon.repo import teams
+from ai.chronon.repo import TEAMS_FILE_PATH
 from ai.chronon.repo import NOTEBOOKS_LOG_FILE
 import functools
 
@@ -32,7 +49,10 @@ from pyspark.sql.types import (
     StructField
 )
 
+
 ChrononJobTypes = Union[api.GroupBy, api.Join, api.StagingQuery]
+
+chronon_root_path = ''  # passed from compile.py
 
 
 def edit_distance(str1, str2):
@@ -115,8 +135,13 @@ def is_streaming(source: api.Source) -> bool:
            (source.events and source.events.topic is not None)
 
 
-def get_underlying_source(source: api.Source) -> Union[api.EventSource, api.EntitySource]:
-    return source.entities if source.entities else source.events
+def get_underlying_source(source: api.Source) -> Union[api.EventSource, api.EntitySource, api.JoinSource]:
+    if source.entities:
+        return source.entities
+    elif source.events:
+        return source.events
+    else:
+        return source.joinSource
 
 
 def get_query(source: api.Source) -> api.Query:
@@ -124,7 +149,12 @@ def get_query(source: api.Source) -> api.Query:
 
 
 def get_table(source: api.Source) -> str:
-    table = source.entities.snapshotTable if source.entities else source.events.table
+    if source.entities:
+        table = source.entities.snapshotTable
+    elif source.events:
+        table = source.events.table
+    else:
+        table = get_join_output_table_name(source.joinSource.join, True)
     return table.split('/')[0]
 
 
@@ -156,8 +186,18 @@ def set_name(obj, cls, mod_prefix):
     eo.import_module_set_name(module, cls)
 
 
+def sanitize(name):
+    """
+    From api.Extensions.scala
+    Option(name).map(_.replaceAll("[^a-zA-Z0-9_]", "_")).orNull
+    """
+    if name is not None:
+        return re.sub("[^a-zA-Z0-9_]", "_", name)
+    return None
+
+
 def output_table_name(obj, full_name: bool):
-    table_name = obj.metaData.name.replace('.', '_')
+    table_name = sanitize(obj.metaData.name)
     db = obj.metaData.outputNamespace
     db = db or "{{ db }}"
     if full_name:
@@ -166,19 +206,57 @@ def output_table_name(obj, full_name: bool):
         return table_name
 
 
+def join_part_output_table_name(join, jp, full_name: bool = False):
+    """
+    From api.Extensions.scala
+
+    Join Part output table name.
+    To be synced with Scala API.
+    def partOutputTable(jp: JoinPart): String = (Seq(join.metaData.outputTable) ++ Option(jp.prefix) :+
+      jp.groupBy.metaData.cleanName).mkString("_")
+    """
+    if jp.groupBy is None:
+        raise NotImplementedError("Join Part names for non group bys is not implemented.")
+    if not jp.groupBy.metaData.name:
+        set_name(jp.groupBy, api.GroupBy, "group_bys")
+    return "_".join([component for component in [
+        output_table_name(join, full_name),
+        jp.prefix,
+        sanitize(jp.groupBy.metaData.name)
+    ] if component is not None])
+
+
+def group_by_output_table_name(obj, full_name: bool = False):
+    """
+    Group by backfill output table name
+    To be synced with api.Extensions.scala
+    """
+    if not obj.metaData.name:
+        set_name(obj, api.GroupBy, "group_bys")
+    return output_table_name(obj, full_name)
+
+
 def log_table_name(obj, full_name: bool = False):
     return output_table_name(obj, full_name=full_name) + "_logged"
 
 
 def get_staging_query_output_table_name(staging_query: api.StagingQuery, full_name: bool = False):
     """generate output table name for staging query job"""
-    set_name(staging_query, api.StagingQuery, "src.python.shepherd.chronon_poc.staging_queries")
+    if '/stripe/chronon' in os.getcwd():
+        set_name(staging_query, api.StagingQuery, "staging_queries")  
+    else:
+        set_name(staging_query, api.StagingQuery, "src.python.shepherd.chronon_poc.staging_queries")
     return output_table_name(staging_query, full_name=full_name)
 
 
-def get_join_output_table_name(join: api.Join, full_name: bool):
-    """generate output table name for staging query job"""
+def get_join_output_table_name(join: api.Join, full_name: bool = False):
+    """generate output table name for join backfill job"""
     set_name(join, api.Join, "joins")
+    # set output namespace
+    if not join.metaData.outputNamespace:
+        team_name = join.metaData.name.split(".")[0]
+        namespace = teams.get_team_conf(os.path.join(chronon_root_path, TEAMS_FILE_PATH), team_name, "namespace")
+        join.metaData.outputNamespace = namespace
     return output_table_name(join, full_name=full_name)
 
 def get_model_transformation_output_table_name(join: api.Join, full_name: bool):
@@ -215,6 +293,9 @@ def get_dependencies(
                 wait_for_simple_schema(src.entities.mutationTable, lag, start, end)]))
         elif src.entities:
             result = [wait_for_simple_schema(src.entities.snapshotTable, lag, start, end)]
+        elif src.joinSource:
+            parentJoinOutputTable = get_join_output_table_name(src.joinSource.join, True)
+            result = [wait_for_simple_schema(parentJoinOutputTable, lag, start, end)]
         else:
             result = [wait_for_simple_schema(src.events.table, lag, start, end, is_hourly_partitioned)]
     return [json.dumps(res) for res in result]
@@ -390,7 +471,7 @@ def watch_logs():
                 print(file_handler.read())
 
         return print_logs
-    
+
 def print_logs_in_cell(func):
 
     @functools.wraps(func)
@@ -403,9 +484,9 @@ def print_logs_in_cell(func):
         except Exception as e:
             logs()
             raise e
-    
+
     return wrapper
-        
+
 def data_type_to_spark_type(data_type: api.TDataType) -> DataType:
     if data_type.kind == api.DataKind.BOOLEAN:
         return BooleanType()

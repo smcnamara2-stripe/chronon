@@ -2,4 +2,7 @@
 tox
 pytest-cov
 black
+pre-commit
+isort
+autoflake
 pyspark==3.1.3

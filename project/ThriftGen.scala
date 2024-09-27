@@ -1,9 +1,11 @@
+import org.slf4j.LoggerFactory
 import sbt._
 
 import sys.process._
 
 object Thrift {
   def gen(inputPath: String, outputPath: String, language: String, insideCI: Boolean, insideDockerLocal: Boolean,  cleanupSuffixPath: String = "", extension: String = null): Seq[File] = {
+    @transient lazy val logger = LoggerFactory.getLogger(getClass)
     s"""echo "Generating files from thrift file: $inputPath \ninto folder $outputPath; This build is running in CI: $insideCI; This build is running using the Docker Local Image: $insideDockerLocal;" """ !;
     s"rm -rf $outputPath/$cleanupSuffixPath" !;
     s"mkdir -p $outputPath" !;
@@ -16,9 +18,9 @@ object Thrift {
       s"docker run -v $mountPath --rm chronon_thriftgen:latest" !
     };
     val files = (PathFinder(new File(outputPath)) ** s"*.${Option(extension).getOrElse(language)}").get()
-    println("Generated files list")
-    files.map(_.getPath).foreach { path => println(s"    $path") }
-    println("\n")
+    logger.info("Generated files list")
+    files.map(_.getPath).foreach { path => logger.info(s"    $path") }
+    logger.info("\n")
     files
   }
 }

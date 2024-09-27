@@ -11,7 +11,8 @@
     },
     "outputNamespace": "sample_namespace",
     "team": "sample_team",
-    "offlineSchedule": "@daily"
+    "offlineSchedule": "@daily",
+    "batchPartitionCadence": 0
   },
   "sources": [
     {
@@ -57,5 +58,6 @@
         "percentiles": "[0.99, 0.95, 0.5]"
       }
     }
-  ]
+  ],
+  "module_name": "group_bys.sample_team.event_sample_group_by"
 }

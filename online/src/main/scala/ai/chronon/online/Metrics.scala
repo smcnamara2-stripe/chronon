@@ -1,9 +1,27 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.online
 
 import ai.chronon.api.Extensions._
 import ai.chronon.api._
 import ai.chronon.online.Metrics.{Context, Environment}
 import com.timgroup.statsd.{NonBlockingStatsDClient, NonBlockingStatsDClientBuilder}
+
+import scala.util.ScalaJavaConversions.ListOps
 
 import scala.util.ScalaJavaConversions.ListOps
 
@@ -44,6 +62,9 @@ object Metrics {
     val FreshnessMillis = "freshness.millis"
     val FreshnessMinutes = "freshness.minutes"
     val LatencyMillis = "latency.millis"
+    val LagMillis: String = "lag.millis"
+    val BatchLagMillis: String = "micro_batch_lag.millis"
+    val QueryDelaySleepMillis: String = "chain.query_delay_sleep.millis"
     val LatencyMinutes = "latency.minutes"
 
     val PartitionCount = "partition.count"
@@ -56,8 +77,16 @@ object Metrics {
     val Bytes = "bytes"
     val KeyBytes = "key.bytes"
     val ValueBytes = "value.bytes"
+    val FetchExceptions = "fetch.exception_count"
+    val FetchNulls = "fetch.null_count"
+    val FetchCount = "fetch.count"
+
+    val PutKeyNullPercent = "put.key.null_percent"
+    val PutValueNullPercent = "put.value.null_percent"
 
     val Exception = "exception"
+    val validationFailure = "validation.failure"
+    val validationSuccess = "validation.success"
   }
 
   object Context {
@@ -78,7 +107,11 @@ object Metrics {
         groupBy = groupBy.metaData.cleanName,
         production = groupBy.metaData.isProduction,
         accuracy = groupBy.inferredAccuracy,
-        team = groupBy.metaData.owningTeam
+        team = groupBy.metaData.owningTeam,
+        join = groupBy.sources.toScala
+          .find(_.isSetJoinSource)
+          .map(_.getJoinSource.join.metaData.cleanName)
+          .orNull
       )
     }
 
@@ -153,7 +186,7 @@ object Metrics {
 
     def increment(metric: String): Unit = stats.increment(prefix(metric), tags)
 
-    def incrementException(exception: Throwable): Unit = {
+    def incrementException(exception: Throwable)(implicit logger: org.slf4j.Logger): Unit = {
       val stackTrace = exception.getStackTrace
       val exceptionSignature = if (stackTrace.isEmpty) {
         exception.getClass.toString
@@ -164,6 +197,7 @@ object Metrics {
         val method = stackRoot.getMethodName
         s"[$method@$file:$line]${exception.getClass.toString}"
       }
+      logger.error(s"Exception Message: ${exception.traceString}")
       stats.increment(prefix(Name.Exception), s"$tags,${Metrics.Name.Exception}:${exceptionSignature}")
     }
 
@@ -209,7 +243,10 @@ object Metrics {
       }
 
       joinNames.foreach(addTag(Tag.Join, _))
-      addTag(Tag.GroupBy, groupBy)
+
+      val groupByName = Option(groupBy).map(_.sanitize)
+      groupByName.foreach(addTag(Tag.GroupBy, _))
+
       addTag(Tag.StagingQuery, stagingQuery)
       addTag(Tag.Production, production.toString)
       addTag(Tag.Team, team)

@@ -18,6 +18,7 @@ object S3Utils {
   private val DS_NODASH = "{{ds_nodash}}"
   private val DS_NODASH_YESTERDAY = "{{yesterday_ds_nodash}}"
 
+
   // With Chronon we write to partition ds - 1 and this is what gets passed to endDate.
   // The most common convention in Dataland is for datasources to write to version ds.
   // To be consistent with this the date substitution logic uses (endDate + 1) = ds for ds_nodash

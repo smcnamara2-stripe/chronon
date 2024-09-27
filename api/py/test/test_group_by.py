@@ -1,3 +1,18 @@
+
+#     Copyright (C) 2023 The Chronon Authors.
+#
+#     Licensed under the Apache License, Version 2.0 (the "License");
+#     you may not use this file except in compliance with the License.
+#     You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+
 import pytest, json
 
 from ai.chronon import group_by, query
@@ -40,6 +55,27 @@ def event_source(table):
                 "cnt": 1
             },
             timeColumn="CAST(ts AS DOUBLE)",
+        ),
+    )
+
+
+def entity_source(snapshotTable, mutationTable):
+    """
+    Sample source
+    """
+    return ttypes.EntitySource(
+        snapshotTable=snapshotTable,
+        mutationTable=mutationTable,
+        query=ttypes.Query(
+            startPartition="2020-04-09",
+            selects={
+                "subject": "subject_sql",
+                "event_id": "event_sql",
+                "cnt": 1
+            },
+            timeColumn="CAST(ts AS DOUBLE)",
+            mutationTimeColumn="__mutationTs",
+            reversalColumn="is_reverse",
         ),
     )
 
@@ -107,6 +143,7 @@ def test_validator_ok():
                 input_column="event_id", operation=group_by.Operation.APPROX_PERCENTILE([0.5, 0.75])
             ),
         ),
+        name="test.gb"
     )
     assert all([agg.inputColumn for agg in gb.aggregations if agg.operation != ttypes.Operation.COUNT])
     group_by.validate_group_by(gb)
@@ -119,7 +156,28 @@ def test_validator_ok():
                     input_column="event_id", operation=group_by.Operation.APPROX_PERCENTILE([1.5])
                 ),
             ),
+            name="test.fail_gb"
         )
+    with pytest.raises(AssertionError):
+        fail_gb = group_by.GroupBy(
+            sources=event_source("table"),
+            keys=["subject"],
+            aggregations=None,
+            name="test.fail_gb"
+        )
+    with pytest.raises(AssertionError):
+        fail_gb = group_by.GroupBy(
+            sources=entity_source("table", "mutationTable"),
+            keys=["subject"],
+            aggregations=None,
+            name="test.fail_gb"
+        )
+    noagg_gb = group_by.GroupBy(
+        sources=entity_source("table", None),
+        keys=["subject"],
+        aggregations=None,
+        name="test.noagg_gb"
+    )
 
 
 def test_generic_collector():
@@ -154,6 +212,7 @@ def test_select_sanitization():
             event_id=ttypes.Aggregation(operation=ttypes.Operation.LAST),
             cnt=ttypes.Aggregation(operation=ttypes.Operation.COUNT),
         ),
+        name="test.select_sanitization"
     )
     required_selects = set(["key1", "key2", "event_id", "cnt"])
     assert set(gb.sources[0].events.query.selects.keys()) == required_selects
@@ -184,6 +243,7 @@ def test_snapshot_with_hour_aggregation():
                 ]),
             ),
             backfill_start_date="2021-01-04",
+            name="test.snapshot_with_hour_aggregation"
         )
 
 
@@ -200,55 +260,7 @@ def test_additional_metadata():
         ],
         keys=["key1", "key2"],
         aggregations=[group_by.Aggregation(input_column="event_id", operation=ttypes.Operation.SUM)],
-        tags={"to_deprecate": True}
+        tags={"to_deprecate": True},
+        name="test.additional_metadata_gb"
     )
     assert json.loads(gb.metaData.customJson)['groupby_tags']['to_deprecate']
-
-
-ratings_features = GroupBy(
-    sources=[
-        EntitySource(
-            snapshotTable="item_info.ratings_snapshots_table",
-            mutationTable="item_info.ratings_mutations_table",
-            mutationTopic="ratings_mutations_topic",
-            query=query.Query(
-                selects={
-                    "rating": "CAST(rating as DOUBLE)",
-                },
-                time_column="ts",
-            ))
-    ],
-    keys=["item"],
-    aggregations=[
-        Aggregation(
-            input_column="rating",
-            operation=Operation.AVERAGE,
-            windows=[Window(length=90, timeUnit=TimeUnit.DAYS)],
-        ),
-    ],
-)
-
-
-view_features = GroupBy(
-    sources=[
-        EventSource(
-            table="user_activity.user_views_table",
-            topic="user_views_stream",
-            query=query.Query(
-                selects={
-                    "view": "if(context['activity_type'] = 'item_view', 1 , 0)",
-                },
-                wheres=["user != null"],
-                time_column="ts",
-            )
-        )
-    ],
-    keys=["user", "item"],
-    aggregations=[
-        Aggregation(
-            input_column="view",
-            operation=Operation.COUNT,
-            windows=[Window(length=5, timeUnit=TimeUnit.HOURS)],
-        ),
-    ],
-)

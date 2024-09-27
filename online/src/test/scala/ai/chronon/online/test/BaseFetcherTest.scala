@@ -6,7 +6,7 @@ import ai.chronon.api.{MetaData, TimeUnit, Window}
 import ai.chronon.online.FetcherCache.BatchResponses
 import ai.chronon.api.Extensions.WindowOps
 import ai.chronon.online.Fetcher.Request
-import ai.chronon.online.{BaseFetcher, GroupByServingInfoParsed, KVStore, TTLCache}
+import ai.chronon.online.{FetcherBase, GroupByServingInfoParsed, KVStore, TTLCache}
 import ai.chronon.online.KVStore.TimedValue
 import org.junit.Assert.{assertEquals, assertSame}
 import org.junit.Test
@@ -18,7 +18,7 @@ import scala.util.{Success, Try}
 class BaseFetcherTest extends MockitoHelper {
   @Test
   def test_getServingInfo_ShouldCallUpdateServingInfoIfBatchResponseIsFromKvStore(): Unit = {
-    val baseFetcher = new BaseFetcher(mock[KVStore])
+    val baseFetcher = new FetcherBase(mock[KVStore])
     val spiedBaseFetcher = spy(baseFetcher)
     val oldServingInfo = mock[GroupByServingInfoParsed]
     val updatedServingInfo = mock[GroupByServingInfoParsed]
@@ -34,7 +34,7 @@ class BaseFetcherTest extends MockitoHelper {
 
   @Test
   def test_getServingInfo_ShouldRefreshServingInfoIfBatchResponseIsCached(): Unit = {
-    val baseFetcher = new BaseFetcher(mock[KVStore])
+    val baseFetcher = new FetcherBase(mock[KVStore])
     val spiedBaseFetcher = spy(baseFetcher)
     val oldServingInfo = mock[GroupByServingInfoParsed]
     val metaData = mock[MetaData]
@@ -56,7 +56,7 @@ class BaseFetcherTest extends MockitoHelper {
 
   @Test
   def test_checkLateBatchData_ShouldHandle_BatchDataIsLate(): Unit = {
-    val baseFetcher = new BaseFetcher(mock[KVStore])
+    val baseFetcher = new FetcherBase(mock[KVStore])
 
     // lookup request - 03/20/2024 01:00 UTC
     // batch landing time 03/17/2024 00:00 UTC
@@ -73,7 +73,7 @@ class BaseFetcherTest extends MockitoHelper {
 
   @Test
   def test_checkLateBatchData_ShouldHandle_BatchDataIsNotLate(): Unit = {
-    val baseFetcher = new BaseFetcher(mock[KVStore])
+    val baseFetcher = new FetcherBase(mock[KVStore])
 
     // lookup request - 03/20/2024 01:00 UTC
     // batch landing time 03/19/2024 00:00 UTC
@@ -90,7 +90,7 @@ class BaseFetcherTest extends MockitoHelper {
 
   @Test
   def testParsingGroupByResponse_HappyHase(): Unit = {
-    val baseFetcher = new BaseFetcher(mock[KVStore])
+    val baseFetcher = new FetcherBase(mock[KVStore])
     val request = Request(name = "name", keys = Map("email" -> "email"), atMillis = None, context = None)
     val response: Map[Request, Try[Map[String, AnyRef]]] = Map(
       request -> Success(Map(
@@ -104,7 +104,7 @@ class BaseFetcherTest extends MockitoHelper {
 
   @Test
   def testParsingGroupByResponse_NullKey(): Unit = {
-    val baseFetcher = new BaseFetcher(mock[KVStore])
+    val baseFetcher = new FetcherBase(mock[KVStore])
     val request = Request(name = "name", keys = Map("email" -> null), atMillis = None, context = None)
     val request2 = Request(name = "name2", keys = Map("email" -> null), atMillis = None, context = None)
 
@@ -120,7 +120,7 @@ class BaseFetcherTest extends MockitoHelper {
 
   @Test
   def testParsingGroupByResponse_MissingKey(): Unit = {
-    val baseFetcher = new BaseFetcher(mock[KVStore])
+    val baseFetcher = new FetcherBase(mock[KVStore])
     val request = Request(name = "name", keys = Map("email" -> "email"), atMillis = None, context = None)
     val request2 = Request(name = "name2", keys = Map("email" -> "email"), atMillis = None, context = None)
 

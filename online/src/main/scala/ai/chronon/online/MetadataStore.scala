@@ -1,5 +1,22 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.online
 
+import org.slf4j.LoggerFactory
 import ai.chronon.api.Constants.{ChrononMetadataKey, UTF8}
 import ai.chronon.api.Extensions.{JoinOps, MetadataOps, StringOps, WindowOps, WindowUtils}
 import ai.chronon.api._
@@ -23,7 +40,10 @@ class MetadataStore(kvStore: KVStore,
                     val dataset: String = ChrononMetadataKey,
                     timeoutMillis: Long,
                     flagStore: FlagStore = null) {
+  @transient implicit lazy val logger = LoggerFactory.getLogger(getClass)
+
   private var partitionSpec = PartitionSpec(format = "yyyy-MM-dd", spanMillis = WindowUtils.Day.millis)
+  private val CONF_BATCH_SIZE = 50
 
   // Note this should match with the format used in the warehouse
   def setPartitionMeta(format: String, spanMillis: Long): Unit = {
@@ -63,7 +83,7 @@ class MetadataStore(kvStore: KVStore,
       val result = getConf[Join](s"joins/$name")
         .recover {
           case e: java.util.NoSuchElementException =>
-            println(
+            logger.error(
               s"Failed to fetch conf for join $name at joins/$name, please check metadata upload to make sure the join metadata for $name has been uploaded")
             throw e
         }
@@ -76,54 +96,35 @@ class MetadataStore(kvStore: KVStore,
         context.withSuffix("join").increment(Metrics.Name.Exception)
         throw result.failed.get
       }
-      context.withSuffix("join").histogram(Metrics.Name.LatencyMillis, System.currentTimeMillis() - startTimeMs)
+      context.withSuffix("join").distribution(Metrics.Name.LatencyMillis, System.currentTimeMillis() - startTimeMs)
       result
     },
     { join => Metrics.Context(environment = "join.meta.fetch", join = join) })
 
   def putJoinConf(join: Join): Unit = {
-    println(s"uploading join conf to dataset: $dataset by key: joins/${join.metaData.nameToFilePath}")
+    logger.info(s"uploading join conf to dataset: $dataset by key: joins/${join.metaData.nameToFilePath}")
     kvStore.put(
       PutRequest(s"joins/${join.metaData.nameToFilePath}".getBytes(Constants.UTF8),
                  ThriftJsonCodec.toJsonStr(join).getBytes(Constants.UTF8),
                  dataset))
   }
 
-  def putConsistencyMetrics(joinConf: Join, metrics: DataMetrics): Unit = {
-    val gson = new GsonBuilder().setPrettyPrinting().create()
-    kvStore.multiPut(
-      metrics.series.map {
-        case (tsMillis, map) =>
-          val jMap: java.util.Map[String, Any] = map.asJava
-          val json = gson.toJson(jMap)
-          PutRequest(s"consistency/join/${joinConf.metaData.name}".getBytes(UTF8),
-                     json.getBytes(Constants.UTF8),
-                     dataset,
-                     Some(tsMillis))
+  def getSchemaFromKVStore(dataset: String, key: String): AvroCodec = {
+    kvStore
+      .getString(key, dataset, timeoutMillis)
+      .recover {
+        case e: java.util.NoSuchElementException =>
+          logger.error(s"Failed to retrieve $key for $dataset. Is it possible that hasn't been uploaded?")
+          throw e
       }
-    )
+      .map(AvroCodec.of(_))
+      .get
   }
 
-  def getConsistencyMetrics(joinConf: Join, fromDate: String): Future[Try[DataMetrics]] = {
-    val gson = new Gson()
-    val responseFuture = kvStore
-      .get(
-        GetRequest(s"consistency/join/${joinConf.metaData.name}".getBytes(UTF8),
-                   dataset,
-                   Some(partitionSpec.epochMillis(fromDate))))
-    responseFuture.map { response =>
-      val valuesTry = response.values
-      valuesTry.map { values =>
-        val series = values.map {
-          case TimedValue(bytes, millis, _) =>
-            val jsonString = new String(bytes, Constants.UTF8)
-            val jMap = gson.fromJson(jsonString, classOf[java.util.Map[String, Object]])
-            millis -> (SortedMap.empty[String, Any] ++ jMap.asScala)
-        }
-        DataMetrics(series)
-      }
-    }
-  }
+  lazy val getStatsSchemaFromKVStore: TTLCache[(String, String), AvroCodec] = new TTLCache[(String, String), AvroCodec](
+    { case (dataset, key) => getSchemaFromKVStore(dataset, key) },
+    { _ => Metrics.Context(environment = "stats.serving_info.fetch") }
+  )
 
   private def getFailureTTLMillis: Long = {
     if (flagStore.isSet("zoolander.shepherd.use_failure_ttl_cache",
@@ -145,11 +146,11 @@ class MetadataStore(kvStore: KVStore,
         val metaData =
           kvStore.getString(Constants.GroupByServingInfoKey, batchDataset, timeoutMillis).recover {
             case e: java.util.NoSuchElementException =>
-              println(
+              logger.error(
                 s"Failed to fetch metadata for $batchDataset, is it possible Group By Upload for $name has not succeeded?")
               throw e
           }
-        println(s"Fetched ${Constants.GroupByServingInfoKey} from : $batchDataset\n$metaData")
+        logger.info(s"Fetched ${Constants.GroupByServingInfoKey} from : $batchDataset")
         if (metaData.isFailure) {
           Failure(
             new RuntimeException(s"Couldn't fetch group by serving info for $batchDataset, " +
@@ -159,7 +160,7 @@ class MetadataStore(kvStore: KVStore,
           val groupByServingInfo = ThriftJsonCodec
             .fromJsonStr[GroupByServingInfo](metaData.get, check = true, classOf[GroupByServingInfo])
           Metrics
-            .Context(Metrics.Environment.GroupByFetching, groupByServingInfo.groupBy)
+            .Context(Metrics.Environment.MetaDataFetching, groupByServingInfo.groupBy)
             .withSuffix("group_by")
             .histogram(Metrics.Name.LatencyMillis, System.currentTimeMillis() - startTimeMs)
           Success(new GroupByServingInfoParsed(groupByServingInfo, partitionSpec))
@@ -182,13 +183,13 @@ class MetadataStore(kvStore: KVStore,
   def putConf(configPath: String): Future[Seq[Boolean]] = {
     val configFile = new File(configPath)
     assert(configFile.exists(), s"$configFile does not exist")
-    println(s"Uploading Chronon configs from $configPath")
+    logger.info(s"Uploading Chronon configs from $configPath")
     val fileList = listFiles(configFile)
 
     val puts = fileList
       .filter { file =>
         val name = parseName(file.getPath)
-        if (name.isEmpty) println(s"Skipping invalid file ${file.getPath}")
+        if (name.isEmpty) logger.info(s"Skipping invalid file ${file.getPath}")
         name.isDefined
       }
       .flatMap { file =>
@@ -197,11 +198,11 @@ class MetadataStore(kvStore: KVStore,
           case value if value.contains("staging_queries/") => loadJson[StagingQuery](value)
           case value if value.contains("joins/")           => loadJson[Join](value)
           case value if value.contains("group_bys/")       => loadJson[GroupBy](value)
-          case _                                           => println(s"unknown config type in file $path"); None
+          case _                                           => logger.info(s"unknown config type in file $path"); None
         }
         val key = pathToKey(path)
         confJsonOpt.map { conf =>
-          println(s"""Putting metadata for 
+          logger.info(s"""Putting metadata for
                |key: $key 
                |conf: $conf""".stripMargin)
           PutRequest(keyBytes = key.getBytes(),
@@ -210,8 +211,10 @@ class MetadataStore(kvStore: KVStore,
                      tsMillis = Some(System.currentTimeMillis()))
         }
       }
-    println(s"Putting ${puts.size} configs to KV Store, dataset=$dataset")
-    kvStore.multiPut(puts)
+    val putsBatches = puts.grouped(CONF_BATCH_SIZE).toSeq
+    logger.info(s"Putting ${puts.size} configs to KV Store, dataset=$dataset")
+    val futures = putsBatches.map(batch => kvStore.multiPut(batch))
+    Future.sequence(futures).map(_.flatten)
   }
 
   // list file recursively
@@ -237,7 +240,7 @@ class MetadataStore(kvStore: KVStore,
       Some(ThriftJsonCodec.toJsonStr(configConf))
     } catch {
       case e: Throwable =>
-        println(s"Failed to parse compiled Chronon config file: $file, \nerror=${e.getMessage}")
+        logger.error(s"Failed to parse compiled Chronon config file: $file, \nerror=${e.getMessage}")
         None
     }
   }
@@ -254,7 +257,7 @@ class MetadataStore(kvStore: KVStore,
         .map(_.asInstanceOf[String])
     } catch {
       case ex: Throwable =>
-        println(s"Failed to parse Chronon config file at $path as JSON with error: ${ex.getMessage}")
+        logger.error(s"Failed to parse Chronon config file at $path as JSON", ex)
         ex.printStackTrace()
         None
     }

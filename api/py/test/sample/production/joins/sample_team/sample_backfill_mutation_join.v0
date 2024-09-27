@@ -15,7 +15,7 @@
     "outputNamespace": "chronon_db",
     "team": "sample_team",
     "samplePercent": 100.0,
-    "offlineSchedule": "@daily"
+    "batchPartitionCadence": 0
   },
   "left": {
     "events": {
@@ -43,7 +43,8 @@
             "{\"name\": \"wait_for_sample_table.sample_entity_mutations_ds\", \"spec\": \"sample_table.sample_entity_mutations/ds={{ ds }}/hr=00:00\", \"start\": \"2021-03-01\", \"end\": null}"
           ],
           "team": "sample_team",
-          "offlineSchedule": "@daily"
+          "offlineSchedule": "@daily",
+          "batchPartitionCadence": 0
         },
         "sources": [
           {
@@ -73,7 +74,8 @@
             "argMap": {}
           }
         ],
-        "accuracy": 0
+        "accuracy": 0,
+        "module_name": "group_bys.sample_team.mutation_sample_group_by"
       }
     }
   ]

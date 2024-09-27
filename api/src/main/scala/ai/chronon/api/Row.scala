@@ -1,9 +1,24 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.api
 
 import java.util
 import scala.collection.JavaConverters.asScalaIteratorConverter
 import scala.collection.mutable
-
 
 trait Row {
   def get(index: Int): Any
@@ -218,16 +233,16 @@ object Row {
               }
             mapper(newMap)
         }
-      case BinaryType => binarizer(value.asInstanceOf[Array[Byte]])
-      case IntType => value.asInstanceOf[Number].intValue()
-      case LongType => value.asInstanceOf[Number].longValue()
-      case DoubleType => value.asInstanceOf[Number].doubleValue()
-      case FloatType => value.asInstanceOf[Number].floatValue()
-      case ShortType => value.asInstanceOf[Number].shortValue()
-      case ByteType => value.asInstanceOf[Number].byteValue()
+      case BinaryType  => binarizer(value.asInstanceOf[Array[Byte]])
+      case IntType     => value.asInstanceOf[Number].intValue()
+      case LongType    => value.asInstanceOf[Number].longValue()
+      case DoubleType  => value.asInstanceOf[Number].doubleValue()
+      case FloatType   => value.asInstanceOf[Number].floatValue()
+      case ShortType   => value.asInstanceOf[Number].shortValue()
+      case ByteType    => value.asInstanceOf[Number].byteValue()
       case BooleanType => value.asInstanceOf[Boolean]
-      case StringType => value.toString
-      case _ => value
+      case StringType  => value.toString
+      case _           => value
     }
   }
 }

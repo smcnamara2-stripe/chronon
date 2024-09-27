@@ -3,7 +3,7 @@ package ai.chronon.online.test
 import ai.chronon.aggregator.windowing.FinalBatchIr
 import ai.chronon.api.Extensions.GroupByOps
 import ai.chronon.api.{Builders, GroupBy}
-import ai.chronon.online.BaseFetcher._
+import ai.chronon.online.FetcherBase._
 import ai.chronon.online.{AvroCodec, FetcherCache, GroupByServingInfoParsed, KVStore, Metrics}
 import ai.chronon.online.Fetcher.Request
 import ai.chronon.online.FetcherCache.{BatchIrCache, BatchResponses, CachedMapBatchResponse}

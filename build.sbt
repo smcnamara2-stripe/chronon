@@ -11,6 +11,7 @@ lazy val scala213 = "2.13.6"
 lazy val spark2_4_0 = "2.4.0"
 lazy val spark3_1_1 = "3.1.1"
 lazy val spark3_2_1 = "3.2.1"
+lazy val tmp_warehouse = "/tmp/chronon/"
 
 ThisBuild / organization := "ai.chronon"
 ThisBuild / organizationName := "chronon"
@@ -79,7 +80,7 @@ enablePlugins(GitVersioning, GitBranchPrompt)
 lazy val supportedVersions = List(scala211, scala212, scala213)
 
 lazy val root = (project in file("."))
-  .aggregate(api, aggregator, online, online_unshaded, spark_uber, spark_embedded)
+  .aggregate(api, aggregator, online, online_unshaded, spark_uber, spark_embedded, flink)
   .settings(
     publish / skip := true,
     crossScalaVersions := Nil,
@@ -158,6 +159,17 @@ val VersionMatrix: Map[String, VersionDependency] = Map(
     Some("1.8.2"),
     Some("1.10.2")
   ),
+  "flink" -> VersionDependency(
+    Seq(
+      "org.apache.flink" %% "flink-streaming-scala",
+      "org.apache.flink" % "flink-metrics-dropwizard",
+      "org.apache.flink" % "flink-clients",
+      "org.apache.flink" % "flink-test-utils"
+    ),
+    None,
+    Some("1.16.1"),
+    None
+  ),
   "netty-buffer" -> VersionDependency(
     Seq(
       "io.netty" % "netty-buffer"
@@ -229,7 +241,7 @@ python_api := {
   val thrift = py_thrift.value
   val s: TaskStreams = streams.value
   val versionStr = (api / version).value
-  val branchStr = git.gitCurrentBranch.value
+  val branchStr = git.gitCurrentBranch.value.replace("/", "-")
   s.log.info(s"Building Python API version: ${versionStr}, branch: ${branchStr}, action: ${action} ...")
   if ((s"api/py/python-api-build.sh ${versionStr} ${branchStr} ${action}" !) == 0) {
     s.log.success("Built Python API")
@@ -313,9 +325,9 @@ lazy val online_unshaded = (project in file("online"))
 
 def cleanSparkMeta(): Unit = {
   Folder.clean(file(".") / "spark" / "spark-warehouse",
-               file(".") / "spark-warehouse",
+               file(tmp_warehouse) / "spark-warehouse",
                file(".") / "spark" / "metastore_db",
-               file(".") / "metastore_db")
+               file(tmp_warehouse) / "metastore_db")
 }
 
 val sparkBaseSettings: Seq[Setting[_]] = Seq(
@@ -325,12 +337,8 @@ val sparkBaseSettings: Seq[Setting[_]] = Seq(
     art.withClassifier(Some("assembly"))
   },
   mainClass in (Compile, run) := Some("ai.chronon.spark.Driver"),
-  cleanFiles ++= Seq(
-    baseDirectory.value / "spark-warehouse",
-    baseDirectory.value / "metastore_db"
-  ),
+  cleanFiles ++= Seq(file(tmp_warehouse)),
   Test / testOptions += Tests.Setup(() => cleanSparkMeta()),
-  Test / testOptions += Tests.Cleanup(() => cleanSparkMeta()),
   // compatibility for m1 chip laptop
   libraryDependencies += "org.xerial.snappy" % "snappy-java" % "1.1.8.4" % Test
 ) ++ addArtifact(assembly / artifact, assembly) ++ publishSettings
@@ -362,6 +370,18 @@ lazy val spark_embedded = (project in file("spark"))
     libraryDependencies ++= fromMatrix(scalaVersion.value, "spark-all"),
     target := target.value.toPath.resolveSibling("target-embedded").toFile,
     Test / test := {}
+  )
+
+lazy val flink = (project in file("flink"))
+  .dependsOn(aggregator.%("compile->compile;test->test"), online)
+  .settings(
+    publishSettings,
+    crossScalaVersions := List(scala212),
+    libraryDependencies ++= fromMatrix(scalaVersion.value,
+                                       "avro",
+                                       "spark-all/provided",
+                                       "scala-parallel-collections",
+                                       "flink")
   )
 
 // Build Sphinx documentation

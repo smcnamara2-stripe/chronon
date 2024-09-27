@@ -1,5 +1,22 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.aggregator.windowing
 
+import org.slf4j.LoggerFactory
 import scala.collection.Seq
 import ai.chronon.api.Extensions.{AggregationPartOps, WindowOps}
 import ai.chronon.api._
@@ -22,6 +39,7 @@ class SawtoothOnlineAggregator(val batchEndTs: Long,
                                        inputSchema: Seq[(String, DataType)],
                                        resolution: Resolution,
                                        tailBufferMillis: Long) {
+  @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
   // logically, batch response is arranged like so
   // sum-90d =>  sum_ir_88d, [(sum_ir_1d, ts)] -> 1d is the hopSize for 90d
@@ -37,10 +55,10 @@ class SawtoothOnlineAggregator(val batchEndTs: Long,
 
   val batchTailTs: Array[Option[Long]] = tailTs(batchEndTs)
 
-  println(s"Batch End: ${TsUtils.toStr(batchEndTs)}")
-  println("Window Tails: ")
+  logger.info(s"Batch End: ${TsUtils.toStr(batchEndTs)}")
+  logger.info("Window Tails: ")
   for (i <- windowMappings.indices) {
-    println(s"  ${windowMappings(i).aggregationPart.outputColumnName} -> ${batchTailTs(i).map(TsUtils.toStr)}")
+    logger.info(s"  ${windowMappings(i).aggregationPart.outputColumnName} -> ${batchTailTs(i).map(TsUtils.toStr)}")
   }
 
   def update(batchIr: BatchIr, row: Row): BatchIr = update(batchEndTs, batchIr, row, batchTailTs)
@@ -86,10 +104,22 @@ class SawtoothOnlineAggregator(val batchEndTs: Long,
     while (headRows.hasNext) {
       val row = headRows.next()
       val rowTs = row.ts // unbox long only once
-      if (queryTs > rowTs && rowTs >= batchEndTs) {
-        // When a request with afterTsMillis is passed, we don't consider mutations with mutationTs past the tsMillis
-        if ((hasReversal && queryTs >= row.mutationTs) || !hasReversal)
-          updateIr(resultIr, row, queryTs, hasReversal)
+
+      val shouldSelect = if (hasReversal) {
+        // mutation case
+        val mutationTs = row.mutationTs
+        val rowBeforeQuery = queryTs > rowTs && queryTs > mutationTs
+        val rowAfterBatchEnd = mutationTs >= batchEndTs
+        rowBeforeQuery && rowAfterBatchEnd
+      } else {
+        // event case
+        val rowBeforeQuery = queryTs > rowTs
+        val rowAfterBatchEnd = rowTs >= batchEndTs
+        rowBeforeQuery && rowAfterBatchEnd
+      }
+
+      if (shouldSelect) {
+        updateIr(resultIr, row, queryTs, hasReversal)
       }
     }
     mergeTailHops(resultIr, queryTs, batchEndTs, batchIr)

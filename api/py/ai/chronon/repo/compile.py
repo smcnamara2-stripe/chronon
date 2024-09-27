@@ -2,6 +2,21 @@
 # tool to materialize feature_sources and feature_sets into thrift configurations
 # that chronon jobs can consume
 
+
+#     Copyright (C) 2023 The Chronon Authors.
+#
+#     Licensed under the Apache License, Version 2.0 (the "License");
+#     you may not use this file except in compliance with the License.
+#     You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+
 import logging
 import os
 
@@ -65,6 +80,7 @@ def extract_and_convert(chronon_root, input_path, output_root, debug, force_over
         log_level = logging.INFO
     _print_highlighted("Using chronon root path", chronon_root)
     chronon_root_path = os.path.expanduser(chronon_root)
+    utils.chronon_root_path = chronon_root_path
     path_split = input_path.split('/')
     obj_folder_name = path_split[0]
     obj_class = FOLDER_NAME_TO_CLASS[obj_folder_name]
@@ -125,6 +141,12 @@ def _set_team_level_metadata(obj: object, teams_path: str, team_name: str):
     obj.metaData.outputNamespace = obj.metaData.outputNamespace or namespace
     obj.metaData.tableProperties = obj.metaData.tableProperties or table_properties
     obj.metaData.team = team_name
+
+    # set metadata for JoinSource
+    if isinstance(obj, api.GroupBy):
+        for source in obj.sources:
+            if source.joinSource:
+                _set_team_level_metadata(source.joinSource.join, teams_path, team_name)
 
 
 def __fill_template(table, obj, namespace):

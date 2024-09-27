@@ -14,6 +14,7 @@ import org.junit.Assert._
 import org.junit.{Before, Test}
 
 import scala.collection.JavaConverters._
+import scala.util.ScalaJavaConversions.JListOps
 
 class HourlyJoinTest {
   val spark: SparkSession = SparkSessionBuilder.build("HourlyJoinTest", local = true)
@@ -98,7 +99,7 @@ class HourlyJoinTest {
     query = Builders.Query(
       selects = Builders.Selects("sess_length", "item"),
       startPartition = sourceStartPartition,
-      timeColumn = timeColumn.orNull
+      timeColumn = timeColumn.orNull,
     ),
     table = viewsTable,
     lag = lag
@@ -225,6 +226,7 @@ class HourlyJoinTest {
 
     writeViewDf(
       Seq(
+        Seq("A", 0, 1703892600000L, "2023122923"), // Sunday, December 29, 2023 11:30:00 PM
         Seq("A", 1, 1704067260000L, "2024010100"), // Monday, January 1, 2024 12:01:00 AM UTC
         Seq("A", 3, 1704070800000L, "2024010101"), // Monday, January 1, 2024 1:00:00 AM UTC
         Seq("A", 2, 1704134700000L, "2024010118"), // Monday, January 1, 2024 6:45:00 PM UTC
@@ -292,7 +294,7 @@ class HourlyJoinTest {
 
   @Test
   def testEventsEventsSnapshotHourly(): Unit = {
-    val numDays = 4
+    val numDays = 2
     val sourceStartPartition = hourlyTableUtils.partitionSpec.minus(today, new Window(numDays, TimeUnit.DAYS))
 
     val viewsSchema = List(
@@ -302,12 +304,13 @@ class HourlyJoinTest {
     // Watch out: partitions is used to determine the total NUMBER OF DAYS
     // produced randomly, even in hourly mode. See DataGen.scala#L139
     // TODO: fix this without piping the tableutils all the way in
-    DataFrameGen.events(spark, viewsSchema, count = 5000, partitions = numDays,
+    DataFrameGen.events(spark, viewsSchema, count = 5000, partitions = numDays + 2,
       optTableUtils = Some(hourlyTableUtils)
     )
       .drop("ts") // Exercising time mapping
       .save(viewsTable)
     println("viewdf")
+    hourlyTableUtils.sql(s"select distinct ds from $viewsTable").show()
     hourlyTableUtils.sql(s"SELECT * FROM $viewsTable").show()
 
     val itemQuerySchema = List(Column("item", api.StringType, 5))
@@ -558,6 +561,7 @@ class HourlyJoinTest {
     // but everything between 2024010101 and
     // 2024010117 will contain the first two rows.
     val entities = Seq(
+      Seq("A", 0, 1704065400000L, "2023123123"), // Sunday, December 31, 2023 11:30:00 PM
       Seq("A", 1, 1704067260000L, "2024010100"), // Monday, January 1, 2024 12:01:00 AM UTC
       Seq("A", 3, 1704070800000L, "2024010101"), // Monday, January 1, 2024 1:00:00 AM UTC
       Seq("A", 2, 1704134700000L, "2024010118"), // Monday, January 1, 2024 6:45:00 PM UTC
@@ -566,7 +570,7 @@ class HourlyJoinTest {
       Seq("A", 8, 1704222000000L, "2024010219") // Tuesday, January 2, 2024 7:00:00 PM UTC
     )
 
-    val entitiesViews: Seq[Seq[Any]] = PartitionRange("2024010100", "2024010223")(hourlyTableUtils)
+    val entitiesViews: Seq[Seq[Any]] = PartitionRange("2023123123", "2024010223")(hourlyTableUtils)
       .toTimePoints // fill every partition with all the events that happened before or during it
       .flatMap { partitionStartTs: Long =>
         val partitionEndTs = partitionStartTs + hourlyTableUtils.partitionSpec.spanMillis
@@ -628,7 +632,7 @@ class HourlyJoinTest {
 
     val rows = joinDf.collect().sortBy(_.getAs[String]("ds")).map(_.toSeq)
     val expected = Seq(
-      Seq("A", 1704069360000L, null, null, null, "2024010100"),
+      Seq("A", 1704069360000L, 0, 0, 0, "2024010100"),
       Seq("A", 1704075180000L, 4, 4, 4, "2024010102"),
       Seq("A", 1704145200000L, 2, 6, 6, "2024010121"),
       Seq("A", 1704156720000L, 2, 6, 6, "2024010200"),

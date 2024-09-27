@@ -13,7 +13,7 @@
     "outputNamespace": "sample_namespace",
     "team": "sample_team",
     "samplePercent": 0.0,
-    "offlineSchedule": "@daily"
+    "batchPartitionCadence": 0
   },
   "left": {
     "entities": {
@@ -46,7 +46,8 @@
           },
           "outputNamespace": "sample_namespace",
           "team": "sample_team",
-          "offlineSchedule": "@daily"
+          "offlineSchedule": "@daily",
+          "batchPartitionCadence": 0
         },
         "sources": [
           {
@@ -80,7 +81,8 @@
             "operation": 7,
             "argMap": {}
           }
-        ]
+        ],
+        "module_name": "group_bys.sample_team.sample_group_by"
       }
     }
   ]

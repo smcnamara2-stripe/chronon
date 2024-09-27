@@ -1,3 +1,19 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.spark.test
 
 import ai.chronon.aggregator.test.{CStream, Column, NaiveAggregator}
@@ -108,7 +124,7 @@ class GroupByTest {
   }
 
   @Test
-  def temporalEventsLastKTest(): Unit = {
+  def eventsLastKTest(): Unit = {
     val eventSchema = List(
       Column("user", StringType, 10),
       Column("listing_view", StringType, 100)
@@ -441,7 +457,7 @@ class GroupByTest {
     val namespace = "test_analyzer"
     val groupByConf = getSampleGroupBy("unit_analyze_test_item_views", source, namespace)
     val today = tableUtils.partitionSpec.at(System.currentTimeMillis())
-    val aggregationsMetadata =
+    val (aggregationsMetadata, _) =
       new Analyzer(tableUtils, groupByConf, endPartition, today).analyzeGroupBy(groupByConf, enableHitter = false)
     val outputTable = backfill(name = "unit_analyze_test_item_views",
                                source = source,
@@ -478,7 +494,7 @@ class GroupByTest {
                                                          new Window(60, TimeUnit.DAYS))
     )
     val today = tableUtils.partitionSpec.at(System.currentTimeMillis())
-    val aggregationsMetadata =
+    val (aggregationsMetadata, _) =
       new Analyzer(tableUtils, groupByConf, endPartition, today).analyzeGroupBy(groupByConf, enableHitter = false)
 
     print(aggregationsMetadata)
@@ -727,6 +743,80 @@ class GroupByTest {
   }
 
   @Test
+  def testReplaceJoinSource(): Unit = {
+    val namespace = "replace_join_source_ns"
+    val today = tableUtils.partitionSpec.at(System.currentTimeMillis())
+
+    val joinSource = TestUtils.getParentJoin(spark, namespace, "parent_join_table", "parent_gb")
+    val query = Builders.Query(startPartition = today)
+    val chainingGroupBy = TestUtils.getTestGBWithJoinSource(joinSource, query, namespace, "chaining_gb")
+    val newGroupBy = GroupBy.replaceJoinSource(chainingGroupBy, PartitionRange(today, today), tableUtils, false)
+
+    assertEquals(joinSource.metaData.outputTable, newGroupBy.sources.get(0).table)
+    assertEquals(joinSource.left.topic + Constants.TopicInvalidSuffix, newGroupBy.sources.get(0).topic)
+    assertEquals(query, newGroupBy.sources.get(0).query)
+  }
+
+  @Test
+  def testGroupByFromChainingGB(): Unit = {
+    val namespace = "test_chaining_gb"
+    val today = tableUtils.partitionSpec.at(System.currentTimeMillis())
+    val joinName = "parent_join_table"
+    val parentGBName = "parent_gb"
+
+    val joinSource = TestUtils.getParentJoin(spark, namespace, joinName, parentGBName)
+    val query = Builders.Query(startPartition = today)
+    val chainingGroupBy = TestUtils.getTestGBWithJoinSource(joinSource, query, namespace, "user_viewed_price_gb")
+    val newGroupBy = GroupBy.from(chainingGroupBy, PartitionRange(today, today), tableUtils, true)
+
+    //verify parent join output table is computed and
+    assertTrue(spark.catalog.tableExists(s"$namespace.parent_join_table"))
+    val expectedSQL =
+      s"""
+         |WITH latestB AS (
+         |    SELECT
+         |        COALESCE(A.listing, '--null--') listing,
+         |        A.user,
+         |        MAX(A.ts) as ts,
+         |        A.ds
+         |    FROM
+         |        $namespace.parent_join_table  A
+         |    LEFT OUTER JOIN
+         |       $namespace.views_table B ON A.listing = B.listing
+         |    WHERE
+         |        B.ts <= A.ts AND A.ds = '$today'
+         |    GROUP BY
+         |        A.listing, A.user, A.ds
+         |)
+         |SELECT
+         |    IF(latestB.listing == '--null--', null, latestB.listing) as listing,
+         |    latestB.user,
+         |    latestB.ts,
+         |    latestB.ds,
+         |    C.parent_gb_price_last
+         |FROM
+         |    latestB
+         |JOIN
+         |   $namespace.parent_join_table C
+         |ON
+         |    latestB.listing = COALESCE(C.listing, '--null--') AND latestB.ts = C.ts
+         |""".stripMargin
+    val expectedInputDf = spark.sql(expectedSQL)
+    println("Expected input DF: ")
+    expectedInputDf.show()
+    println("Computed input DF: ")
+    newGroupBy.inputDf.show()
+
+    val diff = Comparison.sideBySide(newGroupBy.inputDf, expectedInputDf, List("listing", "user", "ds"))
+    if (diff.count() > 0) {
+      println(s"Actual count: ${newGroupBy.inputDf.count()}")
+      println(s"Expected count: ${expectedInputDf.count()}")
+      println(s"Diff count: ${diff.count()}")
+      diff.show()
+    }
+    assertEquals(0, diff.count())
+  }
+
   def testBoundedUniqueCounts(): Unit = {
     val (source, endPartition) = createTestSource(suffix = "_bounded_counts")
     val tableUtils = TableUtils(spark)

@@ -1,3 +1,19 @@
+/*
+ *    Copyright (C) 2023 The Chronon Authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 package ai.chronon.online
 
 import ai.chronon.api.{DataType, StructType}
@@ -103,10 +119,9 @@ class PooledCatalystUtil(expressions: collection.Seq[(String, String)], inputSch
 }
 
 // This class by itself it not thread safe because of the transformBuffer
-class CatalystUtil(
-    expressions: collection.Seq[(String, String)],
-    inputSchema: StructType,
-    filters: collection.Seq[String] = Seq.empty) {
+class CatalystUtil(expressions: collection.Seq[(String, String)],
+                   inputSchema: StructType,
+                   filters: collection.Seq[String] = Seq.empty) {
   private val selectClauses = expressions.map { case (name, expr) => s"$expr as $name" }
   private val sessionTable =
     s"q${math.abs(selectClauses.mkString(", ").hashCode)}_f${math.abs(inputSparkSchema.pretty.hashCode)}"
@@ -136,13 +151,13 @@ class CatalystUtil(
     performSql(internalRow)
   }
 
-  def getOutputSparkSchema: types.StructType = outputSparkSchema
-
-  def performSql(value: InternalRow): Option[Map[String, Any]] = {
-    val resultRowMaybe = transformFunc(value)
+  def performSql(row: InternalRow): Option[Map[String, Any]] = {
+    val resultRowMaybe = transformFunc(row)
     val outputVal = resultRowMaybe.map(resultRow => outputDecoder(resultRow))
     outputVal.map(_.asInstanceOf[Map[String, Any]])
   }
+
+  def getOutputSparkSchema: types.StructType = outputSparkSchema
 
   private def initialize(): (InternalRow => Option[InternalRow], types.StructType) = {
     val session = CatalystUtil.session
@@ -173,7 +188,7 @@ class CatalystUtil(
         }
         codegenFunc
       }
-      case ProjectExec(projectList, fp@FilterExec(condition, child)) => {
+      case ProjectExec(projectList, fp @ FilterExec(condition, child)) => {
         val unsafeProjection = UnsafeProjection.create(projectList, fp.output)
 
         def projectFunc(row: InternalRow): Option[InternalRow] = {
