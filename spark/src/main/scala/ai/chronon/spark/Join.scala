@@ -16,9 +16,6 @@
 
 package ai.chronon.spark
 
-import java.util
-
-import org.slf4j.LoggerFactory
 import ai.chronon.api
 import ai.chronon.api.Extensions._
 import ai.chronon.api._
@@ -34,15 +31,6 @@ import scala.collection.{Seq, mutable}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.ScalaJavaConversions.{ListOps, MapOps}
-import java.util.concurrent.{Callable, ExecutorCompletionService, ExecutorService, Executors}
-
-import scala.collection.Seq
-import scala.collection.mutable
-import scala.collection.parallel.ExecutionContextTaskSupport
-import scala.concurrent.duration.{Duration, DurationInt}
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
-import scala.collection.compat._
-import scala.util.ScalaJavaConversions.{IterableOps, ListOps, MapOps}
 import scala.util.{Failure, Success}
 
 /*
@@ -84,17 +72,6 @@ class Join(joinConf: api.Join,
   private val bootstrapTable = joinConf.metaData.bootstrapTable
   private val joinsAtATime = 8
 
-  private def padFields(df: DataFrame, structType: sql.types.StructType): DataFrame = {
-    structType.foldLeft(df) {
-      case (df, field) =>
-        if (df.columns.contains(field.name)) {
-          df
-        } else {
-          df.withColumn(field.name, lit(null).cast(field.dataType))
-        }
-    }
-  }
-
   private def toSparkSchema(fields: Seq[StructField]): sql.types.StructType =
     SparkConversions.fromChrononSchema(StructType("", fields.toArray))
 
@@ -112,7 +89,7 @@ class Join(joinConf: api.Join,
     val contextualFields = toSparkSchema(
       bootstrapInfo.externalParts.filter(_.externalPart.isContextual).flatMap(_.keySchema))
 
-    def withNonContextualFields(df: DataFrame): DataFrame = padFields(df, nonContextualFields)
+    def withNonContextualFields(df: DataFrame): DataFrame = df.padFields(nonContextualFields)
 
     // Ensure keys and values for contextual fields are consistent even if only one of them is explicitly bootstrapped
     def withContextualFields(df: DataFrame): DataFrame =
@@ -142,7 +119,7 @@ class Join(joinConf: api.Join,
    */
   private def padGroupByFields(baseJoinDf: DataFrame, bootstrapInfo: BootstrapInfo): DataFrame = {
     val groupByFields = toSparkSchema(bootstrapInfo.joinParts.flatMap(_.valueSchema))
-    padFields(baseJoinDf, groupByFields)
+    baseJoinDf.padFields(groupByFields)
   }
 
   private def findBootstrapSetCoverings(bootstrapDf: DataFrame,
