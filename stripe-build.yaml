@@ -5,12 +5,13 @@ network:
     - vault.centos.org
     - archives.fedoraproject.org
 jenkins_jobs:
-  - name: "stripe-private-oss-forks-chronon"
+  - name: stripe-private-oss-forks-chronon
+    responsible_team: ml-features
     henson_tarball:
       docker:
         dockerfile: docker/ci/Dockerfile
     container_images:
-      - artifact_name: 'stripe-chronon-ai-wheel-image'
+      - artifact_name: stripe-chronon-ai-wheel-image
         docker:
           dockerfile: docker/ci/Dockerfile
         push:
