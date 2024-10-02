@@ -17,6 +17,7 @@
 package ai.chronon.spark
 
 import ai.chronon.aggregator.windowing.TsUtils
+import ai.chronon.api.Extensions.QueryOps
 import ai.chronon.api.{Constants, Query, QueryUtils}
 
 import scala.collection.JavaConverters._
@@ -103,11 +104,12 @@ case class PartitionRange(start: String, end: String)(implicit tableUtils: BaseT
       whereClauses(partitionColumn) ++ queryOpt
         .flatMap(q => Option(q.wheres).map(_.asScala))
         .getOrElse(Seq.empty[String])
-    QueryUtils.build(selects = queryOpt.map { query => Option(query.selects).map(_.asScala.toMap).orNull }.orNull,
-                     from = table,
-                     wheres = wheres,
-                     isLocalized = tableUtils.isLocalized(table),
-                     fillIfAbsent = fillIfAbsent)
+    QueryUtils.build(
+      selects = queryOpt.map(_.getQuerySelects).orNull,
+      from = table,
+      wheres = wheres,
+      isLocalized = tableUtils.isLocalized(table),
+      fillIfAbsent = fillIfAbsent)
   }
 
   def genScanQueryBasedOnTime(query: Query, table: String, fillIfAbsent: Map[String, String] = Map.empty): String = {
@@ -116,7 +118,8 @@ case class PartitionRange(start: String, end: String)(implicit tableUtils: BaseT
     val endClause = Option(end).map(end => s"${fillIfAbsent(Constants.TimeColumn)} < " + Constants.Partition.epochMillis(Constants.Partition.after(end)))
     val baseWheres = if (Option(query.wheres).isDefined) query.wheres.asScala else Seq[String]()
     val wheres = baseWheres ++ (startClause ++ endClause).toSeq
-    QueryUtils.build(selects = queryOpt.map { query => Option(query.selects).map(_.asScala.toMap).orNull }.orNull,
+    QueryUtils.build(
+      selects = queryOpt.map(_.getQuerySelects).orNull,
       from = table,
       wheres = wheres,
       isLocalized = tableUtils.isLocalized(table),
