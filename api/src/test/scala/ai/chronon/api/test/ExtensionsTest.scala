@@ -16,7 +16,7 @@
 
 package ai.chronon.api.test
 
-import ai.chronon.api.{Accuracy, Builders, Constants, GroupBy}
+import ai.chronon.api.{Accuracy, Builders, Constants, GroupBy, Join}
 import org.junit.Test
 import ai.chronon.api.Extensions._
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
@@ -159,5 +159,28 @@ class ExtensionsTest {
     assertTrue(buildGroupByWithCustomJson("{\"enable_tiling\": true}").isTilingEnabled)
     assertFalse(buildGroupByWithCustomJson("{\"enable_tiling\": false}").isTilingEnabled)
     assertFalse(buildGroupByWithCustomJson("{\"enable_tiling\": \"string instead of bool\"}").isTilingEnabled)
+  }
+
+  @Test
+  def testOutputTableMapAccess(): Unit = {
+    def buildJoinWithCustomJson(customJson: String = null): Join =
+      Builders.Join(
+        metaData = Builders.MetaData(name = "featureGroupName", customJson = customJson)
+      )
+    // chronon/config_util/GroupByConfUtil.scala maps "outputs" in the customJson into "output_tables"
+    val outputTable = "mocked_table_name"
+    val joinWithOutputTableMap = buildJoinWithCustomJson(
+      s"""{\"output_tables\": {
+        |\"output\":  \"$outputTable\"
+        |}}
+        |""".stripMargin)
+
+    assertEquals("existing key value look up should be successful",outputTable, joinWithOutputTableMap.metaData.outputTable)
+
+    val bootStrapTableDefaultValue = s"${joinWithOutputTableMap.metaData.outputTable}_bootstrap"
+    assertEquals("non-existing key value look up should return the fallback value", bootStrapTableDefaultValue, joinWithOutputTableMap.metaData.bootstrapTable)
+
+    val joinWithNoOutputTableMap = buildJoinWithCustomJson()
+    assertEquals("when output map is missing, return the fallback value", s"${joinWithNoOutputTableMap.metaData.outputNamespace}.${joinWithNoOutputTableMap.metaData.cleanName}", joinWithNoOutputTableMap.metaData.outputTable)
   }
 }

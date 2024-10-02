@@ -107,7 +107,7 @@ object Extensions {
     def cleanName: String = metaData.name.sanitize
 
     def outputTable = getOutputTableMap(metaData)
-      .map(_.get("output"))
+      .flatMap(m => Option(m.get("output")))
       .getOrElse(s"${metaData.outputNamespace}.${metaData.cleanName}")
 
     def outputLabelTable = s"${metaData.outputNamespace}.${metaData.cleanName}_labels"
@@ -116,7 +116,7 @@ object Extensions {
     def loggedTable = s"${outputTable}_logged_v2"
 
     def bootstrapTable = getOutputTableMap(metaData)
-      .map(_.get("output_bootstrap"))
+      .flatMap(m => Option(m.get("output_bootstrap")))
       .getOrElse(s"${outputTable}_bootstrap")
 
     private def comparisonPrefix = "comparison_v2"
@@ -130,7 +130,7 @@ object Extensions {
 
     def loggingStatsTable = s"${loggedTable}_daily_stats"
     def uploadTable = getOutputTableMap(metaData)
-      .map(_.get("output"))
+      .flatMap(m => Option(m.get("output")))
       .getOrElse(s"${outputTable}_upload")
 
     def dailyStatsOutputTable = s"${outputTable}_daily_stats"
@@ -833,7 +833,7 @@ object Extensions {
 
     def partOutputTable(jp: JoinPart): String = {
       getOutputTableMap(join.metaData)
-        .map(_.get(jp.groupBy.metaData.name))
+        .flatMap(m => Option(m.get(jp.groupBy.metaData.name)))
         .getOrElse((Seq(join.metaData.outputTable) ++ Option(jp.prefix) :+ jp.groupBy.metaData.cleanName).mkString("_"))
     }
 
