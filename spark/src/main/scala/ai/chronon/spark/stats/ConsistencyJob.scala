@@ -30,7 +30,7 @@ import scala.util.ScalaJavaConversions.{JListOps, ListOps, MapOps}
 
 import ai.chronon.online.OnlineDerivationUtil.timeFields
 
-class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, tableUtilsOpt: Option[BaseTableUtils] = None) extends Serializable {
+class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, startDate: String = null, tableUtilsOpt: Option[BaseTableUtils] = None) extends Serializable {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
   val tblProperties: Map[String, String] = Option(joinConf.metaData.tableProperties)
@@ -67,6 +67,9 @@ class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, tab
     copiedJoin.setLeft(loggedSource)
     val newName = joinConf.metaData.comparisonConfName
     copiedJoin.metaData.setName(newName)
+    logger.info(s"comparison Join name: ${copiedJoin.metaData.name}")
+    logger.info(s"comparison Join left: ${copiedJoin.left.table}")
+    logger.info(s"comparison Join output: ${copiedJoin.metaData.outputTable}")
     // mark OOC tables as chronon_ooc_table
     if (!copiedJoin.metaData.isSetTableProperties) {
       copiedJoin.metaData.setTableProperties(new util.HashMap[String, String]())
@@ -76,15 +79,23 @@ class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, tab
   }
 
   private def buildComparisonTable(): Unit = {
+    logger.info(s"loggedTable: ${joinConf.metaData.loggedTable}")
+    logger.info(s"comparisonTable: ${joinConf.metaData.comparisonTable}")
+    logger.info(s"consistencyTable: ${joinConf.metaData.consistencyTable}")
+    logger.info(s"outputTable: ${joinConf.metaData.outputTable}")
+    logger.info(s"bootstrapTable: ${joinConf.metaData.bootstrapTable}")
+    logger.info(s"outputLabelTable: ${joinConf.metaData.outputLabelTable}")
+
     val unfilledRanges = tableUtils
       .unfilledRanges(joinConf.metaData.comparisonTable,
-                      PartitionRange(null, endDate),
+                      PartitionRange(startDate, endDate),
                       Some(Seq(joinConf.metaData.loggedTable)))
       .getOrElse(Seq.empty)
     if (unfilledRanges.isEmpty) return
+    logger.info(s"Unfilled Range between comparison table table and logged table $unfilledRanges")
     val join = new chronon.spark.Join(buildComparisonJoin(), unfilledRanges.last.end, tableUtils)
     logger.info("Starting compute Join for comparison table")
-    val compareDf = join.computeJoin(Some(30))
+    val compareDf = join.computeJoin(Some(30), Option(startDate))
     logger.info("======= side-by-side comparison schema =======")
     logger.info(compareDf.schema.pretty)
   }
@@ -105,10 +116,11 @@ class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, tab
     logger.info("Determining Range between consistency table and comparison table")
     val unfilledRanges = tableUtils
       .unfilledRanges(joinConf.metaData.consistencyTable,
-                      PartitionRange(null, endDate),
+                      PartitionRange(startDate, endDate),
                       Some(Seq(joinConf.metaData.comparisonTable)))
       .getOrElse(Seq.empty)
     if (unfilledRanges.isEmpty) return null
+    logger.info(s"Unfilled Range between consistency table and comparison table $unfilledRanges")
     val allMetrics = unfilledRanges.map { unfilled =>
       val comparisonDf = tableUtils.sql(unfilled.genScanQuery(null, joinConf.metaData.comparisonTable))
       // External parts / contextual features don't get logged in the online data but do appear in the comparison table.
@@ -144,7 +156,7 @@ class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, tab
                                   autoExpand = true)
       metricsKvRdd.toAvroDf
         .withTimeBasedColumn(tableUtils.partitionColumn)
-        .save(joinConf.metaData.consistencyUploadTable, tblProperties)
+        .saveWithTableUtils(tableUtils, joinConf.metaData.consistencyUploadTable, tblProperties)
       metrics
     }
     DataMetrics(allMetrics.flatMap(_.series))

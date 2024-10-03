@@ -113,7 +113,9 @@ object Extensions {
     def outputLabelTable = s"${metaData.outputNamespace}.${metaData.cleanName}_labels"
     def outputFinalView = s"${metaData.outputNamespace}.${metaData.cleanName}_labeled"
     def outputLatestLabelView = s"${metaData.outputNamespace}.${metaData.cleanName}_labeled_latest"
-    def loggedTable = s"${outputTable}_logged_v2"
+    def loggedTable: String = getOutputTableMap(metaData)
+      .flatMap(m => Option(m.get("logged_table_output")))
+      .getOrElse(s"${outputTable}_logged_v2")
 
     def bootstrapTable = getOutputTableMap(metaData)
       .flatMap(m => Option(m.get("output_bootstrap")))
@@ -121,12 +123,20 @@ object Extensions {
 
     private def comparisonPrefix = "comparison_v2"
 
-    def comparisonConfName = s"${metaData.getName}_$comparisonPrefix"
+    def comparisonConfName = getOutputTableMap(metaData)
+      .flatMap(m => Option(m.get("comparison_conf_name")))
+      .getOrElse(s"${metaData.getName}_$comparisonPrefix")
 
-    def comparisonTable = s"${outputTable}_$comparisonPrefix"
+    def comparisonTable: String = getOutputTableMap(metaData)
+      .flatMap(m => Option(m.get("comparison_table_output")))
+      .getOrElse(s"${outputTable}_$comparisonPrefix")
 
-    def consistencyTable = s"${outputTable}_consistency_v2"
-    def consistencyUploadTable = s"${consistencyTable}_upload"
+    def consistencyTable: String = getOutputTableMap(metaData)
+      .flatMap(m => Option(m.get("consistency_table_output")))
+      .getOrElse(s"${outputTable}_consistency_v2")
+    def consistencyUploadTable = getOutputTableMap(metaData)
+      .flatMap(m => Option(m.get("consistency_table_upload")))
+      .getOrElse(s"${consistencyTable}_upload")
 
     def loggingStatsTable = s"${loggedTable}_daily_stats"
     def uploadTable = getOutputTableMap(metaData)
