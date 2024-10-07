@@ -18,21 +18,18 @@ package ai.chronon.spark.test
 
 import ai.chronon.aggregator.test.Column
 import ai.chronon.api
-import ai.chronon.api.{StructField, _}
-import ai.chronon.spark._
-import ai.chronon.spark.test.TestUtils.makeDf
+import ai.chronon.api._
 import ai.chronon.online.SparkConversions
 import ai.chronon.spark.Extensions._
-import ai.chronon.spark.{IncompatibleSchemaException, PartitionRange, SparkSessionBuilder, TableUtils}
+import ai.chronon.spark.test.TestUtils.makeDf
+import ai.chronon.spark._
 import org.apache.hadoop.hive.ql.exec.UDF
 import org.apache.spark.sql.functions.{col, regexp_replace}
 import org.apache.spark.sql.{AnalysisException, DataFrame, Row, SparkSession, types}
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.Test
-import org.mockito.Mockito.spy
 
 import scala.util.Try
-
 
 
 class SimpleAddUDF extends UDF {
@@ -46,7 +43,7 @@ class TableUtilsTest {
   lazy val sparkWithOutputParallelismOverride: SparkSession = SparkSessionBuilder.build("TableUtilsTest", local = true, additionalConfig = Some(Map("spark.chronon.outputParallelismOverride" -> "1")))
   lazy val sparkWithInvalidOutputParallelismOverride: SparkSession = SparkSessionBuilder.build("TableUtilsTest", local = true, additionalConfig = Some(Map("spark.chronon.outputParallelismOverride" -> "None")))
 
-  private val tableUtils = TableUtils(spark)
+  private implicit val tableUtils : BaseTableUtils = TableUtils(spark)
 
   @Test
   def ColumnFromSqlTest(): Unit = {
@@ -543,4 +540,264 @@ class TableUtilsTest {
     assertFalse(tableUtils.ifPartitionExistsInTable(tableName, "2023-01-01"))
   }
 
+
+  @Test
+  def testUnfilledRanges(): Unit = {
+    val outputTableName = "db.test_unfilled_ranges_out"
+    val inputTableName1 = "db.test_unfilled_ranges_in1"
+    val inputTableName2 = "db.test_unfilled_ranges_in2"
+    spark.sql("CREATE DATABASE IF NOT EXISTS db")
+
+    val columns = Array(
+      StructField("int_field", IntType),
+      StructField("ds", StringType),
+    )
+    val outputDf = makeDf(
+      spark,
+      StructType(
+        outputTableName,
+        columns
+      ),
+      List(
+        Row(1, "2022-10-01"),
+        Row(2, "2022-10-02"),
+        Row(5, "2022-10-02"),
+        Row(8, "2022-11-01"),
+        Row(0, "2022-09-01"),
+        Row(1, "2022-10-01"),
+        Row(3, "2022-10-05"),
+        Row(4, "2022-10-01"),
+      )
+    )
+    val inputDf1 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns
+      ),
+      List(
+
+        Row(0, "2022-09-01"),
+        Row(1, "2022-10-01"),
+        Row(2, "2022-10-02"),
+        Row(3, "2022-10-05"),
+        Row(4, "2022-10-01")
+      )
+    )
+    val inputDf2 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns
+      ),
+      List(
+
+        Row(5, "2022-10-02"),
+        Row(6, "2022-10-09"),
+        Row(7, "2022-10-03"),
+        Row(8, "2022-11-01"),
+        Row(9, "2022-10-04")
+      )
+    )
+    tableUtils.insertPartitions(outputDf, outputTableName)
+    tableUtils.insertPartitions(inputDf1, inputTableName1)
+    tableUtils.insertPartitions(inputDf2, inputTableName2)
+
+    val unfilledRanges = tableUtils.unfilledRanges(
+      outputTableName, PartitionRange("2022-10-01", "2022-10-31"), Some(Seq(inputTableName1, inputTableName2)))
+
+    assertTrue(unfilledRanges.nonEmpty)
+    assertEquals(
+      Seq(PartitionRange("2022-10-03", "2022-10-04"), PartitionRange("2022-10-09", "2022-10-09")),
+      unfilledRanges.get)
+  }
+
+  @Test
+  def testUnfilledRangesUnpartitionedLeft(): Unit = {
+    val outputTableName = "db.test_unfilled_ranges_unpartitioned_left_out"
+    val inputTableName1 = "db.test_unfilled_ranges_unpartitioned_left_in1"
+    val inputTableName2 = "db.test_unfilled_ranges_unpartitioned_left_in2"
+    spark.sql("CREATE DATABASE IF NOT EXISTS db")
+
+    val columns = Array(
+      StructField("int_field", IntType),
+      StructField("ds", StringType),
+    )
+    val outputDf = makeDf(
+      spark,
+      StructType(
+        outputTableName,
+        columns
+      ),
+      List(
+        Row(1, "2022-10-01"),
+        Row(2, "2022-10-02"),
+        Row(5, "2022-10-02"),
+        Row(8, "2022-11-01"),
+        Row(0, "2022-09-01"),
+        Row(1, "2022-10-01"),
+        Row(3, "2022-10-05"),
+        Row(4, "2022-10-01"),
+      )
+    )
+    val inputDf1 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns.filterNot(_.name == "ds") // remove partition column
+      ),
+      List(
+
+        Row(0),
+        Row(1),
+        Row(2),
+        Row(3),
+        Row(4)
+      )
+    )
+    val inputDf2 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns
+      ),
+      List(
+
+        Row(5, "2022-10-02"),
+        Row(6, "2022-10-09"),
+        Row(7, "2022-10-03"),
+        Row(8, "2022-11-01"),
+        Row(9, "2022-10-04")
+      )
+    )
+    tableUtils.insertPartitions(outputDf, outputTableName)
+    tableUtils.insertPartitions(inputDf1, inputTableName1, partitionColumns = Seq())
+    tableUtils.insertPartitions(inputDf2, inputTableName2)
+
+    val unfilledRanges = tableUtils.unfilledRanges(
+      outputTableName,
+      PartitionRange("2022-10-01", "2022-10-31"),
+      Some(Seq(inputTableName1, inputTableName2)),
+      // define left table, which was defined as unpartitioned above
+      joinConf = Some(Builders.Join(left = Builders.Source.events(Builders.Query(), inputTableName1))))
+
+    assertTrue(unfilledRanges.nonEmpty)
+    // with unpartitioned left table, should skip calculation of unfilled ranges and return the whole partition range
+    assertEquals(Seq(PartitionRange("2022-10-01", "2022-10-31")), unfilledRanges.get)
+  }
+
+  @Test
+  def testUnfilledRangesNoExistingOutput(): Unit = {
+    val outputTableName = "db.test_unfilled_ranges_no_existing_output_out"
+    val inputTableName1 = "db.test_unfilled_ranges_no_existing_output_in1"
+    val inputTableName2 = "db.test_unfilled_ranges_no_existing_output_in2"
+    spark.sql("CREATE DATABASE IF NOT EXISTS db")
+
+    val columns = Array(
+      StructField("int_field", IntType),
+      StructField("ds", StringType),
+    )
+    val inputDf1 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns
+      ),
+      List(
+
+        Row(0, "2022-09-01"),
+        Row(1, "2022-10-01"),
+        Row(2, "2022-10-02"),
+        Row(3, "2022-10-05"),
+        Row(4, "2022-10-01")
+      )
+    )
+    val inputDf2 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns
+      ),
+      List(
+
+        Row(5, "2022-10-02"),
+        Row(6, "2022-10-09"),
+        Row(7, "2022-10-03"),
+        Row(8, "2022-11-01"),
+        Row(9, "2022-10-04")
+      )
+    )
+    // only inserting input tables, so there is no existing output
+    tableUtils.insertPartitions(inputDf1, inputTableName1)
+    tableUtils.insertPartitions(inputDf2, inputTableName2)
+
+    val unfilledRanges = tableUtils.unfilledRanges(
+      outputTableName, PartitionRange("2022-10-01", "2022-10-31"), Some(Seq(inputTableName1, inputTableName2)))
+
+    assertTrue(unfilledRanges.nonEmpty)
+    // without partition data in output table, skip calculation of unfilled ranges and return the whole partition range
+    assertEquals(Seq(PartitionRange("2022-10-01", "2022-10-31")), unfilledRanges.get)
+  }
+
+  @Test
+  def testUnfilledRangesNoExistingOutputPartitions(): Unit = {
+    val outputTableName = "db.test_unfilled_ranges_no_existing_output_partitions_out"
+    val inputTableName1 = "db.test_unfilled_ranges_no_existing_output_partitions_in1"
+    val inputTableName2 = "db.test_unfilled_ranges_no_existing_output_partitions_in2"
+    spark.sql("CREATE DATABASE IF NOT EXISTS db")
+
+    val columns = Array(
+      StructField("int_field", IntType),
+      StructField("ds", StringType),
+    )
+    val outputDf = makeDf(
+      spark,
+      StructType(
+        outputTableName,
+        columns
+      ),
+      // empty output table, therefore there are no partitions
+      List()
+    )
+    val inputDf1 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns
+      ),
+      List(
+
+        Row(0, "2022-09-01"),
+        Row(1, "2022-10-01"),
+        Row(2, "2022-10-02"),
+        Row(3, "2022-10-05"),
+        Row(4, "2022-10-01")
+      )
+    )
+    val inputDf2 = makeDf(
+      spark,
+      StructType(
+        inputTableName1,
+        columns
+      ),
+      List(
+
+        Row(5, "2022-10-02"),
+        Row(6, "2022-10-09"),
+        Row(7, "2022-10-03"),
+        Row(8, "2022-11-01"),
+        Row(9, "2022-10-04")
+      )
+    )
+    tableUtils.insertPartitions(outputDf, outputTableName)
+    tableUtils.insertPartitions(inputDf1, inputTableName1)
+    tableUtils.insertPartitions(inputDf2, inputTableName2)
+
+    val unfilledRanges = tableUtils.unfilledRanges(
+      outputTableName, PartitionRange("2022-10-01", "2022-10-31"), Some(Seq(inputTableName1, inputTableName2)))
+
+    assertTrue(unfilledRanges.nonEmpty)
+    // without partition data in output table, skip calculation of unfilled ranges and return the whole partition range
+    assertEquals(Seq(PartitionRange("2022-10-01", "2022-10-31")), unfilledRanges.get)
+  }
 }

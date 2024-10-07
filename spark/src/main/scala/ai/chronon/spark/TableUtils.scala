@@ -16,29 +16,24 @@
 
 package ai.chronon.spark
 
-import java.io.{PrintWriter, StringWriter}
-
-import org.slf4j.LoggerFactory
 import ai.chronon.aggregator.windowing.TsUtils
 import ai.chronon.api
-import ai.chronon.api.{Constants, PartitionSpec}
 import ai.chronon.api.Extensions._
-import org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException
-import ai.chronon.spark.Extensions.{DfStats, DfWithStats}
-import jnr.ffi.annotations.Synchronized
+import ai.chronon.api.{Constants, PartitionSpec}
+import ai.chronon.spark.Extensions.DfStats
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Project}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{AnalysisException, DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
+import org.slf4j.LoggerFactory
+
+import java.io.{PrintWriter, StringWriter}
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
-import java.util.concurrent.{ExecutorService, Executors}
-
-import scala.collection.{Seq, mutable}
-import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.collection.{Seq, immutable, mutable}
 import scala.util.{Failure, Success, Try}
 
 trait BaseTableUtils {
@@ -664,6 +659,7 @@ trait BaseTableUtils {
                     ): Option[Seq[PartitionRange]] = {
     if (joinConf.map(j => !isPartitioned(j.left.table)).getOrElse(false)) {
       // If the left is unpartitioned, we fall back to just using the passed-in range.
+      logger.info("Left table is unpartitioned, falling back to the full partition range")
       return Some(Seq(outputPartitionRange))
     }
     val validPartitionRange = if (outputPartitionRange.start == null) { // determine partition range automatically
@@ -681,6 +677,12 @@ trait BaseTableUtils {
       outputPartitionRange
     }
     val outputExisting = partitions(outputTable)
+    // If there is no existing output, all partitions should be computed.
+    // Return early to avoid calculating the partitions diff unnecessarily.
+    if (outputExisting.isEmpty) {
+      logger.info("There are no existing output partitions, falling back to the full partition range")
+      return Some(Seq(validPartitionRange))
+    }
     // To avoid recomputing partitions removed by retention mechanisms we will not fill holes in the very beginning of the range
     // If a user fills a new partition in the newer end of the range, then we will never fill any partitions before that range.
     // We instead log a message saying why we won't fill the earliest hole.
