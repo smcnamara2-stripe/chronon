@@ -128,9 +128,8 @@ object GroupByUpload {
   // TODO - remove this if spark streaming can't reach hive tables
   private def buildServingInfo(groupByConf: api.GroupBy,
                                session: SparkSession,
-                               endDs: String): GroupByServingInfoParsed = {
+                               endDs: String)(implicit tableUtils: BaseTableUtils): GroupByServingInfoParsed = {
     val groupByServingInfo = new GroupByServingInfo()
-    implicit val tableUtils: TableUtils = TableUtils(session)
     val nextDay = tableUtils.partitionSpec.after(endDs)
 
     val groupBy = ai.chronon.spark.GroupBy
@@ -252,7 +251,7 @@ object GroupByUpload {
       uploadDf.prettyPrint()
     }
 
-    val groupByServingInfo = buildServingInfo(groupByConf, session = tableUtils.sparkSession, endDs).groupByServingInfo
+    val groupByServingInfo = buildServingInfo(groupByConf, session = tableUtils.sparkSession, endDs)(tableUtils).groupByServingInfo
 
     val metaRows = Seq(
       Row(
