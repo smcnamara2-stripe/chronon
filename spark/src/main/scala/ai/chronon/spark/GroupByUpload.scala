@@ -135,7 +135,7 @@ object GroupByUpload {
     val groupBy = ai.chronon.spark.GroupBy
       .from(groupByConf,
         PartitionRange(endDs, endDs),
-        TableUtils(session),
+        tableUtils,
         computeDependency = false,
         mutationScan = false)
     groupByServingInfo.setBatchEndDate(nextDay)
