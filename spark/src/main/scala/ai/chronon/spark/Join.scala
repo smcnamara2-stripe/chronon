@@ -22,6 +22,7 @@ import ai.chronon.api._
 import ai.chronon.online.SparkConversions
 import ai.chronon.spark.Extensions._
 import ai.chronon.spark.JoinUtils._
+import ai.chronon.spark.PartitionRangeQueries.genScanQuery
 import org.apache.spark.sql
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -443,80 +444,84 @@ class Join(joinConf: api.Join,
       }
     )
 
-    tableUtils
+    val unfilledRanges = tableUtils
       .unfilledRanges(bootstrapTable, range, skipFirstHole = skipFirstHole, tableToPartitionOverrideMap = bootstrapTablePartitionOverrideMap)
       .getOrElse(Seq())
-      .foreach(unfilledRange => {
-        val parts = Option(joinConf.bootstrapParts)
-          .map(_.toScala)
-          .getOrElse(Seq())
 
-        val initDf = leftDf
-          .prunePartition(unfilledRange)
-          // initialize an empty matched_hashes column for the purpose of later processing
-          .withColumn(Constants.MatchedHashes, typedLit[Array[String]](null))
+    val parts = Option(joinConf.bootstrapParts)
+      .map(_.toScala)
+      .getOrElse(Seq())
 
-        val joinedDf = parts.foldLeft(initDf) {
-          case (partialDf, part) => {
+    val initDf = leftDf
+      .prunePartitions(unfilledRanges)
+      // initialize an empty matched_hashes column for the purpose of later processing
+      .withColumn(Constants.MatchedHashes, typedLit[Array[String]](null))
 
-            logger.info(s"\nProcessing Bootstrap from table ${part.table} for range ${unfilledRange}")
+    val joinedDf = parts.foldLeft(initDf) {
+      case (partialDf, part) =>
+        logger.info(s"\nProcessing Bootstrap from table ${part.table} for ranges: $unfilledRanges")
 
-            val bootstrapRange = if (part.isSetQuery) {
-              unfilledRange.intersect(PartitionRange(part.startPartition, part.endPartition)(tableUtils))
-            } else {
-              unfilledRange
-            }
-            if (!bootstrapRange.valid) {
-              logger.info(s"partition range of bootstrap table ${part.table} is beyond unfilled range")
-              partialDf
-            } else {
-
-              val partitionColumnOverride: String = {
-                if (part.query != null && part.query.selects != null) part.query.selects.getOrDefault(Constants.PartitionColumn, Constants.PartitionColumn)
-                else Constants.PartitionColumn
-              }
-
-              var bootstrapDf = tableUtils.sql(
-                bootstrapRange.genScanQuery(part.query, part.table, Map(tableUtils.partitionColumn -> null), partitionColumnOverride)
-              )
-
-              // attach semantic_hash for either log or regular table bootstrap
-              validateReservedColumns(bootstrapDf, part.table, Seq(Constants.BootstrapHash, Constants.MatchedHashes))
-              if (bootstrapDf.columns.contains(Constants.SchemaHash)) {
-                bootstrapDf = bootstrapDf.withColumn(Constants.BootstrapHash, col(Constants.SchemaHash))
-              } else {
-                bootstrapDf = bootstrapDf.withColumn(Constants.BootstrapHash, lit(part.semanticHash))
-              }
-
-              // include only necessary columns. in particular,
-              // this excludes columns that are NOT part of Join's output (either from GB or external source)
-              val includedColumns = bootstrapDf.columns
-                .filter(bootstrapInfo.fieldNames ++ part.keys(joinConf, tableUtils.partitionColumn)
-                  ++ Seq(Constants.BootstrapHash, tableUtils.partitionColumn))
-                .sorted
-
-              bootstrapDf = bootstrapDf
-                .select(includedColumns.map(col): _*)
-                // TODO: allow customization of deduplication logic
-                .dropDuplicates(part.keys(joinConf, tableUtils.partitionColumn).toArray)
-
-              coalescedJoin(partialDf, bootstrapDf, part.keys(joinConf, tableUtils.partitionColumn).toSeq)
-              // as part of the left outer join process, we update and maintain matched_hashes for each record
-              // that summarizes whether there is a join-match for each bootstrap source.
-              // later on we use this information to decide whether we still need to re-run the backfill logic
-                .withColumn(Constants.MatchedHashes,
-                            set_add(col(Constants.MatchedHashes), col(Constants.BootstrapHash)))
-                .drop(Constants.BootstrapHash)
-            }
+        val bootstrapRanges = if (part.isSetQuery) {
+          unfilledRanges.map(_.intersect(PartitionRange(part.startPartition, part.endPartition)(tableUtils)))
+        } else {
+          unfilledRanges
+        }
+        val validBootstrapRanges = bootstrapRanges.filter(range => {
+          val valid = range.valid
+          if (!valid) {
+            logger.info(s"partition range $range of bootstrap table ${part.table} is beyond unfilled range")
           }
+          valid
+        })
+        val partitionColumnOverride: String = {
+          if (part.query != null && part.query.selects != null) part.query.selects.getOrDefault(Constants.PartitionColumn, Constants.PartitionColumn)
+          else Constants.PartitionColumn
         }
 
-        // include all external fields if not already bootstrapped
-        val enrichedDf = padExternalFields(joinedDf, bootstrapInfo)
+        var bootstrapDf = tableUtils.sql(
+          genScanQuery(
+            part.query,
+            part.table,
+            Map(tableUtils.partitionColumn -> null),
+            partitionColumnOverride,
+            validBootstrapRanges,
+            tableUtils.isLocalized(part.table))
+        )
 
-        // set autoExpand = true since log table could be a bootstrap part
-        enrichedDf.saveWithTableUtils(tableUtils, bootstrapTable, tableProps, autoExpand = true)
-      })
+        // attach semantic_hash for either log or regular table bootstrap
+        validateReservedColumns(bootstrapDf, part.table, Seq(Constants.BootstrapHash, Constants.MatchedHashes))
+        if (bootstrapDf.columns.contains(Constants.SchemaHash)) {
+          bootstrapDf = bootstrapDf.withColumn(Constants.BootstrapHash, col(Constants.SchemaHash))
+        } else {
+          bootstrapDf = bootstrapDf.withColumn(Constants.BootstrapHash, lit(part.semanticHash))
+        }
+
+        // include only necessary columns. in particular,
+        // this excludes columns that are NOT part of Join's output (either from GB or external source)
+        val includedColumns = bootstrapDf.columns
+          .filter(bootstrapInfo.fieldNames ++ part.keys(joinConf, tableUtils.partitionColumn)
+            ++ Seq(Constants.BootstrapHash, tableUtils.partitionColumn))
+          .sorted
+
+        bootstrapDf = bootstrapDf
+          .select(includedColumns.map(col): _*)
+          // TODO: allow customization of deduplication logic
+          .dropDuplicates(part.keys(joinConf, tableUtils.partitionColumn).toArray)
+
+        coalescedJoin(partialDf, bootstrapDf, part.keys(joinConf, tableUtils.partitionColumn).toSeq)
+        // as part of the left outer join process, we update and maintain matched_hashes for each record
+        // that summarizes whether there is a join-match for each bootstrap source.
+        // later on we use this information to decide whether we still need to re-run the backfill logic
+          .withColumn(Constants.MatchedHashes,
+                      set_add(col(Constants.MatchedHashes), col(Constants.BootstrapHash)))
+          .drop(Constants.BootstrapHash)
+    }
+
+    // include all external fields if not already bootstrapped
+    val enrichedDf = padExternalFields(joinedDf, bootstrapInfo)
+
+    // set autoExpand = true since log table could be a bootstrap part
+    enrichedDf.saveWithTableUtils(tableUtils, bootstrapTable, tableProps, autoExpand = true)
 
     val elapsedMins = (System.currentTimeMillis() - startMillis) / (60 * 1000)
     logger.info(s"Finished computing bootstrap table ${joinConf.metaData.bootstrapTable} in ${elapsedMins} minutes")

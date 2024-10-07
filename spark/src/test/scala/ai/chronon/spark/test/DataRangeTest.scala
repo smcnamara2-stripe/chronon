@@ -19,8 +19,8 @@ package ai.chronon.spark.test
 import ai.chronon.aggregator.test.Column
 import ai.chronon.api
 import ai.chronon.api.{Builders, Constants, QueryUtils, Source}
-import ai.chronon.api.Builders.Query
 import ai.chronon.spark.Extensions._
+import ai.chronon.spark.PartitionRangeQueries.generateWhereClauses
 import ai.chronon.spark.{PartitionRange, SparkSessionBuilder, TableUtils}
 import org.apache.spark.sql.SparkSession
 import org.junit.Assert.assertEquals
@@ -69,7 +69,6 @@ class DataRangeTest {
         |  (ds >= '2024-03-01') AND (ds <= '2024-04-01') AND (col_1 = 'TEST')"""
     assertEquals(expected.stripMargin, result.stripMargin)
   }
-
 
   @Test
   def testGenScanQueryBasedOnTime(): Unit = {
@@ -148,5 +147,54 @@ class DataRangeTest {
     val clauses = range.whereClauses("ds")
 
     assertEquals(Seq("ds >= '2023-01-01'"), clauses)
+  }
+
+  @Test
+  def testPartitionRangeSeqGenerateWhereClausesEmpty(): Unit = {
+    val partitionRanges = Seq.empty[PartitionRange]
+
+    val whereClauses = generateWhereClauses(partitionRanges, tableUtils.partitionColumn)
+
+    assertEquals(None, whereClauses)
+  }
+
+  @Test
+  def testPartitionRangeSeqGenerateWhereClausesSingle(): Unit = {
+    val partitionRanges = Seq(PartitionRange("2024-01-07", "2024-01-08")(tableUtils))
+
+    val whereClauses = generateWhereClauses(partitionRanges, tableUtils.partitionColumn)
+
+    assertEquals(Some("ds >= '2024-01-07' AND ds <= '2024-01-08'"), whereClauses)
+  }
+
+  @Test
+  def testPartitionRangeSeqGenerateWhereClausesSingleNullStart(): Unit = {
+    val partitionRanges = Seq(PartitionRange(null, "2024-01-05")(tableUtils))
+
+    val whereClauses = generateWhereClauses(partitionRanges, tableUtils.partitionColumn)
+
+    assertEquals(Some("ds <= '2024-01-05'"), whereClauses)
+  }
+
+  @Test
+  def testPartitionRangeSeqGenerateWhereClausesSingleNullEnd(): Unit = {
+    val partitionRanges = Seq(PartitionRange("2024-01-15", null)(tableUtils))
+
+    val whereClauses = generateWhereClauses(partitionRanges, tableUtils.partitionColumn)
+
+    assertEquals(Some("ds >= '2024-01-15'"), whereClauses)
+  }
+
+  @Test
+  def testPartitionRangeSeqGenerateWhereClausesMultiple(): Unit = {
+    val partitionRanges = Seq(
+      PartitionRange(null, "2024-01-05")(tableUtils),
+      PartitionRange("2024-01-07", "2024-01-08")(tableUtils),
+      PartitionRange("2024-01-10", "2024-01-12")(tableUtils),
+      PartitionRange("2024-01-15", null)(tableUtils))
+
+    val whereClauses = generateWhereClauses(partitionRanges, tableUtils.partitionColumn)
+
+    assertEquals(Some("((ds <= '2024-01-05') OR (ds >= '2024-01-07' AND ds <= '2024-01-08') OR (ds >= '2024-01-10' AND ds <= '2024-01-12') OR (ds >= '2024-01-15'))"), whereClauses)
   }
 }

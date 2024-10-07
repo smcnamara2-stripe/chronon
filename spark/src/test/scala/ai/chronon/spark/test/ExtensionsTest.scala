@@ -76,6 +76,63 @@ class ExtensionsTest {
   }
 
   @Test
+  def testPruneMultiplePartitionsTest(): Unit = {
+    val df = Seq(
+      (1, "2024-01-03"),
+      (2, "2024-01-04"),
+      (3, "2024-01-04"),
+      (4, "2024-01-05"),
+      (5, "2024-01-05"),
+      (6, "2024-01-06"),
+      (7, "2024-01-07"),
+      (8, "2024-01-08"),
+      (9, "2024-01-08"),
+      (10, "2024-01-09"),
+    ).toDF("key", "ds")
+
+    val prunedDf = df.prunePartitions(Seq(PartitionRange("2024-01-04", "2024-01-05"), PartitionRange("2024-01-07", "2024-01-08")))
+
+    val expectedDf = Seq(
+      (2, "2024-01-04"),
+      (3, "2024-01-04"),
+      (4, "2024-01-05"),
+      (5, "2024-01-05"),
+      (7, "2024-01-07"),
+      (8, "2024-01-08"),
+      (9, "2024-01-08"),
+    ).toDF("key", "ds")
+    val diff = Comparison.sideBySide(expectedDf, prunedDf, List("key"))
+    if (diff.count() != 0) {
+      diff.show()
+    }
+    assertEquals(0, diff.count())
+  }
+
+  @Test
+  def testPruneNoPartitionTest(): Unit = {
+    val df = Seq(
+      (1, "2024-01-03"),
+      (2, "2024-01-04"),
+      (3, "2024-01-04"),
+      (4, "2024-01-05"),
+      (5, "2024-01-05"),
+      (6, "2024-01-06"),
+      (7, "2024-01-07"),
+      (8, "2024-01-08"),
+      (9, "2024-01-08"),
+      (10, "2024-01-09"),
+    ).toDF("key", "ds")
+
+    val prunedDf = df.prunePartitions(Seq())
+
+    val diff = Comparison.sideBySide(df, prunedDf, List("key"))
+    if (diff.count() != 0) {
+      diff.show()
+    }
+    assertEquals(0, diff.count())
+  }
+
+  @Test
   def testRenameRightColumnsForJoin(): Unit = {
     val schema = new StructType(Array(
       StructField("key1", IntegerType),
@@ -108,4 +165,5 @@ class ExtensionsTest {
     ))
     assertEquals(compareDfSchemas(renamedDf.schema, expectedSchema), Seq())
   }
+
 }

@@ -20,6 +20,7 @@ import ai.chronon.api
 import ai.chronon.api.Extensions.JoinPartOps
 import ai.chronon.api.{Constants, JoinPart}
 import ai.chronon.online.{AvroCodec, AvroConversions, SparkConversions}
+import ai.chronon.spark.PartitionRangeQueries.generateWhereClauses
 import org.apache.avro.Schema
 import org.apache.spark.sql
 import org.apache.spark.sql.catalyst.InternalRow
@@ -111,9 +112,19 @@ object Extensions {
     }
 
     def prunePartition(partitionRange: PartitionRange): DataFrame = {
-      val pruneFilter = partitionRange.whereClauses().mkString(" AND ")
-      logger.info(s"Pruning using $pruneFilter")
-      df.filter(pruneFilter)
+      prunePartitions(Seq(partitionRange))
+    }
+
+    def prunePartitions(partitionRanges: Seq[PartitionRange]): DataFrame = {
+      val pruneFilters = generateWhereClauses(partitionRanges, tableUtils.partitionColumn)
+      pruneFilters match {
+        case Some(filters) =>
+          logger.info(s"Pruning using $pruneFilters")
+          df.filter(filters)
+        case None =>
+          logger.info(s"Attempted to prune dataframe partitions, but no partitions where specified")
+          df
+      }
     }
 
     def partitionRange: PartitionRange = {

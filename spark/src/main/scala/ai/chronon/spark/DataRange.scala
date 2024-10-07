@@ -180,3 +180,37 @@ case class PartitionRange(start: String, end: String)(implicit tableUtils: BaseT
   }
   override def toString(): String = s"[$start...$end]"
 }
+
+object PartitionRangeQueries {
+
+  def generateWhereClauses(partitionRanges: Seq[PartitionRange], partitionColumn: String): Option[String] = {
+    val whereClauses = partitionRanges.map(_.whereClauses(partitionColumn).mkString(" AND "))
+    whereClauses match {
+      case Seq(whereClause) => Some(whereClause)
+      case Seq(_, _, _*) =>
+        val clauses = whereClauses.map(whereClause => s"($whereClause)").mkString(" OR ")
+        Some(s"($clauses)")
+      case _ => None
+    }
+  }
+
+  def genScanQuery(query: Query,
+                   table: String,
+                   fillIfAbsent: Map[String, String] = Map.empty,
+                   partitionColumn: String,
+                   partitionRanges: Seq[PartitionRange],
+                   isLocalized: Boolean): String = {
+    val queryOpt = Option(query)
+    val partitionWheres = generateWhereClauses(partitionRanges, partitionColumn).map(Seq(_)).getOrElse(Seq())
+    val queryWheres = queryOpt
+      .flatMap(q => Option(q.wheres).map(_.asScala))
+      .getOrElse(Seq.empty[String])
+    QueryUtils.build(
+      selects = queryOpt.map(_.getQuerySelects).orNull,
+      from = table,
+      wheres = partitionWheres ++ queryWheres,
+      isLocalized = isLocalized,
+      fillIfAbsent = fillIfAbsent)
+  }
+
+}
