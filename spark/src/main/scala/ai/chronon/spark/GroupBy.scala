@@ -456,7 +456,6 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
           headStartsArray.indices.map { i => (keys, headStartsArray(i)) -> headStartIrs(i) }
       }(Encoders.tuple(keyLongEnc, Encoders.kryo))
 
-
     // this can be fused into hop generation
     val inputKeyGen = FastHashing.generateKeyBuilder(keyColumns.toArray, inputDf.schema)
     val minHeadStart = headStart(minQueryTs)
@@ -469,7 +468,7 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
         ).as("_1")
       )
       .agg(collect_list(struct("*")).as("_2"))
-      .as[((Row, Long), Seq[Row])](Encoders.tuple(keyLongEnc, implicitly[Encoder[Seq[Row]]]))
+      .as[((Row, Long), Seq[Row])](Encoders.tuple(keyLongEnc, Encoders.kryo))
 
     // three-way join
     // queries by headStart, events by headStart, IR values as of headStart.
