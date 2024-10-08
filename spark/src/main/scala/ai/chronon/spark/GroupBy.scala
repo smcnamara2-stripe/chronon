@@ -459,7 +459,7 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     // this can be fused into hop generation
     val inputKeyGen = FastHashing.generateKeyBuilder(keyColumns.toArray, inputDf.schema)
     val minHeadStart = headStart(minQueryTs)
-    val eventsByHeadStart = inputDf
+    val eventsByHeadStartDF = inputDf
       .filter(s"${Constants.TimeColumn} between $minHeadStart and $maxQueryTs")
       .groupBy(
         struct(
@@ -467,8 +467,16 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
           headStartUdf(col(Constants.TimeColumn)).as("_2")
         ).as("_1")
       )
-      .agg(collect_list(struct("*")).as("_2"))
-      .as[((Row, Long), Seq[Row])](Encoders.tuple(keyLongEnc, Encoders.kryo))
+      .agg(collect_list(struct("*")).as("rows"))
+      .select(
+        col("_1"),
+        struct(col("rows")).as("_2")
+      )
+
+    val rowSeqEnc = eventsByHeadStartDF.select("_2").encoder
+
+      val eventsByHeadStart = eventsByHeadStartDF
+      .as[((Row, Long), Row)](Encoders.tuple(keyLongEnc, rowSeqEnc))
 
     // three-way join
     // queries by headStart, events by headStart, IR values as of headStart.
@@ -479,12 +487,16 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
           (keys, headStart) -> (queriesWithPartition, headStartIr)
       }
 
+    sparkSession.implicits.newProductSeqEncoder
     val outputRdd = firstJoin
       .joinWith(eventsByHeadStart, firstJoin("_1") === eventsByHeadStart("_1"), "left_outer")
       .flatMap {
         case (((keys, headStart), (queriesWithPartition, headStartIr)), (_, events)) =>
           val inputsIt: Iterator[RowWrapper] = {
-            Option(events).map(_.map(SparkConversions.toChrononRow(_, tsIndex)).iterator).orNull
+            Option(events).map { r =>
+              val rows = r.getAs[Seq[Row]]("rows")
+              rows.map(SparkConversions.toChrononRow(_, tsIndex)).iterator
+            }.orNull
           }
           val queries = queriesWithPartition.map { TimeTuple.getTs }
           val irs = sawtoothAggregator.cumulate(inputsIt, queries, headStartIr)
