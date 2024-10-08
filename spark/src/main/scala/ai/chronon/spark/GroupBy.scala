@@ -18,6 +18,7 @@ package ai.chronon.spark
 
 import ai.chronon.aggregator.base.TimeTuple
 import ai.chronon.aggregator.row.RowAggregator
+import ai.chronon.aggregator.windowing.HopsAggregator.{IrMapType, OutputArrayType}
 import ai.chronon.aggregator.windowing._
 import ai.chronon.api
 import ai.chronon.api.DataModel.{Entities, Events}
@@ -26,9 +27,11 @@ import ai.chronon.api.{Accuracy, Constants, DataModel, ParametricMacro, Partitio
 import ai.chronon.online.{RowWrapper, SparkConversions}
 import ai.chronon.spark.Extensions._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Encoders, KeyValueGroupedDataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Encoders, KeyValueGroupedDataset, Row, SparkSession}
 import org.apache.spark.util.sketch.BloomFilter
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -164,9 +167,9 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
           irs.indices.flatMap { i =>
             val result = normalizeOrFinalize(irs(i))
             if (result.forall(_ == null)) None
-            else Some((keys.data :+ tableUtils.partitionSpec.at(endTimes(i)), result))
+            else Some((keys.toSeq.toArray :+ tableUtils.partitionSpec.at(endTimes(i)), result))
           }
-      }
+      }(Encoders.tuple(Encoders.kryo, Encoders.kryo)).rdd
   }
 
   // Calculate snapshot accurate windows for ALL keys at pre-defined "endTimes"
@@ -378,8 +381,10 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
       .map { queriesUnfilteredDf.filter }
       .getOrElse(queriesUnfilteredDf.removeNulls(keyColumns))
 
+    import sparkSession.implicits._
+
     val TimeRange(minQueryTs, maxQueryTs) = queryTimeRange.getOrElse(queriesDf.timeRange(tableUtils))
-    val hopsRdd = hopsAggregate(minQueryTs, resolution)
+    val hops = hopsAggregate(minQueryTs, resolution)
 
     def headStart(ts: Long): Long = TsUtils.round(ts, resolution.hopSizes.min)
     queriesDf.validateJoinKeys(inputDf, keyColumns)
@@ -390,65 +395,118 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     assert(queryTsType == LongType, s"ts column needs to be long type, but found $queryTsType")
     val partitionIndex = queriesDf.schema.fieldIndex(tableUtils.partitionColumn)
 
+    val headStartUdf = udf((ts: Long) => headStart(ts))
+    val keyLongEnc: Encoder[(Row, Long)] = Encoders.tuple(keysEncoder, implicitly[Encoder[Long]])
+
     // group the data to collect all the timestamps by key and headStart
     // key, headStart -> timestamps in [headStart, nextHeadStart)
     // nextHeadStart = headStart + minHopSize
-    val queriesByHeadStarts = queriesDf.rdd
-      .map { row =>
-        val tsVal = row.get(queryTsIndex)
-        assert(tsVal != null, "ts column cannot be null in left source or query df")
-        val ts = tsVal.asInstanceOf[Long]
-        val partition = row.getString(partitionIndex)
-        ((queriesKeyGen(row), headStart(ts)), TimeTuple.make(ts, partition))
-      }
-      .groupByKey()
-      .mapValues { _.toArray.uniqSort(TimeTuple) }
+    val queriesByHeadStarts = queriesDf
+      .groupBy(
+        struct(
+          struct(keyColumns.map(col): _*).as("_1"),
+          headStartUdf(col(Constants.TimeColumn)).as("_2")
+        ).as("_1")
+      ).agg(
+        collect_list(
+          struct(
+            col(Constants.TimeColumn).as("_1"),
+            col(tableUtils.partitionColumn).as("_2")
+          )
+        ).as("_2")
+      ).as[((Row, Long), Seq[(Long, String)])](
+        Encoders.tuple(
+          keyLongEnc,
+          implicitly[Encoder[Seq[(Long, String)]]]
+        )
+      ).map {
+        case (keys, tuples) =>
+          val sorted = tuples.map { case (ts, partition) => TimeTuple.make(ts, partition) }.toArray.uniqSort(TimeTuple)
+
+          (keys, sorted)
+      }(
+        Encoders.tuple(
+          Encoders.tuple(keysEncoder, implicitly[Encoder[Long]]),
+          Encoders.kryo
+        )
+      )
+
     // uniqSort to produce one row per key
     // otherwise the mega-join will produce square number of rows.
 
     val sawtoothAggregator =
       new SawtoothAggregator(aggregations, selectedSchema, resolution)
 
-    // create the IRs up to minHop accuracy
-    val headStartsWithIrs = queriesByHeadStarts.keys
-      .groupByKey()
-      .leftOuterJoin(hopsRdd)
+    val headStarts: Dataset[(Row, Seq[Long])] = queriesDf
+      .groupBy(
+        struct(
+          keyColumns.map(col): _*).as("_1")
+      )
+      .agg(
+        collect_list(headStartUdf(col(Constants.TimeColumn))).as("_2")
+      ).as[(Row, Seq[Long])](Encoders.tuple(keysEncoder, sparkSession.implicits.newLongSeqEncoder))
+
+    val headStartsWithIrs = headStarts
+      .joinWith(hops, headStarts("_1") === hops("_1"), "left_outer")
       .flatMap {
-        case (keys, (headStarts, hopsOpt)) =>
-          val headStartsArray = headStarts.toArray
+        case ((keys, hs), (_, hop)) =>
+          val headStartsArray = hs.toArray
           util.Arrays.sort(headStartsArray)
-          val headStartIrs = sawtoothAggregator.computeWindows(hopsOpt.orNull, headStartsArray)
+          val headStartIrs = sawtoothAggregator.computeWindows(hop, headStartsArray)
           headStartsArray.indices.map { i => (keys, headStartsArray(i)) -> headStartIrs(i) }
-      }
+      }(Encoders.tuple(keyLongEnc, Encoders.kryo))
+
 
     // this can be fused into hop generation
     val inputKeyGen = FastHashing.generateKeyBuilder(keyColumns.toArray, inputDf.schema)
     val minHeadStart = headStart(minQueryTs)
     val eventsByHeadStart = inputDf
       .filter(s"${Constants.TimeColumn} between $minHeadStart and $maxQueryTs")
-      .rdd
-      .groupBy { (row: Row) => inputKeyGen(row) -> headStart(row.getLong(tsIndex)) }
+      .groupBy(
+        struct(
+          struct(keyColumns.map(col): _*).as("_1"),
+          headStartUdf(col(Constants.TimeColumn)).as("_2")
+        ).as("_1")
+      )
+      .agg(collect_list(struct("*")).as("_2"))
+      .as[((Row, Long), Seq[Row])](Encoders.tuple(keyLongEnc, implicitly[Encoder[Seq[Row]]]))
 
     // three-way join
     // queries by headStart, events by headStart, IR values as of headStart.
-    val outputRdd = queriesByHeadStarts
-      .leftOuterJoin(headStartsWithIrs)
-      .leftOuterJoin(eventsByHeadStart)
-      .flatMap {
-        case ((keys: KeyWithHash, _: Long),
-              ((queriesWithPartition: Array[TimeTuple.typ], headStartIrOpt: Option[Array[Any]]),
-               eventsOpt: Option[Iterable[Row]])) =>
-          val inputsIt: Iterator[RowWrapper] = {
-            eventsOpt.map(_.map(SparkConversions.toChrononRow(_, tsIndex)).iterator).orNull
-          }
-          val queries = queriesWithPartition.map { TimeTuple.getTs }
-          val irs = sawtoothAggregator.cumulate(inputsIt, queries, headStartIrOpt.orNull)
-          queries.indices.map { i =>
-            (keys.data ++ queriesWithPartition(i).toArray, normalizeOrFinalize(irs(i)))
-          }
+    val firstJoin = queriesByHeadStarts
+      .joinWith(headStartsWithIrs, queriesByHeadStarts("_1") === headStartsWithIrs("_1"), "left_outer")
+      .map {
+        case (((keys, headStart), queriesWithPartition), (_, headStartIr)) =>
+          (keys, headStart) -> (queriesWithPartition, headStartIr)
       }
 
+    val outputRdd = firstJoin
+      .joinWith(eventsByHeadStart, firstJoin("_1") === eventsByHeadStart("_1"), "left_outer")
+      .flatMap {
+        case (((keys, headStart), (queriesWithPartition, headStartIr)), (_, events)) =>
+          val inputsIt: Iterator[RowWrapper] = {
+            Option(events).map(_.map(SparkConversions.toChrononRow(_, tsIndex)).iterator).orNull
+          }
+          val queries = queriesWithPartition.map { TimeTuple.getTs }
+          val irs = sawtoothAggregator.cumulate(inputsIt, queries, headStartIr)
+          queries.indices.map { i =>
+            (keys.toSeq.toArray ++ queriesWithPartition(i).toArray, normalizeOrFinalize(irs(i)))
+          }
+      }.rdd
+
     toDf(outputRdd, Seq(Constants.TimeColumn -> LongType, tableUtils.partitionColumn -> StringType))
+  }
+
+  def keysEncoder: Encoder[Row] = {
+    val keysFields = StructType(keyColumns.map { colName =>
+      keySchema(colName)
+    })
+
+    // Create a StructType from fields
+    val keysStructType: StructType = StructType(keysFields)
+
+    // Create a RowEncoder using the StructType
+    RowEncoder(keysStructType)
   }
 
   // convert raw data into IRs, collected by hopSizes
@@ -456,20 +514,39 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
   // Class HopsCacher(keySchema, irSchema, resolution) extends RddCacher[(KeyWithHash, HopsOutput)]
   //  buildTableRow((keyWithHash, hopsOutput)) -> GenericRowWithSchema
   //  buildRddRow(GenericRowWithSchema) -> (keyWithHash, hopsOutput)
-  def hopsAggregate(minQueryTs: Long, resolution: Resolution): RDD[(KeyWithHash, HopsAggregator.OutputArrayType)] = {
+  def hopsAggregate(minQueryTs: Long, resolution: Resolution): Dataset[(Row, OutputArrayType)] = {
     val hopsAggregator =
       new HopsAggregator(minQueryTs, aggregations, selectedSchema, resolution)
     val keyBuilder: Row => KeyWithHash =
       FastHashing.generateKeyBuilder(keyColumns.toArray, inputDf.schema)
 
-    inputDf.rdd
-      .keyBy(keyBuilder)
-      .mapValues(SparkConversions.toChrononRow(_, tsIndex))
-      .aggregateByKey(zeroValue = hopsAggregator.init())(
-        seqOp = hopsAggregator.update,
-        combOp = hopsAggregator.merge
-      )
-      .mapValues { hopsAggregator.toTimeSortedArray }
+    val oEnc: Encoder[OutputArrayType] = Encoders.kryo
+
+    object Agg extends Aggregator[Row, IrMapType, OutputArrayType] {
+
+      override def zero: IrMapType = hopsAggregator.init()
+
+      override def reduce(b: IrMapType, a: Row): IrMapType =
+        hopsAggregator.update(b, SparkConversions.toChrononRow(a, tsIndex))
+
+      override def merge(b1: IrMapType, b2: IrMapType): IrMapType =
+        hopsAggregator.merge(b1, b2)
+
+      override def finish(reduction: IrMapType): OutputArrayType =
+        hopsAggregator.toTimeSortedArray(reduction)
+
+      override def bufferEncoder: Encoder[IrMapType] = Encoders.kryo
+
+      override def outputEncoder: Encoder[OutputArrayType] = oEnc
+    }
+
+    inputDf
+      .groupBy(keyColumns.map(col): _*)
+      .agg(Agg.toColumn.as("hops_agg"))
+      .select(
+        struct(keyColumns.map(col): _*).as("_1"),
+        col("hops_agg").as("_2")
+      ).as[(Row, OutputArrayType)](Encoders.tuple(keysEncoder, oEnc))
   }
 
   protected[spark] def toDf(aggregateRdd: RDD[(Array[Any], Array[Any])],
