@@ -449,10 +449,10 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     val headStartsWithIrs = headStarts
       .joinWith(hops, headStarts("_1") === hops("_1"), "left_outer")
       .flatMap {
-        case ((keys, hs), (_, hop)) =>
+        case ((keys, hs), hopResult) =>
           val headStartsArray = hs.toArray
           util.Arrays.sort(headStartsArray)
-          val headStartIrs = sawtoothAggregator.computeWindows(hop, headStartsArray)
+          val headStartIrs = sawtoothAggregator.computeWindows(Option(hopResult).map(_._2).orNull, headStartsArray)
           headStartsArray.indices.map { i => (keys, headStartsArray(i)) -> headStartIrs(i) }
       }(Encoders.tuple(keyLongEnc, Encoders.kryo))
 
@@ -473,28 +473,32 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
         struct(col("rows")).as("_2")
       )
 
-    val rowSeqEnc = eventsByHeadStartDF.select("_2").encoder
+    val rowsEnc = eventsByHeadStartDF.select("_2.*").encoder
 
       val eventsByHeadStart = eventsByHeadStartDF
-      .as[((Row, Long), Row)](Encoders.tuple(keyLongEnc, rowSeqEnc))
+      .as[((Row, Long), Row)](Encoders.tuple(keyLongEnc, rowsEnc))
 
     // three-way join
     // queries by headStart, events by headStart, IR values as of headStart.
     val firstJoin = queriesByHeadStarts
       .joinWith(headStartsWithIrs, queriesByHeadStarts("_1") === headStartsWithIrs("_1"), "left_outer")
       .map {
-        case (((keys, headStart), queriesWithPartition), (_, headStartIr)) =>
-          (keys, headStart) -> (queriesWithPartition, headStartIr)
-      }
+        case (((keys, headStart), queriesWithPartition), hsResult) =>
+          (keys, headStart) -> (queriesWithPartition, Option(hsResult).map(_._2).orNull)
+      }(Encoders.tuple(
+        Encoders.tuple(keysEncoder, implicitly[Encoder[Long]]),
+        Encoders.tuple(Encoders.kryo, Encoders.kryo)
+      ))
 
     sparkSession.implicits.newProductSeqEncoder
     val outputRdd = firstJoin
       .joinWith(eventsByHeadStart, firstJoin("_1") === eventsByHeadStart("_1"), "left_outer")
+      .rdd
       .flatMap {
-        case (((keys, headStart), (queriesWithPartition, headStartIr)), (_, events)) =>
+        case (((keys, headStart), (queriesWithPartition, headStartIr)), eventsResult) =>
           val inputsIt: Iterator[RowWrapper] = {
-            Option(events).map { r =>
-              val rows = r.getAs[Seq[Row]]("rows")
+            Option(eventsResult).map { r =>
+              val rows = r._2.getAs[Seq[Row]]("rows")
               rows.map(SparkConversions.toChrononRow(_, tsIndex)).iterator
             }.orNull
           }
@@ -503,7 +507,7 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
           queries.indices.map { i =>
             (keys.toSeq.toArray ++ queriesWithPartition(i).toArray, normalizeOrFinalize(irs(i)))
           }
-      }.rdd
+      }
 
     toDf(outputRdd, Seq(Constants.TimeColumn -> LongType, tableUtils.partitionColumn -> StringType))
   }
