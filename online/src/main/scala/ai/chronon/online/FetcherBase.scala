@@ -610,9 +610,7 @@ class FetcherBase(kvStore: KVStore,
       // prefix feature names
       .recover { // capture exception as a key
         case ex: Throwable =>
-          if (debug || Math.random() < 0.001) {
-            logger.error(s"Failed to fetch $groupByRequest with \n${ex.traceString}")
-          }
+          logger.error(s"Failed to fetch $groupByRequest", ex)
           Map(groupByRequest.name + "_exception" -> ex.traceString)
       }
       .get
@@ -671,9 +669,7 @@ class FetcherBase(kvStore: KVStore,
             }
             .recoverWith { // capture exception as a key
               case ex: Throwable =>
-                if (debug || Math.random() < 0.001) {
-                  logger.error(s"Failed to fetch $request", ex)
-                }
+                logger.error(s"Failed to fetch $request", ex)
                 Failure(ex)
             }
           val response = Response(request, results)
