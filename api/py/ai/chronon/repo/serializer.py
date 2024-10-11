@@ -88,10 +88,10 @@ def thrift_json(obj):
     return TSerialization.serialize(obj, protocol_factory=TJSONProtocolFactory())
 
 
-def thrift_simple_json(obj):
+def thrift_simple_json(obj, indent_level=2):
     simple = TSerialization.serialize(obj, protocol_factory=TSimpleJSONProtocolFactory())
     parsed = json.loads(simple)
-    return json.dumps(parsed, indent=2)
+    return json.dumps(parsed, indent=indent_level)
 
 
 def thrift_simple_json_protected(obj, obj_type) -> str:
