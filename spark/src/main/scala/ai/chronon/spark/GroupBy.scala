@@ -440,10 +440,11 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     val headStarts: Dataset[(Row, Seq[Long])] = queriesDf
       .groupBy(
         struct(
-          keyColumns.map(col): _*).as("_1")
+          keyColumns.map(col): _*
+        ).as("_1")
       )
       .agg(
-        collect_list(headStartUdf(col(Constants.TimeColumn))).as("_2")
+        collect_set(headStartUdf(col(Constants.TimeColumn))).as("_2")
       ).as[(Row, Seq[Long])](Encoders.tuple(keysEncoder, sparkSession.implicits.newLongSeqEncoder))
 
     val headStartsWithIrs = headStarts
@@ -481,18 +482,17 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     // three-way join
     // queries by headStart, events by headStart, IR values as of headStart.
     val firstJoin = queriesByHeadStarts
-      .joinWith(headStartsWithIrs, queriesByHeadStarts("_1") === headStartsWithIrs("_1"), "left_outer")
-      .map {
-        case (((keys, headStart), queriesWithPartition), hsResult) =>
-          (keys, headStart) -> (queriesWithPartition, Option(hsResult).map(_._2).orNull)
-      }(Encoders.tuple(
+      .joinWith(headStartsWithIrs, queriesByHeadStarts("_1") <=> headStartsWithIrs("_1"), "left_outer")
+      .select(col("_1._1").as("_1"), struct(col("_1._2").as("_1"), col("_2._2").as("_2")).as("_2"))
+      .as[((Row, Long), (Array[util.ArrayList[Any]], Array[Any]))](Encoders.tuple(
         Encoders.tuple(keysEncoder, implicitly[Encoder[Long]]),
         Encoders.tuple(Encoders.kryo, Encoders.kryo)
       ))
 
     sparkSession.implicits.newProductSeqEncoder
-    val outputRdd = firstJoin
-      .joinWith(eventsByHeadStart, firstJoin("_1") === eventsByHeadStart("_1"), "left_outer")
+    val finalJoin = firstJoin
+      .joinWith(eventsByHeadStart, firstJoin("_1") <=> eventsByHeadStart("_1"), "left_outer")
+    val outputRdd = finalJoin
       .rdd
       .flatMap {
         case (((keys, headStart), (queriesWithPartition, headStartIr)), eventsResult) =>
