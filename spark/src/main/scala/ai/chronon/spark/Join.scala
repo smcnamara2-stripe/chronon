@@ -203,7 +203,7 @@ class Join(joinConf: api.Join,
 
     // compute bootstrap table - a left outer join between left source and various bootstrap source table
     // this becomes the "new" left for the following GB backfills
-    val bootstrapDf = computeBootstrapTable(leftTaggedDf, leftRange, bootstrapInfo)
+    val BootstrapResult(bootstrapDf, externalBootstraps) = computeBootstrapTable(leftTaggedDf, leftRange, bootstrapInfo)
 
     val bootStrapWithStats = bootstrapDf.withStats(tableUtils)
 
@@ -307,7 +307,16 @@ class Join(joinConf: api.Join,
       .get
 
     if (joinedDfTry.isFailure) throw joinedDfTry.failed.get
-    val joinedDf = joinedDfTry.get
+    val joinedRightPartsDf = joinedDfTry.get
+    val joinedDf = if (externalBootstraps.isEmpty) {
+      joinedRightPartsDf
+    } else {
+      logger.info(s"Processing bootstraps for external parts")
+      val joinedExternalPartsDf = externalBootstraps.foldLeft(joinedRightPartsDf) {
+        case(df, bootstrap) => coalescedJoin(df, bootstrap._1, bootstrap._2)
+      }
+      padExternalFields(joinedExternalPartsDf, bootstrapInfo)
+    }
     val outputColumns = joinedDf.columns.filter(bootstrapInfo.fieldNames ++ bootstrapDf.columns)
     val finalBaseDf = padGroupByFields(joinedDf.selectExpr(outputColumns.map(c => s"`$c`"): _*), bootstrapInfo)
     val finalDf = cleanUpContextualFields(applyDerivation(finalBaseDf, bootstrapInfo, leftDf.columns),
@@ -404,6 +413,18 @@ class Join(joinConf: api.Join,
     }
   }
 
+  /**
+   * Result of computing a bootstrap table to be used during backfill.
+   * If spark.chronon.join.bootstrap.splitExternalParts is enabled, bootstraps that exclusively handle external
+   * parts are returned separately in externalBootstrapJoins. External part data is not required for processing
+   * right-part joins, so this option allows joining these bootstraps afterward to reduce the amount of data that
+   * is carried around through each of the joins.
+   * @param rightPartsBootstrapDf dataframe with bootstrapped values to be used during right-part joins
+   * @param externalBootstrapJoins tuples of (dataframe, joinKeys) to be joined after right-part joins
+   */
+  private case class BootstrapResult(rightPartsBootstrapDf: DataFrame,
+                                     externalBootstrapJoins: Seq[(DataFrame, Seq[String])])
+
   /*
    * The purpose of Bootstrap is to leverage input tables which contain pre-computed values, such that we can
    * skip the computation for these record during the join-part computation step.
@@ -413,7 +434,7 @@ class Join(joinConf: api.Join,
    */
   private def computeBootstrapTable(leftDf: DataFrame,
                                     range: PartitionRange,
-                                    bootstrapInfo: BootstrapInfo): DataFrame = {
+                                    bootstrapInfo: BootstrapInfo): BootstrapResult = {
 
     // For consistency comparison join, we also need to materialize the left table as bootstrap table in order to
     // make random OOC sampling deterministic.
@@ -421,7 +442,7 @@ class Join(joinConf: api.Join,
       joinConf.metaData.isSetTableProperties && joinConf.metaData.tableProperties.containsKey(Constants.ChrononOOCTable)
 
     if (!joinConf.isSetBootstrapParts && !isConsistencyJoin) {
-      return padExternalFields(leftDf, bootstrapInfo)
+      return BootstrapResult(padExternalFields(leftDf, bootstrapInfo), Seq())
     }
 
     def validateReservedColumns(df: DataFrame, table: String, columns: Seq[String]): Unit = {
@@ -457,8 +478,8 @@ class Join(joinConf: api.Join,
       // initialize an empty matched_hashes column for the purpose of later processing
       .withColumn(Constants.MatchedHashes, typedLit[Array[String]](null))
 
-    val joinedDf = parts.foldLeft(initDf) {
-      case (partialDf, part) =>
+    val (joinedDf, externalBootstraps) = parts.foldLeft((initDf, Seq.empty[(DataFrame, Seq[String])])) {
+      case ((partialDf, partialExternalBootstraps), part) =>
         logger.info(s"\nProcessing Bootstrap from table ${part.table} for ranges: $unfilledRanges")
 
         val bootstrapRanges = if (part.isSetQuery) {
@@ -508,17 +529,37 @@ class Join(joinConf: api.Join,
           // TODO: allow customization of deduplication logic
           .dropDuplicates(part.keys(joinConf, tableUtils.partitionColumn).toArray)
 
-        coalescedJoin(partialDf, bootstrapDf, part.keys(joinConf, tableUtils.partitionColumn).toSeq)
-        // as part of the left outer join process, we update and maintain matched_hashes for each record
-        // that summarizes whether there is a join-match for each bootstrap source.
-        // later on we use this information to decide whether we still need to re-run the backfill logic
-          .withColumn(Constants.MatchedHashes,
-                      set_add(col(Constants.MatchedHashes), col(Constants.BootstrapHash)))
-          .drop(Constants.BootstrapHash)
+        val enableSplitExternalPartsBootstrap = tableUtils.sparkSession.conf
+          .get(SparkConstants.ChrononSplitExternalPartsBootstrap, "false")
+          .toBoolean
+        val precomputedValues = includedColumns.toSet.intersect(bootstrapInfo.valuesToCompute)
+        if (enableSplitExternalPartsBootstrap && precomputedValues.isEmpty) {
+          logger.info(
+            s"""Bootstrap table ${part.table} does not provide precomputed values, likely because
+               |it bootstraps only external parts. Will process this bootstrap after joins"""
+              .stripMargin
+              .replaceAll("\n", " "))
+          (partialDf, partialExternalBootstraps :+ (bootstrapDf, part.keys(joinConf, tableUtils.partitionColumn)))
+        } else {
+          logger.info(s"Bootstrap table ${part.table} provides the following precomputed values: ${precomputedValues.mkString(", ")}")
+          val joinedDf = coalescedJoin(partialDf, bootstrapDf, part.keys(joinConf, tableUtils.partitionColumn).toSeq)
+            // as part of the left outer join process, we update and maintain matched_hashes for each record
+            // that summarizes whether there is a join-match for each bootstrap source.
+            // later on we use this information to decide whether we still need to re-run the backfill logic
+            .withColumn(Constants.MatchedHashes,
+              set_add(col(Constants.MatchedHashes), col(Constants.BootstrapHash)))
+            .drop(Constants.BootstrapHash)
+          (joinedDf, partialExternalBootstraps)
+        }
     }
 
-    // include all external fields if not already bootstrapped
-    val enrichedDf = padExternalFields(joinedDf, bootstrapInfo)
+    val enrichedDf = if (externalBootstraps.isEmpty) {
+      // include all external fields if not already bootstrapped
+      padExternalFields(joinedDf, bootstrapInfo)
+    } else {
+      // do not pad external fields here yet, as some external parts will be bootstrapped after joins
+      joinedDf
+    }
 
     // set autoExpand = true since log table could be a bootstrap part
     enrichedDf.saveWithTableUtils(tableUtils, bootstrapTable, tableProps, autoExpand = true)
@@ -526,7 +567,7 @@ class Join(joinConf: api.Join,
     val elapsedMins = (System.currentTimeMillis() - startMillis) / (60 * 1000)
     logger.info(s"Finished computing bootstrap table ${joinConf.metaData.bootstrapTable} in ${elapsedMins} minutes")
 
-    tableUtils.sql(range.genScanQuery(query = null, table = bootstrapTable))
+    BootstrapResult(tableUtils.sql(range.genScanQuery(query = null, table = bootstrapTable)), externalBootstraps)
   }
 
   /*

@@ -73,4 +73,23 @@ object BootstrapUtils {
     queryTable
   }
 
+  def buildExternalSource(namespace: String, spark: SparkSession): String = {
+    val externalSourceSchema = List(
+      Column("request_id", api.StringType, 100),
+      Column("ext_request_source_external_field1", api.IntType, 100),
+      Column("ext_request_source_external_field2", api.IntType, 100),
+    )
+    val externalSourceTable = s"$namespace.external_source_test"
+    DataFrameGen
+      .events(spark, externalSourceSchema, 200, partitions = 5)
+      .where(
+        col("request_id").isNotNull
+          and col("ext_request_source_external_field1").isNotNull
+          and col("ext_request_source_external_field2").isNotNull)
+      .dropDuplicates("request_id")
+      .save(externalSourceTable)
+
+    externalSourceTable
+  }
+
 }

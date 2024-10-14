@@ -62,6 +62,10 @@ case class BootstrapInfo(
   }
   private lazy val fieldsMap: Map[String, StructField] = fields.map(f => f.name -> f).toMap
 
+  // Lists fields that need to be computed, for which bootstrapping may avoid recomputation.
+  // This includes fields like GroupBys and derivations and excludes external parts.
+  lazy val valuesToCompute: Set[String] = (joinParts.flatMap(_.valueSchema) ++ derivations).map(_.name).toSet
+
   lazy val baseValueNames: Seq[String] = baseValueFields.map(_.name)
   private lazy val baseValueFields: Seq[StructField] = {
     joinParts.flatMap(_.valueSchema) ++ externalParts.flatMap(_.valueSchema)

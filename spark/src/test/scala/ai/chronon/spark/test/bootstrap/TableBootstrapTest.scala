@@ -17,14 +17,14 @@
 package ai.chronon.spark.test.bootstrap
 
 import org.slf4j.LoggerFactory
-import ai.chronon.api.Extensions.JoinOps
+import ai.chronon.api.Extensions.{JoinOps, MetadataOps}
 import ai.chronon.api._
 import ai.chronon.spark.Extensions._
-import ai.chronon.spark.{Comparison, SparkSessionBuilder, TableUtils}
+import ai.chronon.spark.{Comparison, SparkConstants, SparkSessionBuilder, TableUtils}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.junit.Assert.{assertEquals, assertFalse}
-import org.junit.Test
+import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
+import org.junit.{After, Before, Test}
 
 import scala.util.ScalaJavaConversions.JListOps
 
@@ -145,16 +145,7 @@ class TableBootstrapTest {
          |overlap keys between bootstrap1 and bootstrap2 count: ${overlapBootstrap12}
          |""".stripMargin)
 
-    val diff = Comparison.sideBySide(computed, expected, List("request_id", "user", "ts", "ds"))
-    if (diff.count() > 0) {
-      logger.info(s"Actual count: ${computed.count()}")
-      logger.info(s"Expected count: ${expected.count()}")
-      logger.info(s"Diff count: ${diff.count()}")
-      logger.info(s"diff result rows")
-      diff.show()
-    }
-
-    assertEquals(0, diff.count())
+    compareDfs(computed, expected, List("request_id", "user", "ts", "ds"))
   }
 
   @Test
@@ -206,5 +197,176 @@ class TableBootstrapTest {
 
     // assert that no computation happened for join part since all derivations have been bootstrapped
     assertFalse(tableUtils.tableExists(join.partOutputTable(joinPart)))
+  }
+
+  @Test
+  def testBootstrapExternalParts(): Unit = {
+    val namespace = "test_table_bootstrap_external_parts"
+    spark.sql(s"CREATE DATABASE IF NOT EXISTS $namespace")
+
+    val queryTable = BootstrapUtils.buildQuery(namespace, spark)
+    val queriesDf = spark.table(queryTable)
+    val externalSourceTable = BootstrapUtils.buildExternalSource(namespace, spark)
+    val externalPartDf = spark.table(externalSourceTable)
+    val (joinBootstrapPart, joinBootstrapDf) = buildBootstrapPart(queryTable,
+      namespace,
+      tableName = "join_part_bootstrap",
+      columnName = "unit_test_user_transactions_amount_dollars_sum_15d",
+      samplePercent = 1.0)
+
+    val baseJoin = Builders.Join(
+      left = Builders.Source.events(
+        table = queryTable,
+        query = Builders.Query()
+      ),
+      joinParts = Seq(Builders.JoinPart(groupBy = BootstrapUtils.buildGroupBy(namespace, spark))),
+      externalParts = Seq(Builders.ExternalPart(Builders.ExternalSource(
+        metadata = Builders.MetaData(
+          name = "request_source"
+        ),
+        keySchema = StructType("keys", Array(StructField("request_id", StringType))),
+        valueSchema = StructType(
+          "values", Array(StructField("external_field1", IntType), StructField("external_field2", IntType)))))),
+      derivations =  Seq(
+        Builders.Derivation(
+          name = "amount_dollars_sum_15d",
+          expression = "unit_test_user_transactions_amount_dollars_sum_15d"
+        ),
+        Builders.Derivation(
+          name = "external_field1",
+          expression = "ext_request_source_external_field1"
+        )
+      ),
+      rowIds = Seq("request_id"),
+      bootstrapParts = Seq(joinBootstrapPart, Builders.BootstrapPart(table = externalSourceTable)),
+      metaData = Builders.MetaData(name = "test.user_transaction_features", namespace = namespace, team = "chronon")
+    )
+
+    val runner = new ai.chronon.spark.Join(baseJoin, today, tableUtils)
+    val computed = runner.computeJoin()
+
+    val expected = queriesDf
+      .join(joinBootstrapDf,
+        queriesDf("request_id") <=> joinBootstrapDf("request_id") and queriesDf("ds") <=> joinBootstrapDf("ds"),
+        "left")
+      .join(externalPartDf,
+        queriesDf("request_id") <=> externalPartDf("request_id") and queriesDf("ds") <=> externalPartDf("ds"),
+        "left")
+      .select(
+        queriesDf("user"),
+        queriesDf("request_id"),
+        queriesDf("ts"),
+        queriesDf("ds"),
+        joinBootstrapDf("unit_test_user_transactions_amount_dollars_sum_15d").as("amount_dollars_sum_15d"),
+        externalPartDf("ext_request_source_external_field1").as("external_field1"),
+      )
+    compareDfs(computed, expected, List("request_id", "user", "ts", "ds"))
+    val bootstrapDf = spark.table(baseJoin.metaData.bootstrapTable)
+    val expectedBootstrapTableColumns = Seq(
+      "request_id",
+      "user",
+      "ds",
+      "ts",
+      "ts_ds",
+      "matched_hashes",
+      "unit_test_user_transactions_amount_dollars_sum_15d",
+      "ext_request_source_external_field1",
+      "ext_request_source_external_field2").sorted
+    assertEquals(expectedBootstrapTableColumns, bootstrapDf.columns.toSeq.sorted)
+  }
+
+  @Test
+  def testSplitExternalPartBootstrap(): Unit = {
+    // Define a separate Spark Session for this test to modify its config without affecting other tests
+    val spark: SparkSession = SparkSessionBuilder.build(
+      "SplitExternalPartBootstrapTest",
+      local = true,
+      additionalConfig = Some(Map(SparkConstants.ChrononSplitExternalPartsBootstrap -> "true")))
+    val namespace = "test_table_split_bootstrap_external_parts"
+    spark.sql(s"CREATE DATABASE IF NOT EXISTS $namespace")
+
+    val queryTable = BootstrapUtils.buildQuery(namespace, spark)
+    val queriesDf = spark.table(queryTable)
+    val externalSourceTable = BootstrapUtils.buildExternalSource(namespace, spark)
+    val externalPartDf = spark.table(externalSourceTable)
+    val (joinBootstrapPart, joinBootstrapDf) = buildBootstrapPart(queryTable,
+      namespace,
+      tableName = "join_part_bootstrap",
+      columnName = "unit_test_user_transactions_amount_dollars_sum_15d",
+      samplePercent = 1.0)
+
+    val baseJoin = Builders.Join(
+      left = Builders.Source.events(
+        table = queryTable,
+        query = Builders.Query()
+      ),
+      joinParts = Seq(Builders.JoinPart(groupBy = BootstrapUtils.buildGroupBy(namespace, spark))),
+      externalParts = Seq(Builders.ExternalPart(Builders.ExternalSource(
+        metadata = Builders.MetaData(
+          name = "request_source"
+        ),
+        keySchema = StructType("keys", Array(StructField("request_id", StringType))),
+        valueSchema = StructType(
+          "values", Array(StructField("external_field1", IntType), StructField("external_field2", IntType)))))),
+      derivations =  Seq(
+        Builders.Derivation(
+          name = "amount_dollars_sum_15d",
+          expression = "unit_test_user_transactions_amount_dollars_sum_15d"
+        ),
+        Builders.Derivation(
+          name = "external_field1",
+          expression = "ext_request_source_external_field1"
+        )
+      ),
+      rowIds = Seq("request_id"),
+      bootstrapParts = Seq(joinBootstrapPart, Builders.BootstrapPart(table = externalSourceTable)),
+      metaData = Builders.MetaData(name = "test.user_transaction_features", namespace = namespace, team = "chronon")
+    )
+
+    val runner = new ai.chronon.spark.Join(baseJoin, today, tableUtils)
+    val computed = runner.computeJoin()
+
+    val expected = queriesDf
+      .join(joinBootstrapDf,
+        queriesDf("request_id") <=> joinBootstrapDf("request_id") and queriesDf("ds") <=> joinBootstrapDf("ds"),
+        "left")
+      .join(externalPartDf,
+        queriesDf("request_id") <=> externalPartDf("request_id") and queriesDf("ds") <=> externalPartDf("ds"),
+        "left")
+      .select(
+        queriesDf("user"),
+        queriesDf("request_id"),
+        queriesDf("ts"),
+        queriesDf("ds"),
+        joinBootstrapDf("unit_test_user_transactions_amount_dollars_sum_15d").as("amount_dollars_sum_15d"),
+        externalPartDf("ext_request_source_external_field1").as("external_field1"),
+      )
+    compareDfs(computed, expected, List("request_id", "user", "ts", "ds"))
+    val bootstrapDf = spark.table(baseJoin.metaData.bootstrapTable)
+    // The bootstrap table that contained only external parts should have been processed after joins.
+    // In that case, bootstrapping happens directly with the source table and should not have been
+    // materialized to the intermediate bootstrap table. So we exclude those fields from this list.
+    val expectedBootstrapTableColumns = Seq(
+      "request_id",
+      "user",
+      "ds",
+      "ts",
+      "ts_ds",
+      "matched_hashes",
+      "unit_test_user_transactions_amount_dollars_sum_15d").sorted
+    assertEquals(expectedBootstrapTableColumns, bootstrapDf.columns.toSeq.sorted)
+  }
+
+  private def compareDfs(actual: DataFrame, expected: DataFrame, keys: List[String]): Unit = {
+    val diff = Comparison.sideBySide(actual, expected, keys)
+    if (diff.count() > 0) {
+      println(s"Actual count: ${actual.count()}")
+      println(s"Expected count: ${expected.count()}")
+      println(s"Diff count: ${diff.count()}")
+      println(s"diff result rows")
+      diff.show()
+    }
+
+    assertEquals(0, diff.count())
   }
 }
