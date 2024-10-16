@@ -16,23 +16,41 @@
 
 package ai.chronon.spark.test.bootstrap
 
-import org.slf4j.LoggerFactory
 import ai.chronon.api.Extensions.{JoinOps, MetadataOps}
 import ai.chronon.api._
 import ai.chronon.spark.Extensions._
 import ai.chronon.spark.{Comparison, SparkConstants, SparkSessionBuilder, TableUtils}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
-import org.junit.{After, Before, Test}
+import org.junit.Assert.{assertEquals, assertFalse}
+import org.junit.{AfterClass, Before, BeforeClass, Test}
+import org.slf4j.LoggerFactory
 
 import scala.util.ScalaJavaConversions.JListOps
 
+object TableBootstrapTest {
+
+  @BeforeClass
+  def setUp(): Unit = {
+    // Set a new thread-local Spark session for this test class.
+    // Some of these tests rely on Spark conf parameters, which may be overridden
+    // by other tests running concurrently.
+    // This thread-local override prevents tests in this class from using the global Spark session.
+    SparkSession.setActiveSession(getOrCreateSparkSession().newSession())
+  }
+
+  @AfterClass
+  def tearDown(): Unit = {
+    SparkSession.clearActiveSession()
+  }
+
+  private def getOrCreateSparkSession(): SparkSession = SparkSessionBuilder.build("BootstrapTest", local = true)
+}
+
 class TableBootstrapTest {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
-
-  val spark: SparkSession = SparkSessionBuilder.build("BootstrapTest", local = true)
-  private val tableUtils = TableUtils(spark)
+  private lazy val spark: SparkSession = TableBootstrapTest.getOrCreateSparkSession()
+  private lazy val tableUtils = TableUtils(spark)
   private val today = tableUtils.partitionSpec.at(System.currentTimeMillis())
 
   // Create bootstrap dataset with randomly overwritten data
@@ -71,6 +89,11 @@ class TableBootstrapTest {
     )
 
     (bootstrapPart, bootstrapDf)
+  }
+
+  @Before
+  def setUpTest(): Unit = {
+    spark.conf.unset(SparkConstants.ChrononSplitExternalPartsBootstrap)
   }
 
   @Test
@@ -277,11 +300,7 @@ class TableBootstrapTest {
 
   @Test
   def testSplitExternalPartBootstrap(): Unit = {
-    // Define a separate Spark Session for this test to modify its config without affecting other tests
-    val spark: SparkSession = SparkSessionBuilder.build(
-      "SplitExternalPartBootstrapTest",
-      local = true,
-      additionalConfig = Some(Map(SparkConstants.ChrononSplitExternalPartsBootstrap -> "true")))
+    spark.conf.set(SparkConstants.ChrononSplitExternalPartsBootstrap, "true")
     val namespace = "test_table_split_bootstrap_external_parts"
     spark.sql(s"CREATE DATABASE IF NOT EXISTS $namespace")
 
