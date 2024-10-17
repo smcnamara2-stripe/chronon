@@ -643,6 +643,9 @@ def Join(
         batchPartitionCadence=batchPartitionCadence,
     )
 
+    if model_transformation:
+        model_transformation.metaData = api.MetaData()
+
     # Enforce constraints when defining a join in a Databricks notebook cell
     # For production joins, name and team should/will be set externally, therefore they should be tacked onto the metadata only if running in a notebook cell
     if utils.is_feature_being_created_in_a_databricks_notebook_cell(sys._getframe().f_back.f_code.co_filename, repo.JOIN_FOLDER_NAME):
