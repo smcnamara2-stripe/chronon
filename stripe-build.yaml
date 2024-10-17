@@ -7,6 +7,7 @@ network:
 jenkins_jobs:
   - name: stripe-private-oss-forks-chronon
     responsible_team: ml-features
+    max_execution_time_minutes: 45
     henson_tarball:
       docker:
         dockerfile: docker/ci/Dockerfile
