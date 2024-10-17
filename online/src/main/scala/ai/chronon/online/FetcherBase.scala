@@ -100,8 +100,12 @@ class FetcherBase(kvStore: KVStore,
                                       servingInfo.selectedCodec.decodeMap,
                                       servingInfo,
                                       keys)
-    } else if (streamingResponsesOpt.isEmpty) { // snapshot accurate\
-      getMapResponseFromBatchResponse(batchResponses, batchBytes, servingInfo.outputCodec.decodeMap, servingInfo, keys)
+    } else if (streamingResponsesOpt.isEmpty) { // snapshot accurate
+      val batchResponseDecodeStartTime = System.currentTimeMillis()
+      val response = getMapResponseFromBatchResponse(batchResponses, batchBytes, servingInfo.outputCodec.decodeMap, servingInfo, keys)
+      context.histogramTagged("group_by.batchir_decode.latency.millis",
+        System.currentTimeMillis() - batchResponseDecodeStartTime)
+      response
     } else { // temporal accurate
       val streamingResponses = streamingResponsesOpt.get
       val mutations: Boolean = servingInfo.groupByOps.dataModel == DataModel.Entities
