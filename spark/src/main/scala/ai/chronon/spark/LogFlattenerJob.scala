@@ -230,6 +230,7 @@ class LogFlattenerJob(session: SparkSession,
       val schemaTblProps = buildTableProperties(schemaStringsMap)
       logger.info("======= Log table schema =======")
       logger.info(flattenedDf.schema.pretty)
+      logger.info(s"joinConf.metaData.loggedTable: ${joinConf.metaData.loggedTable}")
       tableUtils.insertPartitions(flattenedDf,
                                   joinConf.metaData.loggedTable,
                                   tableProperties =
