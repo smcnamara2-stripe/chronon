@@ -28,6 +28,7 @@ import ai.chronon.online.{RowWrapper, SparkConversions}
 import ai.chronon.spark.Extensions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.expressions.GenericRow
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -492,8 +493,14 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     sparkSession.implicits.newProductSeqEncoder
     val finalJoin = firstJoin
       .joinWith(eventsByHeadStart, firstJoin("_1") <=> eventsByHeadStart("_1"), "left_outer")
-    val outputRdd = finalJoin
-      .rdd
+
+    val additionalFields = Seq(Constants.TimeColumn -> LongType, tableUtils.partitionColumn -> StringType)
+    val finalKeySchema = StructType(keySchema ++ additionalFields.map { case (name, typ) => StructField(name, typ) })
+    val baseFlatSchema: StructType = StructType(finalKeySchema ++ postAggSchema)
+    val flatZSchema: api.StructType = baseFlatSchema.toChrononSchema("Flat")
+    val flatEnc: Encoder[Row] = RowEncoder(baseFlatSchema)
+
+    finalJoin
       .flatMap {
         case (((keys, headStart), (queriesWithPartition, headStartIr)), eventsResult) =>
           val inputsIt: Iterator[RowWrapper] = {
@@ -505,11 +512,17 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
           val queries = queriesWithPartition.map { TimeTuple.getTs }
           val irs = sawtoothAggregator.cumulate(inputsIt, queries, headStartIr)
           queries.indices.map { i =>
-            (keys.toSeq.toArray ++ queriesWithPartition(i).toArray, normalizeOrFinalize(irs(i)))
-          }
-      }
+            val finalKeys = keys.toSeq.toArray ++ queriesWithPartition(i).toArray
+            val finalValues = normalizeOrFinalize(irs(i))
 
-    toDf(outputRdd, Seq(Constants.TimeColumn -> LongType, tableUtils.partitionColumn -> StringType))
+            val result = new Array[Any](finalKeys.length + finalValues.length)
+            System.arraycopy(finalKeys, 0, result, 0, finalKeys.length)
+            System.arraycopy(finalValues, 0, result, finalKeys.length, finalValues.length)
+            SparkConversions.toSparkRow(result, flatZSchema, GenericRowHandler.func).asInstanceOf[Row]
+          }
+
+
+      }(flatEnc)
   }
 
   def keysEncoder: Encoder[Row] = {
