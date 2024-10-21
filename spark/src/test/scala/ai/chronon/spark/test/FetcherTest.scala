@@ -192,7 +192,7 @@ class FetcherTest extends TestCase {
     val endPartition = "2021-04-10"
     val rightSource = Builders.Source.entities(
       query = Builders.Query(
-        selects = Map("listing_id" -> "listing", "ts" -> "ts", "rating" -> "CAST(rating/1.0 AS FLOAT)"),
+        selects = Map("listing_id" -> "listing", "ts" -> "ts", "rating" -> "rating"),
         startPartition = startPartition,
         endPartition = endPartition,
         mutationTimeColumn = "mutation_time",
@@ -521,9 +521,9 @@ class FetcherTest extends TestCase {
     if (endDs != today) {
       responseDf = responseDf.drop("ds").withColumn("ds", lit(endDs))
     }
-    logger.info(s"expected schema: \n ${endDsExpected.schema.pretty} \n expected data frame:")
+    logger.info("expected:")
     endDsExpected.show()
-    logger.info(s"response schema: \n ${endDsExpected.schema.pretty} \n response data frame:")
+    logger.info("response:")
     responseDf.show()
 
     val diff = Comparison.sideBySide(responseDf, endDsExpected, keyishColumns, aName = "online", bName = "offline")
