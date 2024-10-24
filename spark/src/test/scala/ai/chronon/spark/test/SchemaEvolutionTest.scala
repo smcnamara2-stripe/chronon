@@ -265,7 +265,7 @@ class SchemaEvolutionTest extends TestCase {
     (dataEvent, controlEvent)
   }
 
-  private def insertLogsToHive(mockApi: MockApi, logs: Seq[LoggableResponseBase64], ds: String): Unit = {
+  private def insertLogsToHive(mockApi: MockApi, logs: Seq[LoggableResponseBase64], ds: String, localityZone: String): Unit = {
     val logDf = mockApi.loggedValuesToDf(logs, spark)
     TableUtils(spark).insertPartitions(
       logDf
@@ -281,10 +281,11 @@ class SchemaEvolutionTest extends TestCase {
    */
   private def verifyOfflineTables(logsDelta: Seq[LoggableResponseBase64],
                                   offlineDs: String,
+                                  localityZone: String,
                                   mockApi: MockApi,
                                   joinConf: Join,
                                   tableUtils: TableUtils): DataFrame = {
-    insertLogsToHive(mockApi, logsDelta, offlineDs)
+    insertLogsToHive(mockApi, logsDelta, offlineDs, localityZone)
     SchemaEvolutionUtils.runLogSchemaGroupBy(mockApi, offlineDs, "2022-10-01")
     val flattenerJob = new LogFlattenerJob(spark, joinConf, offlineDs, mockApi.logTable, mockApi.schemaTable)
     flattenerJob.buildLogTable()
@@ -338,6 +339,7 @@ class SchemaEvolutionTest extends TestCase {
     val flattenedDf12 = verifyOfflineTables(
       logs1 ++ logs2, // combine logs from stage 1 and stage 2 into offline DS = 2022-10-03
       offlineDs = "2022-10-03",
+      localityZone = Constants.LocalityZoneDefault,
       mockApi,
       joinSuiteV1.joinConf,
       tableUtils
@@ -409,6 +411,7 @@ class SchemaEvolutionTest extends TestCase {
     val flattenedDf34 = verifyOfflineTables(
       logs3 ++ logs4, // combine logs from stage 3 and stage 4 into offline DS = 2022-10-04
       offlineDs = "2022-10-04",
+      localityZone = Constants.LocalityZoneDefault,
       mockApi,
       joinSuiteV2.joinConf,
       tableUtils

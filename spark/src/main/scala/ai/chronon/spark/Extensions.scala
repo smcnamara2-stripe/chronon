@@ -282,6 +282,10 @@ object Extensions {
                             format: String = tableUtils.partitionSpec.format): DataFrame =
       df.withColumn(columnName, from_unixtime(df.col(timeColumn) / 1000, format))
 
+    def withLocalityZoneColumn(columnName: String,
+                               localityZone: String = Constants.LocalityZoneDefault): DataFrame =
+      df.withColumn(columnName, lit(localityZone))
+
     private def camelToSnake(name: String) = {
       val res = "([a-z]+)([A-Z]\\w+)?".r
         .replaceAllIn(name, { m => m.subgroups.flatMap(g => Option(g).map(_.toLowerCase())).mkString("_") })

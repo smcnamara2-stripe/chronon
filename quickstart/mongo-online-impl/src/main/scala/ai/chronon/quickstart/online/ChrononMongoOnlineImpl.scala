@@ -32,6 +32,7 @@ class ChrononMongoOnlineImpl(userConf: Map[String, String]) extends Api(userConf
       "joinName" -> resp.joinName,
       "keyBytes" -> resp.keyBytes,
       "schemaHash" -> Option(resp.schemaHash).getOrElse("SCHEMA_PUBLISHED"),
+      "localityZone" -> resp.localityZone,
       "valueBytes" -> resp.valueBytes,
       "atMillis" -> resp.tsMillis,
       "ts" -> System.currentTimeMillis(),

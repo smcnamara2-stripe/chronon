@@ -127,11 +127,14 @@ class LogFlattenerJob(session: SparkSession,
     // contextual features are logged twice in keys and values, where values are prefixed with ext_contextual
     // here we exclude the duplicated fields as the two are always identical
     val dataFields = allDataFields.filterNot(_.name.startsWith(Constants.ContextualPrefix))
-    val metadataFields = StructField(Constants.SchemaHash, StringType) +: timeFields
+    val metadataFields = Array(
+      StructField(Constants.SchemaHash, StringType),
+      StructField(Constants.LocalityZoneColumn, StringType)
+    ) ++ timeFields
     val outputSchema = StructType("", metadataFields ++ dataFields)
-    val (keyBase64Idx, valueBase64Idx, tsIdx, dsIdx, schemaHashIdx) = (0, 1, 2, 3, 4)
+    val (keyBase64Idx, valueBase64Idx, tsIdx, dsIdx, schemaHashIdx, localityZoneIdx) = (0, 1, 2, 3, 4, 5)
     val outputRdd: RDD[Row] = rawDf
-      .select("key_base64", "value_base64", "ts_millis", tableUtils.partitionColumn, Constants.SchemaHash)
+      .select("key_base64", "value_base64", "ts_millis", tableUtils.partitionColumn, Constants.SchemaHash, Constants.LocalityZoneColumn)
       .rdd
       .flatMap { row =>
         if (row.isNullAt(schemaHashIdx)) {
@@ -160,7 +163,8 @@ class LogFlattenerJob(session: SparkSession,
               }
             }.toArray
 
-            val metadataColumns = Array(row.get(schemaHashIdx), row.get(tsIdx), row.get(dsIdx))
+            // order matters here, since items need to match outputSchema
+            val metadataColumns = Array(row.get(schemaHashIdx), row.get(localityZoneIdx), row.get(tsIdx), row.get(dsIdx))
             val outputRow = metadataColumns ++ dataColumns
             val unpackedRow = SparkConversions.toSparkRow(outputRow, outputSchema).asInstanceOf[GenericRow]
             Some(unpackedRow)
