@@ -127,8 +127,9 @@ class MetadataStore(kvStore: KVStore,
   )
 
   private def getFailureTTLMillis: Long = {
-    if (flagStore.isSet("zoolander.shepherd.use_failure_ttl_cache",
-      Map[String, String]("priority_tier" -> " ").asJava))  {
+    if (
+      flagStore.isSet("zoolander.shepherd.use_failure_ttl_cache", Map[String, String]("priority_tier" -> " ").asJava)
+    ) {
       println(s"Using the 5s TTLs for failures, dataset = $dataset")
       5 * 1000 // 5 seconds
     } else {
@@ -159,11 +160,26 @@ class MetadataStore(kvStore: KVStore,
         } else {
           val groupByServingInfo = ThriftJsonCodec
             .fromJsonStr[GroupByServingInfo](metaData.get, check = true, classOf[GroupByServingInfo])
+          val groupByServingInfoParsed = new GroupByServingInfoParsed(groupByServingInfo, partitionSpec)
+          // Force the initialization of some lazy vals after checking that the necessary fields are defined.
+          // These variables can take many milliseconds initialize, it's better to do it asynchronously here in the
+          // MetadataStore, than to do it synchronously in the BaseFetcher while serving features.
+          if (
+            groupByServingInfo.groupBy != null && groupByServingInfo.groupBy.aggregations != null
+            && groupByServingInfo.groupBy.metaData != null && groupByServingInfo.batchEndDate != null
+            && groupByServingInfo.selectedAvroSchema != null
+          ) {
+            groupByServingInfoParsed.batchEndTsMillis
+            groupByServingInfoParsed.aggregator
+            groupByServingInfoParsed.outputAvroSchema
+          }
+
           Metrics
             .Context(Metrics.Environment.MetaDataFetching, groupByServingInfo.groupBy)
             .withSuffix("group_by")
-            .histogram(Metrics.Name.LatencyMillis, System.currentTimeMillis() - startTimeMs)
-          Success(new GroupByServingInfoParsed(groupByServingInfo, partitionSpec))
+            .histogramTagged(Metrics.Name.LatencyMillis, System.currentTimeMillis() - startTimeMs)
+
+          Success(groupByServingInfoParsed)
         }
       },
       { gb => Metrics.Context(environment = "group_by.serving_info.fetch", groupBy = gb) },
