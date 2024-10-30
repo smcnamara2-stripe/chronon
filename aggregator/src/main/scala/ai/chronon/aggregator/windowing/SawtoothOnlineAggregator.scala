@@ -41,6 +41,8 @@ class SawtoothOnlineAggregator(val batchEndTs: Long,
                                        tailBufferMillis: Long) {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
+  logger.info(s"SawtoothOnlineAggregator.tailBufferMillis = $tailBufferMillis")
+
   // logically, batch response is arranged like so
   // sum-90d =>  sum_ir_88d, [(sum_ir_1d, ts)] -> 1d is the hopSize for 90d
   // sum-1d =>   null, [(sum_ir_1h, ts)]  -> 1h is the hopSize for 1d

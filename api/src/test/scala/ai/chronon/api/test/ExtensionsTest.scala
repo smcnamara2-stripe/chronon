@@ -21,6 +21,8 @@ import org.junit.Test
 import ai.chronon.api.Extensions._
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.mockito.Mockito.{spy, when}
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.core.`type`.TypeReference
 
 import scala.util.ScalaJavaConversions.JListOps
 import java.util.Arrays
@@ -182,5 +184,35 @@ class ExtensionsTest {
 
     val joinWithNoOutputTableMap = buildJoinWithCustomJson()
     assertEquals("when output map is missing, return the fallback value", s"${joinWithNoOutputTableMap.metaData.outputNamespace}.${joinWithNoOutputTableMap.metaData.cleanName}", joinWithNoOutputTableMap.metaData.outputTable)
+  }
+
+  @Test
+  def testUpdateCustomJson(): Unit = {
+    val metadata = Builders.MetaData(customJson = null)
+
+    // Test adding a new key-value pair to empty customJson
+    metadata.updateCustomJson("new_key", "new_value")
+    val updatedJson1 = metadata.customJson
+    assertTrue(updatedJson1.contains("\"new_key\":\"new_value\""))
+
+    // Test updating an existing key
+    metadata.updateCustomJson("new_key", "updated_value")
+    val updatedJson2 = metadata.customJson
+    assertTrue(updatedJson2.contains("\"new_key\":\"updated_value\""))
+    assertFalse(updatedJson2.contains("\"new_key\":\"new_value\""))
+
+    // Test adding a new key-value pair to existing customJson
+    metadata.updateCustomJson("another_key", 42)
+    val updatedJson3 = metadata.customJson
+    assertTrue(updatedJson3.contains("\"new_key\":\"updated_value\""))
+    assertTrue(updatedJson3.contains("\"another_key\":42"))
+
+    // Verify the final state of customJson
+    val mapper = new ObjectMapper()
+    val typeRef = new TypeReference[java.util.HashMap[String, Object]]() {}
+    val finalMap: java.util.Map[String, Object] = mapper.readValue(metadata.customJson, typeRef)
+
+    assertEquals("updated_value", finalMap.get("new_key"))
+    assertEquals(42, finalMap.get("another_key"))
   }
 }

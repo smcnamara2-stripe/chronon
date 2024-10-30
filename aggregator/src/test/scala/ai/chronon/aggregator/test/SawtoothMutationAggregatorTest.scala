@@ -2,7 +2,7 @@ package ai.chronon.aggregator.test
 
 import ai.chronon.aggregator.row.RowAggregator
 import ai.chronon.aggregator.windowing.{SawtoothMutationAggregator, TiledIr}
-import ai.chronon.api.Extensions.AggregationOps
+import ai.chronon.api.Extensions.{AggregationOps, WindowOps}
 import ai.chronon.api.{Aggregation, Builders, DataType, IntType, LongType, Operation, StringType, TimeUnit, Window}
 import junit.framework.TestCase
 import org.junit.Assert.{assertEquals, assertNull}
@@ -763,4 +763,218 @@ class SawtoothMutationAggregatorTest extends TestCase {
     // 10-min window: one 1-hour tile [1:00, 2:00)
     assertEquals(100L, ir.collapsed(4))
   }
+
+  // Test sawtooth aggregation using 3-days of tailhops + streaming data.
+  def test3DayTailHops(): Unit = {
+    val aggregations = Seq(
+      Builders.Aggregation(
+        operation = Operation.SUM,
+        inputColumn = "value",
+        windows = Seq(new Window(7, TimeUnit.DAYS))
+      )
+    )
+    val inputSchema: Seq[(String, DataType)] = Seq(
+      ("ts_millis", LongType),
+      ("user", StringType),
+      ("value", IntType)
+    )
+
+    val batchEndTs = 1707091201000L // Saturday, February 5, 2024 12:00:01 AM
+
+    // Create a SawtoothMutationAggregator with 3-day tailhops
+    val sawtoothMutationAggregator = new SawtoothMutationAggregator(
+      aggregations,
+      inputSchema,
+      tailBufferMillis = new Window(3, TimeUnit.DAYS).millis
+    )
+
+    // Initialize the BatchIr
+    var batchIr = sawtoothMutationAggregator.init
+
+    // Create test data spanning 7 days
+    val testData = Seq(
+      TestRow(1706572800000L, "user1", 10), // Jan 30, 2024
+      TestRow(1706659200000L, "user1", 20), // Jan 31, 2024
+      TestRow(1706745600000L, "user1", 30), // Feb 1, 2024
+      TestRow(1706832000000L, "user1", 40), // Feb 2, 2024
+      TestRow(1706918400000L, "user1", 50), // Feb 3, 2024
+      TestRow(1707004800000L, "user1", 60), // Feb 4, 2024
+      TestRow(1707091200000L, "user1", 70) // Feb 5, 2024
+    )
+
+    // Update the BatchIr with the test data
+    testData.foreach { row =>
+      batchIr = sawtoothMutationAggregator.update(batchEndTs, batchIr, row)
+    }
+
+    // Finalize the BatchIr
+    val finalBatchIr = sawtoothMutationAggregator.finalizeSnapshot(batchIr)
+
+    // Check that the collapsed part contains the sum of values from feb 2 to feb 5 inclusive
+    assertEquals(220L, finalBatchIr.collapsed(0))
+
+    // Check that the tailHops contain 3 days worth of data after batchEndTs
+    val tailHops = finalBatchIr.tailHops(1)
+    assertEquals(3, tailHops.length)
+
+    // Check the content of each tailHop
+    assertEquals(10L, tailHops(0)(0))
+    assertEquals(1706572800000L, tailHops(0)(1))
+
+    assertEquals(20L, tailHops(1)(0))
+    assertEquals(1706659200000L, tailHops(1)(1))
+
+    assertEquals(30L, tailHops(2)(0))
+    assertEquals(1706745600000L, tailHops(2)(1))
+
+    // Simulate a query at different times
+    val ir1 = sawtoothMutationAggregator.mergeTailHops(
+      Array(finalBatchIr.collapsed(0)),
+      1707091200000L, // Monday, February 5, 2024 0:00:00
+      batchEndTs,
+      finalBatchIr
+    )
+    assertEquals(280L, ir1(0)) // 220 (collapsed; Feb 2 - Feb 5 incl.) + 60 (all tailHops; Jan 30 - Feb 1 incl.)
+
+    val ir2 = sawtoothMutationAggregator.mergeTailHops(
+      Array(finalBatchIr.collapsed(0)),
+      1707181200000L, // Wednesday, February 7, 2024 1:00:00
+      batchEndTs,
+      finalBatchIr
+    )
+    assertEquals(270L, ir2(0)) // 220 (collapsed; Feb 2 - Feb 5 incl.) + 50 (Jan 31, Feb 1 tailhops)
+
+    val ir3 = sawtoothMutationAggregator.mergeTailHops(
+      Array(finalBatchIr.collapsed(0)),
+      1707267600000L, // Wednesday, February 7, 2024 1:00:00
+      batchEndTs,
+      finalBatchIr
+    )
+    assertEquals(250L, ir3(0)) // 220 (collapsed; Feb 2 - Feb 5 incl.) + 30 (Feb 1 tailHops)
+  }
+
+  // Confirm that an aggregator created using tailBufferMillis = 3 days produces correct results for IRs that were
+  // written with 2 days of tailHops. Why? This will give us confidence that migrating from 2-day to 3-day tailHops
+  // won't result in incorrect feature values due to old (2-day) batch IRs being stored in the Fetcher IR cache.
+  def testCompability2DayHops3DayAggregator(): Unit = {
+    val aggregations = Seq(
+      Builders.Aggregation(
+        operation = Operation.SUM,
+        inputColumn = "value",
+        windows = Seq(new Window(7, TimeUnit.DAYS))
+      )
+    )
+    val inputSchema: Seq[(String, DataType)] = Seq(
+      ("ts_millis", LongType),
+      ("user", StringType),
+      ("value", IntType)
+    )
+
+    val batchEndTs = 1707091201000L // Saturday, February 5, 2024 12:00:01 AM
+
+    // Create SawtoothMutationAggregators with 2-day and 3-day tailhops
+    val sawtoothMutationAggregator3Day = new SawtoothMutationAggregator(
+      aggregations,
+      inputSchema,
+      tailBufferMillis = new Window(3, TimeUnit.DAYS).millis
+    )
+    val sawtoothMutationAggregator2Day = new SawtoothMutationAggregator(
+      aggregations,
+      inputSchema,
+      tailBufferMillis = new Window(2, TimeUnit.DAYS).millis
+    )
+
+    // Initialize the BatchIr
+    var batchIr = sawtoothMutationAggregator2Day.init
+
+    // Create test data spanning 7 days
+    val testData = Seq(
+      TestRow(1706572800000L, "user1", 10), // Jan 30, 2024
+      TestRow(1706659200000L, "user1", 20), // Jan 31, 2024
+      TestRow(1706745600000L, "user1", 30), // Feb 1, 2024
+      TestRow(1706832000000L, "user1", 40), // Feb 2, 2024
+      TestRow(1706918400000L, "user1", 50), // Feb 3, 2024
+      TestRow(1707004800000L, "user1", 60), // Feb 4, 2024
+      TestRow(1707091200000L, "user1", 70) // Feb 5, 2024
+    )
+
+    // Prepare the data using the 2-day aggregator
+    testData.foreach { row =>
+      batchIr = sawtoothMutationAggregator2Day.update(batchEndTs, batchIr, row)
+    }
+    val finalBatchIr = sawtoothMutationAggregator2Day.finalizeSnapshot(batchIr)
+
+    // Check that the collapsed part contains the sum of values from feb 1 to feb 5 inclusive
+    assertEquals(250L, finalBatchIr.collapsed(0))
+
+    // Check that the tailHops contain 2 days worth of data after batchEndTs
+    val tailHops = finalBatchIr.tailHops(1)
+    assertEquals(2, tailHops.length)
+
+    // Check the content of each tailHop
+    assertEquals(10L, tailHops(0)(0))
+    assertEquals(1706572800000L, tailHops(0)(1))
+
+    assertEquals(20L, tailHops(1)(0))
+    assertEquals(1706659200000L, tailHops(1)(1))
+
+    // Simulate a query at different times, confirm that both 2-day and 3-day aggregators produce same output
+    assertEquals(
+      280L, // 220 (collapsed; Feb 2 - Feb 5 incl.) + 60 (all tailHops; Jan 30 - Feb 1 incl.)
+      sawtoothMutationAggregator2Day.mergeTailHops(
+        Array(finalBatchIr.collapsed(0)),
+        1707091201000L, // Monday, February 5, 2024 0:00:01
+        batchEndTs,
+        finalBatchIr
+      )(0)
+    )
+    assertEquals(
+      280L, // 220 (collapsed; Feb 2 - Feb 5 incl.) + 60 (all tailHops; Jan 30 - Feb 1 incl.)
+      sawtoothMutationAggregator3Day.mergeTailHops(
+        Array(finalBatchIr.collapsed(0)),
+        1707091201000L, // Monday, February 5, 2024 0:00:01
+        batchEndTs,
+        finalBatchIr
+      )(0)
+    )
+
+    assertEquals(
+      270L, // 220 (collapsed; Feb 2 - Feb 5 incl.) + 50 (Jan 31, Feb 1 tailHops)
+      sawtoothMutationAggregator2Day.mergeTailHops(
+        Array(finalBatchIr.collapsed(0)),
+        1707181200000L, // Wednesday, February 6, 2024 1:00:00
+        batchEndTs,
+        finalBatchIr
+      )(0)
+    )
+    assertEquals(
+      270L, // 220 (collapsed; Feb 2 - Feb 5 incl.) + 50 (Jan 31, Feb 1 tailHops)
+      sawtoothMutationAggregator3Day.mergeTailHops(
+        Array(finalBatchIr.collapsed(0)),
+        1707181200000L, // Wednesday, February 6, 2024 1:00:00
+        batchEndTs,
+        finalBatchIr
+      )(0)
+    )
+
+    assertEquals(
+      250L, // 220 (collapsed; Feb 2 - Feb 5 incl.) + 30 (Feb 1 tailHops)
+      sawtoothMutationAggregator2Day.mergeTailHops(
+        Array(finalBatchIr.collapsed(0)),
+        1707267600000L, // Wednesday, February 7, 2024 1:00:00
+        batchEndTs,
+        finalBatchIr
+      )(0)
+    )
+    assertEquals(
+      250L, // 220 (collapsed; Feb 2 - Feb 5 incl.) + 30 (Feb 1 tailHops)
+      sawtoothMutationAggregator3Day.mergeTailHops(
+        Array(finalBatchIr.collapsed(0)),
+        1707267600000L, // Wednesday, February 7, 2024 1:00:00
+        batchEndTs,
+        finalBatchIr
+      )(0)
+    )
+  }
+
 }

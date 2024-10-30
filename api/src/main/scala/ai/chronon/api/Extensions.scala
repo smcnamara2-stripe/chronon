@@ -170,6 +170,18 @@ object Extensions {
       jMap.toScala.get(key).orNull
     }
 
+    // Modify custom json. Inserts a new key if it doesn't exist, and modifies the value if it already does.
+    def updateCustomJson(key: String, value: Any): Unit = synchronized {
+      val mapper = new ObjectMapper()
+      val typeRef = new TypeReference[java.util.HashMap[String, Object]]() {}
+      val jMap: java.util.Map[String, Object] =
+        if (metaData.customJson == null) new java.util.HashMap[String, Object]()
+        else mapper.readValue(metaData.customJson, typeRef)
+
+      jMap.put(key, value.asInstanceOf[Object])
+      metaData.setCustomJson(mapper.writeValueAsString(jMap))
+    }
+
     def owningTeam: String = {
       val teamOverride = Try(customJsonLookUp(Constants.TeamOverride).asInstanceOf[String]).toOption
       teamOverride.getOrElse(metaData.team)
@@ -463,6 +475,13 @@ object Extensions {
     // Check if tiling is enabled for a given GroupBy. Defaults to false if the 'enable_tiling' flag isn't set.
     def isTilingEnabled: Boolean =
       groupBy.getMetaData.customJsonLookUp("enable_tiling") match {
+        case s: Boolean => s
+        case _          => false
+      }
+
+    // Check if a given GroupBy is using 3-day-long tail hops. Defaults to false if the 'use_3_day_tail_hops' flag isn't set.
+    def uses3DayTailHops: Boolean =
+      groupBy.getMetaData.customJsonLookUp("use_3_day_tail_hops") match {
         case s: Boolean => s
         case _          => false
       }

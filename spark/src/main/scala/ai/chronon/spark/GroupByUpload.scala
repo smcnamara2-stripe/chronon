@@ -19,8 +19,17 @@ package ai.chronon.spark
 import org.slf4j.LoggerFactory
 import ai.chronon.aggregator.windowing.{FinalBatchIr, FiveMinuteResolution, Resolution, SawtoothOnlineAggregator}
 import ai.chronon.api
-import ai.chronon.api.{Accuracy, Constants, DataModel, GroupByServingInfo, QueryUtils, ThriftJsonCodec}
-import ai.chronon.api.Extensions.{GroupByOps, MetadataOps, SourceOps}
+import ai.chronon.api.{
+  Accuracy,
+  Constants,
+  DataModel,
+  GroupByServingInfo,
+  QueryUtils,
+  ThriftJsonCodec,
+  TimeUnit,
+  Window
+}
+import ai.chronon.api.Extensions.{GroupByOps, MetadataOps, SourceOps, WindowOps}
 import ai.chronon.online.Extensions.ChrononStructTypeOps
 import ai.chronon.online.{GroupByServingInfoParsed, Metrics, SparkConversions}
 import ai.chronon.spark.Extensions._
@@ -32,9 +41,10 @@ import org.apache.spark.sql.{Row, SparkSession, types}
 import scala.annotation.tailrec
 import scala.collection.Seq
 import scala.util.ScalaJavaConversions.{ListOps, MapOps}
-import scala.util.Try
+import scala.util.{Failure, Try}
 
-class GroupByUpload(endPartition: String, groupBy: GroupBy) extends Serializable {
+class GroupByUpload(endPartition: String, groupBy: GroupBy, customGroupByUploadConfigs: GroupByUpload.CustomConfigs)
+    extends Serializable {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
   implicit val sparkSession: SparkSession = groupBy.sparkSession
   implicit private val tableUtils: TableUtils = TableUtils(sparkSession)
@@ -65,22 +75,28 @@ class GroupByUpload(endPartition: String, groupBy: GroupBy) extends Serializable
   def temporalEvents(resolution: Resolution = FiveMinuteResolution): KvRdd = {
     val endTs = tableUtils.partitionSpec.epochMillis(endPartition)
     logger.info(s"TemporalEvents upload end ts: $endTs")
-    val sawtoothOnlineAggregator = new SawtoothOnlineAggregator(
-      endTs,
-      groupBy.aggregations,
-      SparkConversions.toChrononSchema(groupBy.inputDf.schema),
-      resolution)
+
+    // Tail hops are 2 days long by default, but at Stripe we're extending them to 3 days.
+    logger.info(s"Using 3-day tailsHops? ${customGroupByUploadConfigs.use3DayTailHops}")
+    val tailHopsSize =
+      if (customGroupByUploadConfigs.use3DayTailHops) new Window(3, TimeUnit.DAYS).millis
+      else new Window(2, TimeUnit.DAYS).millis
+
+    val sawtoothOnlineAggregator =
+      new SawtoothOnlineAggregator(endTs,
+                                   groupBy.aggregations,
+                                   SparkConversions.toChrononSchema(groupBy.inputDf.schema),
+                                   resolution,
+                                   tailHopsSize)
+
     val irSchema = SparkConversions.fromChrononSchema(sawtoothOnlineAggregator.batchIrSchema)
     val keyBuilder = FastHashing.generateKeyBuilder(groupBy.keyColumns.toArray, groupBy.inputDf.schema)
 
-    logger.info(
-      s"""
-         |BatchIR Element Size: ${
-        SparkEnv.get.serializer
-          .newInstance()
-          .serialize(sawtoothOnlineAggregator.init)
-          .capacity()
-      }
+    logger.info(s"""
+         |BatchIR Element Size: ${SparkEnv.get.serializer
+      .newInstance()
+      .serialize(sawtoothOnlineAggregator.init)
+      .capacity()}
          |""".stripMargin)
 
     val splitUpWork = sparkSession.conf.get(SparkConstants.ChrononGroupByUploadSplits, "1").toInt
@@ -113,9 +129,10 @@ class GroupByUpload(endPartition: String, groupBy: GroupBy) extends Serializable
               val irArray = new Array[Any](2)
               irArray.update(0, finalBatchIr.collapsed)
               irArray.update(1, finalBatchIr.tailHops)
-            keyWithHash.data -> irArray
-        }
-    }.reduce(_.union(_))
+              keyWithHash.data -> irArray
+          }
+      }
+      .reduce(_.union(_))
     keyed.unpersist()
     KvRdd(outputRdd, groupBy.keySchema, irSchema)
   }
@@ -126,18 +143,13 @@ object GroupByUpload {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
   // TODO - remove this if spark streaming can't reach hive tables
-  private def buildServingInfo(groupByConf: api.GroupBy,
-                               session: SparkSession,
-                               endDs: String)(implicit tableUtils: BaseTableUtils): GroupByServingInfoParsed = {
+  private def buildServingInfo(groupByConf: api.GroupBy, session: SparkSession, endDs: String)(implicit
+      tableUtils: BaseTableUtils): GroupByServingInfoParsed = {
     val groupByServingInfo = new GroupByServingInfo()
     val nextDay = tableUtils.partitionSpec.after(endDs)
 
     val groupBy = ai.chronon.spark.GroupBy
-      .from(groupByConf,
-        PartitionRange(endDs, endDs),
-        tableUtils,
-        computeDependency = false,
-        mutationScan = false)
+      .from(groupByConf, PartitionRange(endDs, endDs), tableUtils, computeDependency = false, mutationScan = false)
     groupByServingInfo.setBatchEndDate(nextDay)
     groupByServingInfo.setGroupBy(groupByConf)
     groupByServingInfo.setKeyAvroSchema(groupBy.keySchema.toAvroSchema("Key").toString(true))
@@ -169,8 +181,8 @@ object GroupByUpload {
               selects,
               rootTable,
               query.wheres.toScala,
-              isLocalized=false, // Don't filter by locality zone in streaming queries.
-          )
+              isLocalized = false // Don't filter by locality zone in streaming queries.
+            )
           val reqColumns = tableUtils.getColumnsFromQuery(streamingQuery)
           types.StructType(fullInputSchema.filter(col => reqColumns.contains(col.name)))
         }
@@ -194,11 +206,15 @@ object GroupByUpload {
     result
   }
 
+  // Custom GroupByUpload configs configured at Stripe.
+  case class CustomConfigs(use3DayTailHops: Boolean = false)
+
   def run(groupByConf: api.GroupBy,
           endDs: String,
           tableUtilsOpt: Option[BaseTableUtils] = None,
           showDf: Boolean = false,
-          jsonPercent: Int = 1): Unit = {
+          jsonPercent: Int = 1,
+          customConfigs: CustomConfigs = new CustomConfigs): Unit = {
     val context = Metrics.Context(Metrics.Environment.GroupByUpload, groupByConf)
     val startTs = System.currentTimeMillis()
     implicit val tableUtils: BaseTableUtils =
@@ -216,7 +232,7 @@ object GroupByUpload {
                                     computeDependency = true,
                                     mutationScan = false,
                                     showDf = showDf)
-    lazy val groupByUpload = new GroupByUpload(endDs, groupBy)
+    lazy val groupByUpload = new GroupByUpload(endDs, groupBy, customConfigs)
     // for temporal accuracy - we don't need to scan mutations for upload
     // when endDs = xxxx-01-02 the timestamp from airflow is more than (xxxx-01-03 00:00:00)
     // we wait for event partitions of (xxxx-01-02) which contain data until (xxxx-01-02 23:59:59.999)
@@ -227,9 +243,9 @@ object GroupByUpload {
                    computeDependency = true,
                    mutationScan = false,
                    showDf = showDf)
-    lazy val shiftedGroupByUpload = new GroupByUpload(batchEndDate, shiftedGroupBy)
+    lazy val shiftedGroupByUpload = new GroupByUpload(batchEndDate, shiftedGroupBy, customConfigs)
     // for mutations I need the snapshot from the previous day, but a batch end date of ds +1
-    lazy val otherGroupByUpload = new GroupByUpload(batchEndDate, groupBy)
+    lazy val otherGroupByUpload = new GroupByUpload(batchEndDate, groupBy, customConfigs)
 
     logger.info(s"""
          |GroupBy upload for: ${groupByConf.metaData.team}.${groupByConf.metaData.name}
@@ -249,7 +265,23 @@ object GroupByUpload {
       kvRdd.toFlatDf.prettyPrint()
     }
 
-    val groupByServingInfo = buildServingInfo(groupByConf, session = tableUtils.sparkSession, endDs)(tableUtils).groupByServingInfo
+    val groupByServingInfo =
+      buildServingInfo(groupByConf, session = tableUtils.sparkSession, endDs)(tableUtils).groupByServingInfo
+
+    // If this GroupByUpload is configured to use 3-day tailHops, we add a flag to the GroupBy's customJson so it can
+    // later be read in the Fetcher when serving the GroupBy.
+    if (customConfigs.use3DayTailHops) {
+      Try(
+        groupByServingInfo.getGroupBy.getMetaData
+          .updateCustomJson("use_3_day_tail_hops", customConfigs.use3DayTailHops)) match {
+        case Failure(exception) =>
+          throw new RuntimeException(
+            "Error updating the GroupBy's serving info to include the 'use_3_day_tail_hops' flag. Revert the " +
+              "'use_3_day_tail_hops' feature flag for the GroupByUpload and re-run the job.",
+            exception)
+        case _ =>
+      }
+    }
 
     val metaRows = Seq(
       Row(
@@ -265,13 +297,14 @@ object GroupByUpload {
       .withColumn("ds", lit(endDs))
       .saveUnPartitioned(tableUtils, groupByConf.metaData.uploadTable, groupByConf.metaData.tableProps)
 
-    val kvDfReloaded = tableUtils.loadEntireTable(groupByConf.metaData.uploadTable)
+    val kvDfReloaded = tableUtils
+      .loadEntireTable(groupByConf.metaData.uploadTable)
       .where(not(col("key_json").eqNullSafe(Constants.GroupByServingInfoKey)))
 
     val metricRow =
       kvDfReloaded.selectExpr("sum(bit_length(key_bytes))/8", "sum(bit_length(value_bytes))/8", "count(*)").collect()
 
-    if(!metricRow.isEmpty && !metricRow(0).isNullAt(0) && !metricRow(0).isNullAt(1) && !metricRow(0).isNullAt(2) ) {
+    if (!metricRow.isEmpty && !metricRow(0).isNullAt(0) && !metricRow(0).isNullAt(1) && !metricRow(0).isNullAt(2)) {
       context.gauge(Metrics.Name.KeyBytes, metricRow(0).getDouble(0).toLong)
       context.gauge(Metrics.Name.ValueBytes, metricRow(0).getDouble(1).toLong)
       context.gauge(Metrics.Name.RowCount, metricRow(0).getLong(2))
