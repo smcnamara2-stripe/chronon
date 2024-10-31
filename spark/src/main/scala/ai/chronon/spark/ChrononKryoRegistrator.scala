@@ -26,6 +26,7 @@ import com.yahoo.sketches.ArrayOfItemsSerDe
 import com.yahoo.sketches.cpc.CpcSketch
 import com.yahoo.sketches.frequencies.ItemsSketch
 import org.apache.spark.serializer.KryoRegistrator
+import org.apache.spark.sql.execution.columnar.DefaultCachedBatch
 
 class CpcSketchKryoSerializer extends Serializer[CpcSketch] {
   override def write(kryo: Kryo, output: Output, sketch: CpcSketch): Unit = {
@@ -163,8 +164,10 @@ class ChrononKryoRegistrator extends KryoRegistrator {
 
     kryo.register(classOf[Array[Array[Array[AnyRef]]]])
     kryo.register(classOf[Array[Array[AnyRef]]])
+    kryo.register(classOf[Array[Array[Byte]]])
     kryo.register(classOf[CpcSketch], new CpcSketchKryoSerializer())
     kryo.register(classOf[Array[ItemSketchSerializable]])
     kryo.register(classOf[ItemsSketchIR[AnyRef]], new ItemsSketchKryoSerializer[AnyRef])
+    kryo.register(classOf[DefaultCachedBatch])
   }
 }

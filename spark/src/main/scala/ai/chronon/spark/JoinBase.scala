@@ -237,7 +237,8 @@ abstract class JoinBase(joinConf: api.Join,
                    rightSkewFilter,
                    mutationScan = mutationScan,
                    showDf = showDf,
-                   lag = lag)
+                   lag = lag,
+                   sparkUtils = sparkUtils)
 
     // all lazy vals - so evaluated only when needed by each case.
     lazy val partitionRangeGroupBy = genGroupBy(unfilledRange)
@@ -296,7 +297,7 @@ abstract class JoinBase(joinConf: api.Join,
         genGroupBy(shiftedPartitionRange).snapshotEvents(shiftedPartitionRange, snapshotResolution)
       case (Events, Events, Accuracy.TEMPORAL) =>
         val groupBy = genGroupBy(unfilledTimeRange.toPartitionRange)
-        if (useTwoStack) groupBy.temporalEventsTwoStack(renamedLeftDf, Some(unfilledTimeRange), sparkUtils = sparkUtils)
+        if (useTwoStack) groupBy.temporalEventsTwoStack(renamedLeftDf, Some(unfilledTimeRange))
         else groupBy.temporalEvents(renamedLeftDf, Some(unfilledTimeRange))
       case (Events, Entities, Accuracy.SNAPSHOT) => genGroupBy(shiftedPartitionRange).snapshotEntities
 

@@ -1,13 +1,8 @@
 package ai.chronon.spark
 
-import org.apache.spark.sql.{
-  Column,
-  Dataset,
-  Encoder,
-  KeyValueGroupedDataset,
-}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Encoder, KeyValueGroupedDataset}
 
-trait SparkUtils {
+trait SparkUtils extends Serializable {
 
   def cogroupSorted[K, V, U, R: Encoder](
                                           leftDataset: KeyValueGroupedDataset[K, V],
@@ -16,5 +11,9 @@ trait SparkUtils {
                                           rightOrdering: Seq[Column],
                                           f: (K, Iterator[V], Iterator[U]) => TraversableOnce[R]
                                         ): Dataset[R]
+
+  // Allows implementers to cache the given dataframe using custom caching
+  // or conditional logic. Default is a no-op.
+  def optionalCache(df: DataFrame): DataFrame = df
 
 }

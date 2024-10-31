@@ -29,6 +29,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Encoders, KeyValueGroupedDataset, Row, SparkSession}
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.sketch.BloomFilter
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -43,7 +44,8 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
               val mutationDf: DataFrame = null,
               skewFilter: Option[String] = None,
               finalize: Boolean = true,
-              optTableUtils: Option[BaseTableUtils] = None)
+              optTableUtils: Option[BaseTableUtils] = None,
+              sparkUtils: Option[SparkUtils] = None)
     extends Serializable {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
@@ -154,7 +156,7 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     // For example, when computing daily features this will include data ds [00:00:00.000, ds + 1 00:00:00.000).
     val shiftedEndTimes = endTimes.map(_ + tableUtils.partitionSpec.spanMillis)
     val sawtoothAggregator = new SawtoothAggregator(aggregations, selectedSchema, resolution)
-    val hops = hopsAggregate(endTimes.min, resolution)
+    val hops = hopsAggregate(inputDf, endTimes.min, resolution)
 
     hops
       .flatMap {
@@ -288,8 +290,7 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
     */
   def temporalEventsTwoStack(queriesUnfilteredDf: DataFrame,
                              queryTimeRange: Option[TimeRange] = None,
-                             resolution: Resolution = FiveMinuteResolution,
-                             sparkUtils: Option[SparkUtils] = None): DataFrame = {
+                             resolution: Resolution = FiveMinuteResolution): DataFrame = {
 
     println("Computing join part using two stack")
 
@@ -379,10 +380,11 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
       .getOrElse(queriesUnfilteredDf.removeNulls(keyColumns))
 
     val TimeRange(minQueryTs, maxQueryTs) = queryTimeRange.getOrElse(queriesDf.timeRange(tableUtils))
-    val hopsRdd = hopsAggregate(minQueryTs, resolution)
+    val cachedInputDf = sparkUtils.map(_.optionalCache(inputDf)).getOrElse(inputDf)
+    val hopsRdd = hopsAggregate(cachedInputDf, minQueryTs, resolution)
 
     def headStart(ts: Long): Long = TsUtils.round(ts, resolution.hopSizes.min)
-    queriesDf.validateJoinKeys(inputDf, keyColumns)
+    queriesDf.validateJoinKeys(cachedInputDf, keyColumns)
 
     val queriesKeyGen = FastHashing.generateKeyBuilder(keyColumns.toArray, queriesDf.schema)
     val queryTsIndex = queriesDf.schema.fieldIndex(Constants.TimeColumn)
@@ -422,9 +424,9 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
       }
 
     // this can be fused into hop generation
-    val inputKeyGen = FastHashing.generateKeyBuilder(keyColumns.toArray, inputDf.schema)
+    val inputKeyGen = FastHashing.generateKeyBuilder(keyColumns.toArray, cachedInputDf.schema)
     val minHeadStart = headStart(minQueryTs)
-    val eventsByHeadStart = inputDf
+    val eventsByHeadStart = cachedInputDf
       .filter(s"${Constants.TimeColumn} between $minHeadStart and $maxQueryTs")
       .rdd
       .groupBy { (row: Row) => inputKeyGen(row) -> headStart(row.getLong(tsIndex)) }
@@ -456,13 +458,13 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
   // Class HopsCacher(keySchema, irSchema, resolution) extends RddCacher[(KeyWithHash, HopsOutput)]
   //  buildTableRow((keyWithHash, hopsOutput)) -> GenericRowWithSchema
   //  buildRddRow(GenericRowWithSchema) -> (keyWithHash, hopsOutput)
-  def hopsAggregate(minQueryTs: Long, resolution: Resolution): RDD[(KeyWithHash, HopsAggregator.OutputArrayType)] = {
+  def hopsAggregate(df: DataFrame, minQueryTs: Long, resolution: Resolution): RDD[(KeyWithHash, HopsAggregator.OutputArrayType)] = {
     val hopsAggregator =
       new HopsAggregator(minQueryTs, aggregations, selectedSchema, resolution)
     val keyBuilder: Row => KeyWithHash =
-      FastHashing.generateKeyBuilder(keyColumns.toArray, inputDf.schema)
+      FastHashing.generateKeyBuilder(keyColumns.toArray, df.schema)
 
-    inputDf.rdd
+    df.rdd
       .keyBy(keyBuilder)
       .mapValues(SparkConversions.toChrononRow(_, tsIndex))
       .aggregateByKey(zeroValue = hopsAggregator.init())(
@@ -587,7 +589,8 @@ object GroupBy {
            finalize: Boolean = true,
            mutationScan: Boolean = true,
            showDf: Boolean = false,
-           lag: Long = 0): GroupBy = {
+           lag: Long = 0,
+           sparkUtils: Option[SparkUtils] = None): GroupBy = {
     logger.info(s"\n----[Processing GroupBy: ${groupByConfOld.metaData.name}]----")
     val groupByConf = replaceJoinSource(groupByConfOld, queryRange, tableUtils, computeDependency, showDf)
     val lagSpans = millisecondsToPartitionSpans(lag, tableUtils)
@@ -681,7 +684,8 @@ object GroupBy {
                 nullFiltered,
                 Option(mutationDf).orNull,
                 finalize = finalize,
-                optTableUtils = Some(tableUtils)
+                optTableUtils = Some(tableUtils),
+                sparkUtils = sparkUtils
               )
   }
 
