@@ -470,7 +470,7 @@ struct InferenceSpec {
 struct Model {
     1: optional InferenceSpec inferenceSpec
     2: optional list<DataField> inputSchema
-    3: optional list<DataField> outputSchema
+    3: optional DataField outputSchema
 }
 
 struct ModelTransformation {

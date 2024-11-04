@@ -198,6 +198,12 @@ def sanitize(name):
 
 def output_table_name(obj, full_name: bool):
     table_name = sanitize(obj.metaData.name)
+    # Model transforms break the convention that output table names are the same as the object name.
+    # Joins that have model transformations will write to _pre_mt tables with the MT job writing to the final table.
+    if type(obj) == api.Join and obj.modelTransformation is not None:
+        table_name = table_name + "_pre_mt"
+    elif type(obj) == api.ModelTransformation:
+        table_name = table_name.replace("_model_transformation", "")
     db = obj.metaData.outputNamespace
     db = db or "{{ db }}"
     if full_name:

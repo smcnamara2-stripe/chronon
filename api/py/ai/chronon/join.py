@@ -682,7 +682,7 @@ def InferenceSpec(
 def Model(
         inference_spec: api.InferenceSpec,
         input_schema: List[api.DataField],
-        output_schema: List[api.DataField],
+        output_schema: api.DataField,
 ) -> api.Model:
     assert inference_spec is not None, "Inference spec must be set to create a model"
     assert input_schema is not None, "Input schema must be set to create a model"
