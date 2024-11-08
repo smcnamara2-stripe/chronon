@@ -18,7 +18,7 @@ package ai.chronon.spark.test
 
 import ai.chronon.aggregator.test.Column
 import ai.chronon.api
-import ai.chronon.api.{Accuracy, Builders, Constants, LongType, Operation, StringType, TimeUnit, Window}
+import ai.chronon.api.{Accuracy, Builders, Constants, LongType, ModelTransformation, Operation, StringType, TimeUnit, Window}
 import ai.chronon.api.Extensions._
 import ai.chronon.spark.Extensions._
 import ai.chronon.spark.GroupBy.{renderDataSourceQuery, renderUnpartitionedDataSourceQuery}
@@ -1804,5 +1804,85 @@ class JoinTest {
       spark.sql(s"SELECT * FROM $partTable3")
     }
     assert(thrown2.getMessage.contains("Table or view not found") && thrown3.getMessage.contains("Table or view not found"))
+  }
+
+  // When model transformations were introduced we began having the join job write to tables that were suffixed with `_pre_mt`.
+  // This test will compute a join that has a model transformation and confirm we are writing to the correctly named tables.
+  @Test
+  def testJoinWithModelTransformationOutputTableNames(): Unit = {
+    // Left
+    val itemQueries = List(
+      Column("item", api.StringType, 100),
+      Column("value", api.LongType, 100)
+    )
+
+    val itemQueriesTable = s"$namespace.item_queries_join_with_model_transformation"
+    DataFrameGen.events(spark, itemQueries, 10000, partitions = 30).save(s"${itemQueriesTable}")
+    val start = monthAgo
+
+    // Right
+    val viewsSchema = List(
+      Column("user", api.StringType, 10000),
+      Column("item", api.StringType, 100),
+      Column("value", api.LongType, 100)
+    )
+    val viewsTable = s"$namespace.view_join_with_model_transformation"
+
+    DataFrameGen.events(spark, viewsSchema, count = 10000, partitions = 30).save(viewsTable)
+
+    // Group By
+    val gb1 = Builders.GroupBy(
+      sources = Seq(
+        Builders.Source.events(
+          table = viewsTable,
+          query = Builders.Query(startPartition = start)
+        )),
+      keyColumns = Seq("item"),
+      aggregations = Seq(
+        Builders.Aggregation(operation = Operation.MAX, inputColumn = "value")
+      ),
+      metaData =
+        Builders.MetaData(name = s"unit_test.gb_1.v0", namespace = namespace, team = "item_team"),
+      accuracy = Accuracy.SNAPSHOT
+    )
+
+    val gb2 = Builders.GroupBy(
+      sources = Seq(
+        Builders.Source.events(
+          table = viewsTable,
+          query = Builders.Query(startPartition = start)
+        )),
+      keyColumns = Seq("item"),
+      aggregations = Seq(
+        Builders.Aggregation(operation = Operation.MIN, inputColumn = "value")
+      ),
+      metaData =
+        Builders.MetaData(name = s"unit_test.gb_2.v0", namespace = namespace, team = "item_team"),
+      accuracy = Accuracy.SNAPSHOT
+    )
+
+
+    // Join
+    val joinConf = Builders.Join(
+      left = Builders.Source.events(Builders.Query(startPartition = start), table = itemQueriesTable),
+      joinParts = Seq(
+        Builders.JoinPart(groupBy = gb1),
+        Builders.JoinPart(groupBy = gb2, prefix = "with_prefix")
+      ),
+      metaData = Builders.MetaData(
+        name = s"unit_test.join_with_model_transformation.v0",
+        namespace = namespace,
+        team = "item_team"
+      )
+    ).setModelTransformation(new ModelTransformation())
+
+    val joinJob = new Join(joinConf, today, tableUtils)
+    joinJob.computeJoinOpt()
+
+    val tables: Seq[String] = spark.sql(s"SHOW TABLES IN ${namespace}").select("tableName").collect().map(_.getString(0))
+
+    assert(tables.contains("unit_test_join_with_model_transformation_v0_pre_mt")) // join output table name is now suffixed with `_pre_mt`
+    assert(tables.contains("unit_test_join_with_model_transformation_v0_unit_test_gb_1_v0")) // Intermediate table names don't change
+    assert(tables.contains("unit_test_join_with_model_transformation_v0_with_prefix_unit_test_gb_2_v0"))
   }
 }

@@ -48,7 +48,12 @@ abstract class JoinBase(joinConf: api.Join,
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
   assert(Option(joinConf.metaData.outputNamespace).nonEmpty, s"output namespace could not be empty or null")
   val metrics: Metrics.Context = Metrics.Context(Metrics.Environment.JoinOffline, joinConf)
-  private val outputTable = joinConf.metaData.outputTable
+
+  private val outputTable = {
+   if(joinConf.isSetModelTransformation) s"${joinConf.metaData.outputTable}_pre_mt"
+   else joinConf.metaData.outputTable
+  }
+
   // Get table properties from config
   protected val confTableProps: Map[String, String] = Option(joinConf.metaData.tableProperties)
     .map(_.asScala.toMap)
