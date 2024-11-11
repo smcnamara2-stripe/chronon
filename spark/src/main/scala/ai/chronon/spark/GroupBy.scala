@@ -553,7 +553,13 @@ object GroupBy {
             df.prettyPrint()
           }
         }
-        val joinOutputTable = joinConf.metaData.outputTable
+        // This will point at the output table of the model transformation job if the Join has a modelTransformation set.
+        // Additionally, if this is part of a prototyping run that includes the base join, we will need to have
+        // the output table name point at the USM result.
+        val joinOutputTable = {
+          if(joinSource.isSetOutputTableNameOverride) joinSource.outputTableNameOverride
+          else joinConf.metaData.outputTable
+        }
         val topic = joinConf.left.topic
         val newSource = joinConf.left.deepCopy()
         if (newSource.isSetEvents) {

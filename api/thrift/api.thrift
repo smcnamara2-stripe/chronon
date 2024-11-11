@@ -148,6 +148,8 @@ struct ExternalSource {
 struct JoinSource {
     1: optional Join join
     2: optional Query query
+    // This allows us to load from a USM table if applicable
+    3: optional string outputTableNameOverride
 }
 
 union Source {
