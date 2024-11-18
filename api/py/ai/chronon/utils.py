@@ -256,14 +256,20 @@ def get_staging_query_output_table_name(staging_query: api.StagingQuery, full_na
 
 
 def get_join_output_table_name(join: api.Join, full_name: bool = False):
-    """generate output table name for join backfill job"""
-    set_name(join, api.Join, "joins")
-    # set output namespace
-    if not join.metaData.outputNamespace:
-        team_name = join.metaData.name.split(".")[0]
-        namespace = teams.get_team_conf(os.path.join(chronon_root_path, TEAMS_FILE_PATH), team_name, "namespace")
-        join.metaData.outputNamespace = namespace
-    return output_table_name(join, full_name=full_name)
+    """Join output table name. If the join has a model transform this is the output of that job, else its the output of the join job"""
+    
+    # This allows us to make use of join sources as both relative and absolute imports.
+    try:
+        set_name(join, api.Join, "joins")
+    except AttributeError:
+        set_name(join, api.Join, "src.python.shepherd.chronon_poc.joins")
+
+    table_name = join.metaData.name
+    
+    if full_name:
+        return sanitize(join.metaData.outputNamespace + "." + table_name)
+    else:
+        return sanitize(table_name)
 
 def get_model_transformation_output_table_name(join: api.Join, full_name: bool):
     assert join.modelTransformation is not None, "Model transformation is not defined. Unable to get model transformation output table name."
