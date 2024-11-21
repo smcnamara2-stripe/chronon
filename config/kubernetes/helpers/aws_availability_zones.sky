@@ -11,14 +11,14 @@ SUPPORTED_AVAILABILITY_ZONES = [
     "ap-south-1c",
     "us-west-2a",
     "us-west-2b",
-    "us-west-2c"
+    "us-west-2c",
 ]
 
 STRIPE_CLUSTER_TO_AWS_REGION = {
     "northwest": "us-west-2",
     "cmh": "us-east-2",
     "east": "us-east-1",
-    "bom": "ap-south-1"
+    "bom": "ap-south-1",
 }
 
 def aws_az_valid(az, cluster):
@@ -26,7 +26,7 @@ def aws_az_valid(az, cluster):
         return False, "unsupported availability zone"
 
     if not cluster:
-        return True, "" # skip
+        return True, ""  # skip
 
     if cluster not in STRIPE_CLUSTER_TO_AWS_REGION.keys():
         return False, "unknown stripe cluster: %s" % cluster

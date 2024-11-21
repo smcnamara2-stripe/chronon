@@ -3,30 +3,29 @@
 Plugin for creating a pod in the standard way for Stripe.
 """
 
-load("config/kubernetes/core/generic.sky", "is_shared_msp", "is_dedicated_msp")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/core/container.sky", "container", "container_resources", "resource_requirements")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/core/feature_flags.sky", "use_feature_flags")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/core/pod.sky", "pod", "pod_host_network", "pod_scheduler_name")
-load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "host_volume")
+load("config/kubernetes/core/volume.sky", "host_volume", "mount_host_volume", "mount_pod_volume")
 load("config/kubernetes/helpers/availability_tiers.sky", "A400")
 load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size", "get_instance_type_by_name", "get_override_eq_instance_type")
+load("config/kubernetes/helpers/context.sky", "get_env", "get_instance_generation_override", "get_name", "is_bin_packing_enabled", "is_isolated_deploy", "is_onebox")
 load("config/kubernetes/helpers/images.sky", "image_architecture_annotation")
 load("config/kubernetes/helpers/msp_shard.sky", "autoset_shard_shared_msp")
-load("config/kubernetes/helpers/node_selectors.sky", "node_selectors", host_type_plugin="host_type", "SHARED_MSP_HOST_TYPE")
-load("config/kubernetes/helpers/quantities.sky", "millicores", "mebibytes")
+load("config/kubernetes/helpers/node_selectors.sky", "SHARED_MSP_HOST_TYPE", "node_selectors", host_type_plugin = "host_type")
+load("config/kubernetes/helpers/quantities.sky", "mebibytes", "millicores")
 load("config/kubernetes/helpers/security.sky", "run_as_unprivileged")
-load("config/kubernetes/meta/metadata.sky", "annotations", "labels", "metadata")
-load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "get_env", "get_name", "get_henson_config", "is_isolated_deploy", "is_onebox", "get_service_variant", "get_instance_generation_override")
 load("config/kubernetes/helpers/tolerations.sky", "add_toleration")
-load("config/kubernetes/networking/internal/envoy-config-srv.sky", "henson_listener_config")
-load("config/kubernetes/networking/public/networking.sky", "mount_pod_networking", "proxyless_mount_admin_server_dir", "proxyless_container_env_vars")
+load("config/kubernetes/meta/metadata.sky", "annotations", "labels", "metadata")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
+load("config/kubernetes/plugins/types.sky", "pod_plugin")
 load("config/kubernetes/helpers/graviton.sky", "is_graviton_instance")
-load("config/kubernetes/helpers/warning.sky", "warn")
 load("config/kubernetes/helpers/isolated_deploys.sky", "isolated_deploy_aware_resource_name", "isolated_environment_env_var")
+load("config/kubernetes/helpers/warning.sky", "warn")
+load("config/kubernetes/networking/public/networking.sky", "mount_pod_networking", "proxyless_mount_admin_server_dir")
 
 TUPLE_TYPE = "tuple"
 
@@ -48,8 +47,7 @@ def stripe_pod(
         use_shared_msp_service_account = True,
         requires_consul = False,
         command_required = True,
-        resource_requirements_spec = None,
-):
+        resource_requirements_spec = None):
     """
     Create a standard Stripe job or service with a main container.
 
@@ -109,7 +107,7 @@ def stripe_pod(
     if command_required and (command == None or len(command) == 0):
         fail("No command specified in stripe_pod " + str(name))
 
-    if command_required and str(type(command)) != 'list':
+    if command_required and str(type(command)) != "list":
         fail("Invalid command specified in stripe_pod " + str(name) + ": was not of type list, was " + str(type(command)))
 
     if get_instance_generation_override(ctx):
@@ -122,22 +120,22 @@ def stripe_pod(
     container_resource_spec, using_vpa_rec = build_pod_resources(ctx, cpu, memory, storage, resource_requirements_spec)
 
     all_args = dict(
-        name=name,
-        image=image,
-        command=command,
-        cpu=cpu,
-        memory=memory,
-        storage=storage,
-        host_network=host_network,
-        share_pid_namespace=share_pid_namespace,
-        host_type=host_type,
-        namespace=namespace,
-        container_name=container_name,
-        instance_type=instance_type,
-        availability_tier=availability_tier,
-        container_resource_spec=container_resource_spec,
+        name = name,
+        image = image,
+        command = command,
+        cpu = cpu,
+        memory = memory,
+        storage = storage,
+        host_network = host_network,
+        share_pid_namespace = share_pid_namespace,
+        host_type = host_type,
+        namespace = namespace,
+        container_name = container_name,
+        instance_type = instance_type,
+        availability_tier = availability_tier,
+        container_resource_spec = container_resource_spec,
     )
-    defaulted_host_network = True if host_network == None else host_network # default to True for dedicated MSP
+    defaulted_host_network = True if host_network == None else host_network  # default to True for dedicated MSP
     defaulted_availability_tier = A400 if availability_tier == None else availability_tier  # default to A400 for shared_msp
 
     # On shared MSP, we default to A400 if you don't specify an availability tier,
@@ -150,7 +148,7 @@ def stripe_pod(
     if availability_tier != None:
         # On dedicated MSP, there is no distinction between pod tier and node tier, so we set both annotation and
         #   node selector to the more fine-grained pod_tier
-        dedicated_msp_atier['stripe.io/availability-tier'] = availability_tier.pod_tier
+        dedicated_msp_atier["stripe.io/availability-tier"] = availability_tier.pod_tier
 
     plugins = [
         pod(share_pid_namespace = share_pid_namespace),
@@ -164,23 +162,23 @@ def stripe_pod(
             command_required = command_required,
         ),
         conditional_plugin(
-            condition=is_shared_msp,
-            plugin=compose_plugins(
+            condition = is_shared_msp,
+            plugin = compose_plugins(
                 _validate_shared_msp_params_plugin(**all_args),
                 use_shared_msp(
                     ctx,
-                    namespace=namespace,
-                    name=name,
-                    instance_type=instance_type,
-                    availability_tier=defaulted_availability_tier,
-                    requires_consul=requires_consul,
-                    container_resource_spec=container_resource_spec,
+                    namespace = namespace,
+                    name = name,
+                    instance_type = instance_type,
+                    availability_tier = defaulted_availability_tier,
+                    requires_consul = requires_consul,
+                    container_resource_spec = container_resource_spec,
                 ),
-            )
+            ),
         ),
         conditional_plugin(
-            condition=is_dedicated_msp,
-            plugin=compose_plugins(
+            condition = is_dedicated_msp,
+            plugin = compose_plugins(
                 _validate_dedicated_msp_params_plugin(**all_args),
                 metadata(
                     namespace = host_type,
@@ -189,7 +187,7 @@ def stripe_pod(
                 container_resources(cpu = cpu, memory = memory, container_resource_spec = container_resource_spec),
                 host_type_plugin(host_type),
                 pod_host_network(defaulted_host_network),
-                labels({'stripe.io/shared-msp': 'false'}),
+                labels({"stripe.io/shared-msp": "false"}),
                 labels(dedicated_msp_atier),
                 annotations(dedicated_msp_atier),
                 node_selectors(dedicated_msp_atier),
@@ -204,11 +202,9 @@ def stripe_pod(
     if use_shared_msp_service_account:
         plugins.append(shared_msp_service_account_plugin())
     if using_vpa_rec:
-        plugins.append(labels({'stripe.io/right-sized': 'true'}))
+        plugins.append(labels({"stripe.io/right-sized": "true"}))
 
     return compose_plugins(*plugins)
-
-
 
 def use_shared_msp(ctx, *, namespace, name, instance_type, availability_tier, requires_consul = False, container_resource_spec = None):
     """
@@ -220,58 +216,54 @@ def use_shared_msp(ctx, *, namespace, name, instance_type, availability_tier, re
     cpu = millicores(ctx, total_resources.cpu_millicores - instance_type.slack_cpu_millicores)
     memory = mebibytes(ctx, total_resources.memory_mib)
     shard_plugin = autoset_shard_shared_msp()
+
     # If bin packing is enabled, we want to use the bin packing scheduler, otherwise we want to use the default scheduler.
     scheduler_name = "default-scheduler"
     bin_pack = is_bin_packing_enabled(ctx)
     node_selectors_map = {"stripe.io/availability-tier": availability_tier.node_tier}
     annotations_map = {
         "stripe.io/availability-tier": availability_tier.pod_tier,
-        "stripe.io/bin-packing": "disabled"
+        "stripe.io/bin-packing": "disabled",
     }
-    bin_packing_label={"stripe.io/bin-packing": "disabled"}
+    bin_packing_label = {"stripe.io/bin-packing": "disabled"}
     if bin_pack:
         annotations_map["stripe.io/requested-instance-type"] = instance_type.name
         annotations_map["stripe.io/bin-packing"] = "enabled"
         bin_packing_label["stripe.io/bin-packing"] = "enabled"
         scheduler_name = "bin-packing-scheduler"
 
-        node_selectors_map["stripe.io/bin-packing"]= "enabled"
+        node_selectors_map["stripe.io/bin-packing"] = "enabled"
         if is_graviton_instance(instance_type):
-            node_selectors_map["kubernetes.io/arch"]= "arm64"
+            node_selectors_map["kubernetes.io/arch"] = "arm64"
         else:
-            node_selectors_map["kubernetes.io/arch"]= "amd64"
+            node_selectors_map["kubernetes.io/arch"] = "amd64"
 
         if container_resource_spec != None:
             annotations_map["stripe.io/original-instance-type"] = instance_type.name
             annotations_map["stripe.io/requested-instance-type"] = "custom"
     else:
-        node_selectors_map["stripe.io/aws-instance-type"]= instance_type.name
+        node_selectors_map["stripe.io/aws-instance-type"] = instance_type.name
+
         # if not binpacked, do not allow services to set custom resources
         container_resource_spec = None
 
     plugins = [
         pod_plugin(_set_shared_msp),
-
         metadata(
             namespace = namespace,
             service_name = name,
         ),
-        labels({'stripe.io/shared-msp': 'true'}),
-        labels({'stripe.io/availability-tier': availability_tier.pod_tier}),
+        labels({"stripe.io/shared-msp": "true"}),
+        labels({"stripe.io/availability-tier": availability_tier.pod_tier}),
         labels(bin_packing_label),
         annotations(annotations_map),
-
         container_resources(cpu = cpu, memory = memory, container_resource_spec = container_resource_spec),
         node_selectors(node_selectors_map),
-
         pod_host_network(False),
         pod_scheduler_name(scheduler_name),
         run_as_unprivileged(),
-
         shard_plugin,
-
         host_type_plugin(SHARED_MSP_HOST_TYPE),
-
         _with_consul_agent_enablement(ctx, requires_consul = requires_consul),
 
         # Plugins neccesary for credentials proxy.
@@ -285,27 +277,25 @@ def use_shared_msp(ctx, *, namespace, name, instance_type, availability_tier, re
         ),
         # TODO(ORCH-2190) Remove kube-iam-credentials bind mount for Shared MSP
         container_env_vars({"AWS_CONFIG_FILE": "/pay/aws-config/kube_iam_aws_credentials.ini"}),
-        container_env_vars({"AWS_SDK_LOAD_CONFIG": "true"}), # necessary for go/js AWS SDK's (possibly more) to use the config file
-        mount_host_volume(path="/pay/aws-config/kube_iam_aws_credentials.ini", volume_args = {"type": "File"}),
-        mount_host_volume(path="/usr/stripe/bin/kube-iam-credentials", volume_args={"type": "File"}),
+        container_env_vars({"AWS_SDK_LOAD_CONFIG": "true"}),  # necessary for go/js AWS SDK's (possibly more) to use the config file
+        mount_host_volume(path = "/pay/aws-config/kube_iam_aws_credentials.ini", volume_args = {"type": "File"}),
+        mount_host_volume(path = "/usr/stripe/bin/kube-iam-credentials", volume_args = {"type": "File"}),
 
         # The volume mounted below is an in-memory volume used to store an
         # in-memory file caching AWS credentials For security reasons (this
         # directory will store a file with valid AWS credentials) this
         # file has to be stored in a RAM-backed filesystem and cannot be
         # stored in the underlying hosts filesystem.
-        mount_pod_volume(path="/kube-iam-credentials", volume_args = {"medium": "Memory"}, mount_args = {"read_only": False}),
-
-        host_volume(path="/usr/stripe/bin/kube-prestop", type="File"),
+        mount_pod_volume(path = "/kube-iam-credentials", volume_args = {"medium": "Memory"}, mount_args = {"read_only": False}),
+        host_volume(path = "/usr/stripe/bin/kube-prestop", type = "File"),
 
         # Allow pods to be scheduled on nodes that have been tainted to that particular service
         add_toleration(key = "stripe.io/henson-service", operator = "Equal", effect = "NoSchedule", value = get_name(ctx)),
-
         image_architecture_annotation(ctx, instance_type),
     ]
 
     if is_isolated_deploy(ctx):
-        plugins += [container_env_vars(vars = isolated_environment_env_var(ctx))]
+        plugins.append(container_env_vars(vars = isolated_environment_env_var(ctx)))
 
     return compose_plugins(*plugins)
 
@@ -316,7 +306,7 @@ def _set_shared_msp(ctx, arguments, pod_def):
 def _fail_plugin(message):
     return pod_plugin(
         _fail_with_message,
-        message=message
+        message = message,
     )
 
 def _fail_with_message(ctx, arguments, pod_def):
@@ -361,7 +351,6 @@ def shared_msp_service_account_plugin():
 
 def _set_shared_msp_service_account(ctx, arguments, pod_def):
     pod_def["service_account_name"] = "shared-msp-sa"
-
 
 CONSUL_AGENT_ENABLED_LABEL = "stripe.io/consul-agent"
 CONSUL_AGENT_ENABLED_LABEL_UNKNOWN = "unknown"
@@ -417,12 +406,11 @@ def build_pod_resources(ctx, cpu, memory, storage, resource_requirements_spec):
             # If the user specified a resource_limit for some environment, but just not for this environment
             # to be extra safe we will fallback to the old resource limit paradigm so that the deployment doesn't fail
             if specified_limit != None:
-
                 # Orchestration recommendations won't provide a 'ephemeral-storage' value, so fall back to the old
                 # storage value if it's not specified in the current limit
-                specified_ephemeral_storage = specified_limit.get('limits', {}).get('ephemeral-storage', None)
+                specified_ephemeral_storage = specified_limit.get("limits", {}).get("ephemeral-storage", None)
                 if specified_ephemeral_storage == None and storage != None:
-                    specified_limit['limits']['ephemeral-storage'] = storage
+                    specified_limit["limits"]["ephemeral-storage"] = storage
 
                 return specified_limit, True
         else:

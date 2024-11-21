@@ -1,5 +1,5 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/context.sky", "is_isolated_deploy", "get_service_variant", "get_workspace_id")
+load("config/kubernetes/helpers/context.sky", "get_service_variant", "get_workspace_id", "is_isolated_deploy")
 
 def isolated_deploy_aware_resource_name(ctx, base_name):
     """

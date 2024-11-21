@@ -14,7 +14,7 @@ _sgp_scheme = {
             "matchLabels": {},
         },
         "securityGroupNames": {},
-    }
+    },
 }
 
 _spec_scheme = {
@@ -23,7 +23,7 @@ _spec_scheme = {
 }
 
 _match_labels_scheme = {
-    "matchLabels": {}
+    "matchLabels": {},
 }
 
 _default_prod_security_groups = ["cluster", "mspworker", "mproxy-clients"]
@@ -32,7 +32,7 @@ def security_group_policy(secgroups = None):
     secgroups = secgroups or []
     return any_resource_plugin(
         _update_resource,
-        secgroups=secgroups,
+        secgroups = secgroups,
     )
 
 def _update_resource(ctx, arguments, resource_def):
@@ -60,9 +60,9 @@ def _render_sgp(ctx, sgp_mapping):
 
         env_secgroups = []
         if get_env(ctx) == "qa":
-            env_secgroups = ['qa-' + secgroup for secgroup in secgroups]
+            env_secgroups = ["qa-" + secgroup for secgroup in secgroups]
         elif get_env(ctx) == "preprod":
-            env_secgroups = ['preprod-' + secgroup for secgroup in secgroups]
+            env_secgroups = ["preprod-" + secgroup for secgroup in secgroups]
         else:
             env_secgroups = secgroups
 
@@ -73,8 +73,8 @@ def _render_sgp(ctx, sgp_mapping):
         ctx,
         sgp_mapping.resource["metadata"],
         extra_annotations = {
-            "wait-till-completion": "true"
-        }
+            "wait-till-completion": "true",
+        },
     )
 
     if total_sg_count > 8:
@@ -99,7 +99,3 @@ def _render_sgp(ctx, sgp_mapping):
     spec["podSelector"] = match_labels
     sgp_obj["spec"] = spec
     return sgp_obj
-
-
-
-

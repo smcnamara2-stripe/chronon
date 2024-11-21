@@ -79,13 +79,12 @@ def _render_webhooks(ctx, mutating_webhooks):
     return yaml.marshal(webhooks_obj)
 
 def mutating_webhook(
-    ctx,
-    name,
-    url,
-    failurePolicy = "Ignore",
-    rules = [],
-    timeoutSeconds = 1,
-):
+        ctx,
+        name,
+        url,
+        failurePolicy = "Ignore",
+        rules = [],
+        timeoutSeconds = 1):
     if len(name) == 0:
         fail("invalid webhook name passed: %s" % name)
     if len(url) <= 8:

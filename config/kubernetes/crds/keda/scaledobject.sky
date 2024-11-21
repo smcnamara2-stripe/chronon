@@ -1,9 +1,9 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/context.sky", "get_env", "get_cluster", "is_faas_managed", "is_isolated_deploy", "is_onebox", "get_blue_green_color")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "HorizontalPodAutoscalerBehavior", "HPAScalingPolicy", "HPAScalingRules")
+load("config/kubernetes/crds/keda/common_queries.sky", "HORIZON_MEMORY_USAGE", "HORIZON_OP_UTILIZATION", "RUBY_WORKER_UTILIZATION", "WORKFLOW_TASKS_SLOTS_QUERY", "WORKFLOW_WORKER_ACTIVE_QUERY")
+load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_cluster", "get_env", "get_name", "get_repo", "is_faas_managed", "is_isolated_deploy", "is_onebox")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "HPAScalingPolicy", "HPAScalingRules", "HorizontalPodAutoscalerBehavior")
 load("config/kubernetes/meta/metadata.sky", "render_metadata")
 load("config/kubernetes/plugins/types.sky", "deployment_plugin")
-load("config/kubernetes/service-config/compute.sky", "get_merged_compute_v2_config")
 
 SCHEDULED_SCALE_UP_STRATEGY_WEEKDAY = "WEEKDAY"
 SCHEDULED_SCALE_UP_STRATEGY_WEEKDAY_START = "0 0 * * 1"
@@ -32,7 +32,7 @@ _spec_scheme = {
 _scale_target_ref_scheme = {
     "name": None,
     "kind": "Deployment",
-    "apiVersion": "apps/v1"
+    "apiVersion": "apps/v1",
 }
 
 _qa_prom_proxy_address = "http://promproxybox.northwest.qa.stripe.io/workspaces/ws-a4646237-800c-4429-a9a4-7f48a57821ee"
@@ -43,7 +43,7 @@ _prod_cmh_prom_proxy_address = "http://promproxybox.cmh.prod.stripe.io/workspace
 
 _prom_trigger_scheme = {
     "type": "prometheus",
-    "metadata": {}
+    "metadata": {},
 }
 
 _prom_trigger_metadata_scheme = {
@@ -54,7 +54,7 @@ _prom_trigger_metadata_scheme = {
 
 _cron_trigger_scheme = {
     "type": "cron",
-    "metadata": {}
+    "metadata": {},
 }
 
 _cron_trigger_metadata_scheme = {
@@ -71,34 +71,34 @@ _fallback_scheme = {
 
 _advanced_scheme = {
     "restoreToOriginalReplicaCount": None,
-    "horizontalPodAutoscalerConfig": {}
+    "horizontalPodAutoscalerConfig": {},
 }
 
 _hpa_scheme = {
     "name": None,
-    "behavior": {}
+    "behavior": {},
 }
 
 _hpa_behavior_scheme = {
     "scaleDown": {},
-    "scaleUp": {}
+    "scaleUp": {},
 }
 
 _hpa_behavior_common_scheme = {
     "stabilizationWindowSeconds": None,
-    "policies": {}
+    "policies": {},
 }
 
 _hpa_policy_scheme = {
     "type": None,
     "value": None,
-    "periodSeconds": None
+    "periodSeconds": None,
 }
 
 _cpu_trigger_scheme = {
     "type": "cpu",
     "metricType": "Utilization",
-    "metadata": {}
+    "metadata": {},
 }
 
 _cpu_trigger_metadata_scheme = {
@@ -108,7 +108,7 @@ _cpu_trigger_metadata_scheme = {
 _memory_trigger_scheme = {
     "type": "memory",
     "metricType": "Utilization",
-    "metadata": {}
+    "metadata": {},
 }
 
 _memory_trigger_metadata_scheme = {
@@ -210,7 +210,7 @@ def _scaling_policy(ctx, policy):
         ctx,
         type = policy["type"],
         value = policy["value"],
-        periodSeconds = policy["period_seconds"]
+        periodSeconds = policy["period_seconds"],
     )
 
 def _scaling_rules(ctx, scaling_rules):
@@ -224,7 +224,7 @@ def _scaling_rules(ctx, scaling_rules):
         ctx,
         stabilizationWindowSeconds = scaling_rules["stabilization_window_seconds"],
         selectPolicy = scaling_rules["select_policy"],
-        policies = policies
+        policies = policies,
     )
 
 def _default_scale_up_behavior(ctx):
@@ -317,6 +317,94 @@ def memory_trigger(value):
         "value": value,
     }
 
+def horizon_memory_scaling_trigger(utilization = None, role = None, service_name = None):
+    """
+    Returns a Struct for defining the Horizon memory trigger.
+
+    Args:
+        utilization: Value to trigger scaling actions for. Value is between 0 and 100.
+        role: Role of the target deployment
+        service_name: If the deployment is a sub-deployment within a role, use this for further filtering
+
+    Returns:
+         Struct for defining the Horizon memory trigger.
+    """
+    return {
+        "utilization": utilization,
+        "role": role,
+        "service_name": service_name,
+    }
+
+def horizon_op_scaling_trigger(utilization = None, role = None, service_name = None):
+    """
+    Returns a Struct for defining the Horizon op trigger.
+
+    Args:
+        utilization: Value to trigger scaling actions for. Value is between 0 and 100.
+        role: Role of the target deployment
+        service_name: If the deployment is a sub-deployment within a role, use this for further filtering
+
+    Returns:
+         Struct for defining the Horizon op trigger.
+    """
+    return {
+        "utilization": utilization,
+        "role": role,
+        "service_name": service_name,
+    }
+
+def workflow_worker_activity_task_slots_trigger(threshold, workflow_engine_task_queue_project, workflow_engine_namespace, activity_task_slots_per_worker = None):
+    """
+    Returns a Struct for defining the Workflow Worker Activity trigger
+
+    Args:
+        threshold: Value to trigger scaling actions for. Value is between 0 and activity_task_slots_per_worker.
+        workflow_engine_task_queue_project: Task Queue project to monitor for activity
+        workflow_engine_namespace: Namespace for the workflow engine
+        activity_task_slots_per_worker: Number of task slots per worker
+
+    Returns:
+        Struct for defining the Workflow Worker Activity trigger
+    """
+    return {
+        "threshold": threshold,
+        "workflow_engine_task_queue_project": workflow_engine_task_queue_project,
+        "workflow_engine_namespace": workflow_engine_namespace,
+        "activity_task_slots_per_worker": activity_task_slots_per_worker,
+    }
+
+def workflow_worker_work_present_trigger(workflow_engine_task_queue_project, workflow_engine_namespace):
+    """
+    Returns a Struct for defining the Workflow Work Present trigger.
+
+    Args:
+        workflow_engine_task_queue_project: Task Queue project to monitor for activity
+        workflow_engine_namespace: Namespace for the workflow engine
+
+    Returns:
+        Struct for defining the Workflow Work Present trigger.
+    """
+    return {
+        "workflow_engine_task_queue_project": workflow_engine_task_queue_project,
+        "workflow_engine_namespace": workflow_engine_namespace,
+    }
+
+def ruby_worker_scaling_trigger(utilization = None, service_name = None):
+    """
+    Returns a Struct for defining the Ruby worker trigger.
+
+    Args:
+        utilization: Value to trigger scaling actions for. Value is between 0 and 100.
+        service_name: If the deployment is a sub-deployment within a service, use this for further filtering
+
+    Returns:
+         Struct for defining the Ruby worker trigger.
+    """
+    return {
+        "utilization": utilization,
+        "service_name": service_name,
+    }
+
 def _default_cpu_utilization_threshold_percent(ctx):
     if get_env(ctx) == "qa":
         # In QA, set target CPU utilization to 30%
@@ -331,29 +419,34 @@ def is_qa(ctx, resource):
     return get_env(ctx) == "qa"
 
 def scaled_object(
-    polling_interval = None,
-    cool_down_period = None,
-    min_replicas = None,
-    max_replicas = None,
-    scale_up_scaling_policies = None,
-    scale_up_select_policy = None,
-    scale_up_stabilization_window_seconds = None,
-    scale_down_scaling_policies = None,
-    scale_down_select_policy = None,
-    scale_down_stabilization_window_seconds = None,
-    name = None,
-    fallback_threshold = None,
-    fallback_replicas = None,
-    restore_to_original_replica_count = None,
-    schedule_triggers = None,
-    prometheus_triggers = None,
-    cpu_trigger = None,
-    memory_trigger = None,
-    enable_immediate_scaling = False,
-    disable_blue_green_staging_color_scale_matching = False,
-):
+        polling_interval = None,
+        cool_down_period = None,
+        min_replicas = None,
+        max_replicas = None,
+        scale_up_scaling_policies = None,
+        scale_up_select_policy = None,
+        scale_up_stabilization_window_seconds = None,
+        scale_down_scaling_policies = None,
+        scale_down_select_policy = None,
+        scale_down_stabilization_window_seconds = None,
+        name = None,
+        fallback_threshold = None,
+        fallback_replicas = None,
+        restore_to_original_replica_count = None,
+        schedule_triggers = None,
+        prometheus_triggers = None,
+        cpu_trigger = None,
+        memory_trigger = None,
+        enable_immediate_scaling = False,
+        disable_blue_green_staging_color_scale_matching = False,
+        enable_autoscaling_alerts = False,
+        horizon_memory_scaling_trigger = None,
+        horizon_op_scaling_trigger = None,
+        workflow_worker_activity_task_slots_trigger = None,
+        workflow_worker_work_present_trigger = None,
+        ruby_worker_scaling_trigger = None):
     """
-    Returns a plugin that creates an KEDA ScaledObject CRD in QA only.
+    Returns a plugin that creates an KEDA ScaledObject CRD to configure autoscaling.
 
     Args:
         polling_interval: This is the interval to check each trigger on. By default, KEDA will check each trigger source on every ScaledObject every 30 seconds.
@@ -407,6 +500,21 @@ def scaled_object(
 
         enable_immediate_scaling: When True, the targeted deployment will scale immediately upon deployment, without waiting for or requiring the "Enable Autoscaling" stage
             in Henson to complete. This is not supported when min_replicas is set to 0. Default is False.
+
+        disable_blue_green_staging_color_scale_matching: When true, the staging color will deployed at min_replicas rather than at the replica count of the currently serving color
+
+        enable_autoscaling_alerts: When True, the default suite of autoscaling alerts will be enabled for this service.
+
+        horizon_memory_scaling_trigger: A struct defining the memory scaling trigger for Horizon services.
+
+        horizon_op_scaling_trigger: A struct defining the op scaling trigger for Horizon services.
+
+        workflow_worker_activity_task_slots_trigger: A struct defining the parameters for the Workflow worker activity slots scaling trigger
+
+        workflow_worker_work_present_trigger: A struct defining the parameters for the Workflow worker work present trigger
+
+        ruby_worker_scaling_trigger: A struct defining the worker scaling trigger for Ruby services.
+
     Returns:
         A plugin to add a ScaledObject to a resource
     """
@@ -414,8 +522,8 @@ def scaled_object(
         _update_resource,
         polling_interval = polling_interval,
         cool_down_period = cool_down_period,
-        min_replicas=min_replicas,
-        max_replicas=max_replicas,
+        min_replicas = min_replicas,
+        max_replicas = max_replicas,
         scale_up_scaling_policies = scale_up_scaling_policies,
         scale_up_select_policy = scale_up_select_policy,
         scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds,
@@ -432,14 +540,22 @@ def scaled_object(
         memory_trigger = memory_trigger,
         enable_immediate_scaling = enable_immediate_scaling,
         disable_blue_green_staging_color_scale_matching = disable_blue_green_staging_color_scale_matching,
+        enable_autoscaling_alerts = enable_autoscaling_alerts,
+        horizon_memory_scaling_trigger = horizon_memory_scaling_trigger,
+        horizon_op_scaling_trigger = horizon_op_scaling_trigger,
+        workflow_worker_activity_task_slots_trigger = workflow_worker_activity_task_slots_trigger,
+        workflow_worker_work_present_trigger = workflow_worker_work_present_trigger,
+        ruby_worker_scaling_trigger = ruby_worker_scaling_trigger,
     )
 
-def scaled_object_plugin_from_compute_config(compute_config):
+def scaled_object_plugin_from_compute_config(compute_config, role = None, service_name = None):
     """
     Returns a plugin that creates an KEDA ScaledObject CRD based on configuration in ComputeConfig
 
     Args:
         compute_config: Merged Compute V2 Config which may or may not contain autsocaling configuration
+
+        role: Horizon role of the service, if a horizon service.
 
     Returns:
         A scaled object plugin if the compute config has autoscaling configuration
@@ -456,6 +572,8 @@ def scaled_object_plugin_from_compute_config(compute_config):
         max_replicas = autoscaling_cfg["max_replicas"]
         enable_immediate_scaling = autoscaling_cfg.get("enable_immediate_scaling", False)
         cool_down_period = autoscaling_cfg.get("cooldown_period_seconds", None)
+        disable_blue_green_staging_color_scale_matching = autoscaling_cfg.get("disable_blue_green_staging_color_scale_matching", False)
+        enable_autoscaling_alerts = autoscaling_cfg.get("enable_autoscaling_alerts", False)
 
         prometheus_triggers = []
         schedule_triggers = []
@@ -466,6 +584,11 @@ def scaled_object_plugin_from_compute_config(compute_config):
         scale_down_scaling_policies = []
         scale_down_stabilization_window_seconds = None
         scale_down_select_policy = None
+        horizon_memory_trigger = None
+        horizon_op_trigger = None
+        workflow_task_slots_trigger = None
+        workflow_work_present_trigger = None
+        ruby_worker_trigger = None
 
         if autoscaling_cfg.get("scaling_triggers", []) != []:
             fail("scaling_triggers is deprecated, please use custom_scaling_trigger, cpu_scaling_trigger, or memory_scaling_trigger. See https://go/autoscaling/compute-config")
@@ -476,6 +599,40 @@ def scaled_object_plugin_from_compute_config(compute_config):
 
             if autoscaling_cfg.get("memory_scaling_trigger"):
                 memory_utilization_trigger = memory_trigger(value = autoscaling_cfg["memory_scaling_trigger"].get("utilization"))
+
+            if autoscaling_cfg.get("horizon_memory_scaling_trigger"):
+                horizon_memory_trigger = horizon_memory_scaling_trigger(
+                    utilization = autoscaling_cfg["horizon_memory_scaling_trigger"].get("utilization"),
+                    role = role,
+                )
+
+            if autoscaling_cfg.get("horizon_op_scaling_trigger"):
+                horizon_op_trigger = horizon_op_scaling_trigger(
+                    utilization = autoscaling_cfg["horizon_op_scaling_trigger"].get("utilization"),
+                    role = role,
+                )
+
+            if autoscaling_cfg.get("workflow_worker_activity_task_slots_trigger"):
+                trigger_cfg = autoscaling_cfg["workflow_worker_activity_task_slots_trigger"]
+                workflow_task_slots_trigger = workflow_worker_activity_task_slots_trigger(
+                    threshold = trigger_cfg.get("threshold"),
+                    workflow_engine_task_queue_project = trigger_cfg.get("workflow_engine_task_queue_project"),
+                    workflow_engine_namespace = trigger_cfg.get("workflow_engine_namespace"),
+                    activity_task_slots_per_worker = trigger_cfg.get("activity_task_slots_per_worker"),
+                )
+
+            if autoscaling_cfg.get("workflow_worker_work_present_trigger"):
+                trigger_cfg = autoscaling_cfg["workflow_worker_work_present_trigger"]
+                workflow_work_present_trigger = workflow_worker_work_present_trigger(
+                    workflow_engine_task_queue_project = trigger_cfg.get("workflow_engine_task_queue_project"),
+                    workflow_engine_namespace = trigger_cfg.get("workflow_engine_namespace"),
+                )
+
+            if autoscaling_cfg.get("ruby_worker_scaling_trigger"):
+                ruby_worker_trigger = ruby_worker_scaling_trigger(
+                    utilization = autoscaling_cfg["ruby_worker_scaling_trigger"].get("utilization"),
+                    service_name = service_name,
+                )
 
             for custom_scaling_triggers in autoscaling_cfg.get("custom_scaling_triggers", []):
                 if custom_scaling_triggers.get("prometheus"):
@@ -493,7 +650,7 @@ def scaled_object_plugin_from_compute_config(compute_config):
                     start = schedule_dict.get("start")
                     end = schedule_dict.get("end")
                     desired_replicas = schedule_dict.get("desired_replicas")
-                    schedule_triggers.append(schedule_trigger(start = start, end = end, desired_replicas = desired_replicas, strategy = strategy ))
+                    schedule_triggers.append(schedule_trigger(start = start, end = end, desired_replicas = desired_replicas, strategy = strategy))
 
         # Scaling policy proto
         if autoscaling_cfg.get("scaling_policy"):
@@ -531,7 +688,6 @@ def scaled_object_plugin_from_compute_config(compute_config):
                             period_seconds = policy.get("period_seconds"),
                         ))
 
-
         plugin = scaled_object(
             min_replicas = min_replicas,
             max_replicas = max_replicas,
@@ -546,6 +702,13 @@ def scaled_object_plugin_from_compute_config(compute_config):
             scale_down_scaling_policies = scale_down_scaling_policies,
             scale_down_select_policy = scale_down_select_policy,
             scale_down_stabilization_window_seconds = scale_down_stabilization_window_seconds,
+            disable_blue_green_staging_color_scale_matching = disable_blue_green_staging_color_scale_matching,
+            enable_autoscaling_alerts = enable_autoscaling_alerts,
+            horizon_memory_scaling_trigger = horizon_memory_trigger,
+            horizon_op_scaling_trigger = horizon_op_trigger,
+            workflow_worker_activity_task_slots_trigger = workflow_task_slots_trigger,
+            workflow_worker_work_present_trigger = workflow_work_present_trigger,
+            ruby_worker_scaling_trigger = ruby_worker_trigger,
         )
 
     return plugin
@@ -590,27 +753,27 @@ def _update_resource(ctx, args, resource_def):
 
             # The preferred method in Kubernetes is to remove the replica count from the deployment all together and PATCH the live deployment, but we use
             # PUTS in henson-agent so we need to do this instead.
-            resource_def['metadata']['annotations'].update({
+            resource_def["metadata"]["annotations"].update({
                 "stripe.io/external-scaling-control": "yes",
             })
         elif args.disable_blue_green_staging_color_scale_matching == False:
             # For blue-green deployments, we will use a different annotation as that will trigger a different workflow in henson-agent for replica matching.
             # This annotation tells henson to grab the replica count of the old color and disable scale down on the new color. The Enable HPA stage will
             # re-enable scale down at the end of the deployment (scale up will always be allowed)
-            resource_def['metadata']['annotations'].update({
+            resource_def["metadata"]["annotations"].update({
                 "msp.stripe.io/bg-deployment-scale-matching": "yes",
             })
 
     # For efficiency tracking and for other features like scale matching fallback, add max replicas annotation to the deployment annotations
     if args.max_replicas != None:
-        resource_def['metadata']['annotations'].update({
+        resource_def["metadata"]["annotations"].update({
             "stripe.io/hpa-max-replicas": "%d" % args.max_replicas,
         })
 
     is_shared_msp = resource_def["shared_msp"] or resource_def["pod"]["shared_msp"]
     if _is_autoscaling_supported(ctx, is_shared_msp):
         # mark the deployment as autoscaled
-        resource_def['metadata']['labels'].update({
+        resource_def["metadata"]["labels"].update({
             "msp.stripe.io/autoscaled": "true",
         })
 
@@ -632,6 +795,12 @@ def _update_resource(ctx, args, resource_def):
         "cpu_trigger": args.cpu_trigger,
         "memory_trigger": args.memory_trigger,
         "enable_immediate_scaling": args.enable_immediate_scaling,
+        "enable_autoscaling_alerts": args.enable_autoscaling_alerts,
+        "horizon_memory_scaling_trigger": args.horizon_memory_scaling_trigger,
+        "horizon_op_scaling_trigger": args.horizon_op_scaling_trigger,
+        "workflow_worker_activity_task_slots_trigger": args.workflow_worker_activity_task_slots_trigger,
+        "workflow_worker_work_present_trigger": args.workflow_worker_work_present_trigger,
+        "ruby_worker_scaling_trigger": args.ruby_worker_scaling_trigger,
     }
 
 def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
@@ -664,11 +833,6 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
         # this is service owner misconfiguration
         fail("Max Replica Count %d set lower than default deployment replica count %d, please check your configuration" % (spec["maxReplicaCount"], default_replicas))
 
-    if (default_replicas == spec["minReplicaCount"]) and (default_replicas == spec["maxReplicaCount"]):
-        # If we get here, it means the defaults or the service owner created a situation
-        # where all values are equal and scaling is technically disabled. Therefore, we just render nothing
-        return None
-
     if spec["minReplicaCount"] == 0 and not (is_faas_managed(ctx) or get_env(ctx) == "qa"):
         # only allow min_replicas = 0 if in QA or the service is a workflow.
         fail("Setting min replicas to 0 is only supported for FAAS-managed workflows and QA service. If you have a valid case for scaling to 0 in Production, please reach out to #msp")
@@ -678,6 +842,11 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
     if so_mapping.enable_immediate_scaling == False:
         metadata.annotations.update({
             "autoscaling.keda.sh/paused-replicas": "%d" % default_replicas,
+        })
+
+    if so_mapping.enable_autoscaling_alerts:
+        metadata.labels.update({
+            "msp.stripe.io/enable-autoscaling-alerts": "true",
         })
 
     # Add annotations used for tracking cost savings
@@ -699,7 +868,7 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
     )
 
     scaling_target = dict(_scale_target_ref_scheme)
-    scaling_target["name"] = metadata_obj["name"] # get target from rendered metadata as that will account for b/g color
+    scaling_target["name"] = metadata_obj["name"]  # get target from rendered metadata as that will account for b/g color
     spec["scaleTargetRef"] = scaling_target
 
     if so_mapping.polling_interval != None:
@@ -718,7 +887,7 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
     behavior = HorizontalPodAutoscalerBehavior(
         ctx,
         scaleUp = _scaling_rules(ctx, so_mapping.scale_up_behavior),
-        scaleDown = _scaling_rules(ctx, so_mapping.scale_down_behavior)
+        scaleDown = _scaling_rules(ctx, so_mapping.scale_down_behavior),
     )
 
     hpa_configuration = dict(_hpa_scheme)
@@ -740,7 +909,6 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
 
     spec["advanced"] = advanced
 
-
     triggers = []
     if so_mapping.schedule_triggers != None:
         for schedule_trigger in so_mapping.schedule_triggers:
@@ -753,7 +921,7 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
                     trigger["metadata"]["end"] = SCHEDULED_SCALE_UP_STRATEGY_WEEKDAY_END
                 else:
                     fail("An unsuuported scheduled scaling strategy was provided")
-            elif schedule_trigger["start"] != None and schedule_trigger["end"] != None :
+            elif schedule_trigger["start"] != None and schedule_trigger["end"] != None:
                 trigger["metadata"]["start"] = schedule_trigger["start"]
                 trigger["metadata"]["end"] = schedule_trigger["end"]
             else:
@@ -794,21 +962,7 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
             if prometheus_trigger["metricType"] != None or prometheus_trigger["metricType"] != "":
                 trigger["metricType"] = prometheus_trigger["metricType"]
 
-            server_address = ""
-            if get_env(ctx) == "qa":
-                if get_cluster(ctx) == "cmh":
-                    server_address = _qa_cmh_prom_proxy_address
-                else:
-                    server_address = _qa_prom_proxy_address
-            elif get_env(ctx) == "preprod":
-                server_address = _preprod_prom_proxy_address
-            else:
-                if get_cluster(ctx) == "cmh":
-                    server_address = _prod_cmh_prom_proxy_address
-                else:
-                    server_address = _prod_prom_proxy_address
-
-            trigger["metadata"]["serverAddress"] = server_address
+            trigger["metadata"]["serverAddress"] = _get_prometheus_server_address(ctx)
 
             triggers.append(trigger)
 
@@ -816,6 +970,7 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
         trigger = dict(_cpu_trigger_scheme)
 
         trigger["metadata"] = dict(_cpu_trigger_metadata_scheme)
+
         # Value field is a string for scaling triggers
         if so_mapping.cpu_trigger["value"] == None:
             trigger["metadata"]["value"] = "%d" % _default_cpu_utilization_threshold_percent(ctx)
@@ -824,13 +979,122 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
 
         triggers.append(trigger)
 
-    if so_mapping.memory_trigger != None and so_mapping.memory_trigger.get("value") != None :
+    if so_mapping.memory_trigger != None and so_mapping.memory_trigger.get("value") != None:
         trigger = dict(_memory_trigger_scheme)
 
         # Value field is a string for scaling triggers
         trigger["metadata"] = dict(_memory_trigger_metadata_scheme)
         trigger["metadata"]["value"] = "%d" % so_mapping.memory_trigger["value"]
 
+        triggers.append(trigger)
+
+    if so_mapping.horizon_memory_scaling_trigger != None and so_mapping.horizon_memory_scaling_trigger.get("utilization") != None:
+        if so_mapping.horizon_memory_scaling_trigger.get("role") == None:
+            fail("'role' are required when using the Horizon Memory Trigger")
+
+        trigger = dict(_prom_trigger_scheme)
+        trigger["metadata"] = dict(_prom_trigger_metadata_scheme)
+
+        trigger["metadata"]["query"] = HORIZON_MEMORY_USAGE.format(
+            role = so_mapping.horizon_memory_scaling_trigger.get("role"),
+            henson_service_name = get_name(ctx),
+            host_cluster = get_cluster(ctx),
+            deploy_color = get_blue_green_color(ctx) if get_blue_green_color(ctx) != None else "",
+            service_name = ", service_name=\"%s\"" % so_mapping.horizon_memory_scaling_trigger.get("service_name") if so_mapping.horizon_memory_scaling_trigger.get("service_name") != None else "",
+        )
+
+        trigger["metadata"]["threshold"] = "%d" % so_mapping.horizon_memory_scaling_trigger.get("utilization")
+        trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+
+        trigger["metadata"]["serverAddress"] = _get_prometheus_server_address(ctx)
+        triggers.append(trigger)
+
+    if so_mapping.horizon_op_scaling_trigger != None and so_mapping.horizon_op_scaling_trigger.get("utilization") != None:
+        if so_mapping.horizon_op_scaling_trigger.get("role") == None:
+            fail("'role' are required when using the Horizon Memory Trigger")
+
+        trigger = dict(_prom_trigger_scheme)
+        trigger["metadata"] = dict(_prom_trigger_metadata_scheme)
+
+        trigger["metadata"]["query"] = HORIZON_OP_UTILIZATION.format(
+            role = so_mapping.horizon_op_scaling_trigger.get("role"),
+            henson_service_name = get_name(ctx),
+            host_cluster = get_cluster(ctx),
+            deploy_color = get_blue_green_color(ctx) if get_blue_green_color(ctx) != None else "",
+            service_name = ", service_name=\"%s\"" % so_mapping.horizon_op_scaling_trigger.get("service_name") if so_mapping.horizon_op_scaling_trigger.get("service_name") != None else "",
+        )
+
+        trigger["metadata"]["threshold"] = "%d" % so_mapping.horizon_op_scaling_trigger.get("utilization")
+        trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+
+        trigger["metadata"]["serverAddress"] = _get_prometheus_server_address(ctx)
+        triggers.append(trigger)
+
+    if so_mapping.workflow_worker_activity_task_slots_trigger != None:
+        task_slots_per_worker = so_mapping.workflow_worker_activity_task_slots_trigger.get("activity_task_slots_per_worker")
+        if not task_slots_per_worker:
+            task_slots_per_worker = 200 if get_repo(ctx) == "zoolander" else 1
+
+        trigger = dict(_prom_trigger_scheme)
+        trigger["metadata"] = dict(_prom_trigger_metadata_scheme)
+
+        trigger["metadata"]["query"] = WORKFLOW_TASKS_SLOTS_QUERY.format(
+            activity_task_slots_per_worker = task_slots_per_worker,
+            env = get_env(ctx),
+            repo = get_repo(ctx).removeprefix("stripe-internal/"),
+            workflow_engine_task_queue_project = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_task_queue_project"),
+            workflow_engine_namespace = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_namespace"),
+            host_cluster = get_cluster(ctx),
+        )
+
+        trigger["metadata"]["threshold"] = "%g" % so_mapping.workflow_worker_activity_task_slots_trigger.get("threshold")
+        trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+
+        trigger["metadata"]["serverAddress"] = _get_prometheus_server_address(ctx)
+        triggers.append(trigger)
+
+    if so_mapping.workflow_worker_work_present_trigger != None:
+        if so_mapping.workflow_worker_work_present_trigger.get("workflow_engine_task_queue_project") == None:
+            fail("'workflow_engine_task_queue_project' is required when using the Workflow Work Present trigger")
+
+        if so_mapping.workflow_worker_work_present_trigger.get("workflow_engine_namespace") == None:
+            fail("'workflow_engine_namespace' is required when using the Workflow Work Present trigger")
+
+        trigger = dict(_prom_trigger_scheme)
+        trigger["metadata"] = dict(_prom_trigger_metadata_scheme)
+
+        trigger["metadata"]["query"] = WORKFLOW_WORKER_ACTIVE_QUERY.format(
+            env = get_env(ctx),
+            repo = get_repo(ctx).removeprefix("stripe-internal/"),
+            workflow_engine_task_queue_project = so_mapping.workflow_worker_work_present_trigger.get("workflow_engine_task_queue_project"),
+            workflow_engine_namespace = so_mapping.workflow_worker_work_present_trigger.get("workflow_engine_namespace"),
+            host_cluster = get_cluster(ctx),
+        )
+
+        # Default values from Faas team
+        trigger["metadata"]["threshold"] = "2"
+        trigger["metadata"]["activationThreshold"] = "0.5"
+
+        trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+
+        trigger["metadata"]["serverAddress"] = _get_prometheus_server_address(ctx)
+        triggers.append(trigger)
+
+    if so_mapping.ruby_worker_scaling_trigger != None and so_mapping.ruby_worker_scaling_trigger.get("utilization") != None:
+        trigger = dict(_prom_trigger_scheme)
+        trigger["metadata"] = dict(_prom_trigger_metadata_scheme)
+
+        trigger["metadata"]["query"] = RUBY_WORKER_UTILIZATION.format(
+            henson_service_name = get_name(ctx),
+            host_cluster = get_cluster(ctx),
+            deploy_color = get_blue_green_color(ctx) if get_blue_green_color(ctx) != None else "",
+            service_name = ", service_name=\"%s\"" % so_mapping.ruby_worker_scaling_trigger.get("service_name") if so_mapping.ruby_worker_scaling_trigger.get("service_name") != None else "",
+        )
+
+        trigger["metadata"]["threshold"] = "%d" % so_mapping.ruby_worker_scaling_trigger.get("utilization")
+        trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+
+        trigger["metadata"]["serverAddress"] = _get_prometheus_server_address(ctx)
         triggers.append(trigger)
 
     spec["triggers"] = triggers
@@ -842,3 +1106,19 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
 
 def _is_autoscaling_supported(ctx, is_shared_msp):
     return is_shared_msp and not is_onebox(ctx) and not is_isolated_deploy(ctx)
+
+def _get_prometheus_server_address(ctx):
+    server_address = ""
+    if get_env(ctx) == "qa":
+        if get_cluster(ctx) == "cmh":
+            server_address = _qa_cmh_prom_proxy_address
+        else:
+            server_address = _qa_prom_proxy_address
+    elif get_env(ctx) == "preprod":
+        server_address = _preprod_prom_proxy_address
+    elif get_cluster(ctx) == "cmh":
+        server_address = _prod_cmh_prom_proxy_address
+    else:
+        server_address = _prod_prom_proxy_address
+
+    return server_address

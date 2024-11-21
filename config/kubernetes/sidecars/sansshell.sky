@@ -3,11 +3,12 @@
 
 load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/probe.sky", "probes", "tcp_probe")
-load("config/kubernetes/helpers/context.sky", "get_env", "should_use_sansshell_sidecar_gocode")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/context.sky", "get_env")
 load("config/kubernetes/helpers/security.sky", "mount_host_credentials_proxy", "mount_host_stripe_ca_certs")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "container_plugin")
-load("config/kubernetes/sidecars/variables.sky", "SANSSHELL_CONTAINER_FALLBACK_DIGEST", "SANSSHELL_CONTAINER_FALLBACK_ENV", "SANSSHELL_GOCODE_CONTAINER_FALLBACK_DIGEST", "SANSSHELL_GOCODE_CONTAINER_FALLBACK_ENV")
+load("config/kubernetes/sidecars/variables.sky", "SANSSHELL_CONTAINER_FALLBACK_DIGEST", "SANSSHELL_CONTAINER_FALLBACK_ENV")
 
 ALLOWED_CLIENTS = {
     "qa": [
@@ -15,48 +16,40 @@ ALLOWED_CLIENTS = {
         "forserversbox.global.qa.deploy.stripe.net",
         "sansshellproxybox.global.prod.manage.stripe.net",
         "sansshellproxybox.global.qa.manage.stripe.net",
-        "java-restart-manager.global.qa.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"
-        ],
+        "java-restart-manager.global.qa.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses",
+    ],
     "preprod": [
         "forserversbox.global.prod.deploy.stripe.net",
         "sansshellproxybox.global.prod.manage.stripe.net",
-        "java-restart-manager.global.preprod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"
-        ],
+        "java-restart-manager.global.preprod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses",
+    ],
     None: [
         "forserversbox.global.prod.deploy.stripe.net",
         "sansshellproxybox.global.prod.manage.stripe.net",
-        "java-restart-manager.global.prod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses"
-        ],  # default
+        "java-restart-manager.global.prod.stripe.io:/Process.Process/Kill|/OS.OS/ListProcesses",
+    ],  # default
 }
 
 def sansshell_sidecar(ctx):
     """
     Sets up a SansShell server (go/sansshell) as a sidecar.
     """
+
     # tcp/3791 is used at Stripe fork for SansShell server, as defined in:
     # https://git.corp.stripe.com/stripe-private-oss-forks/sansshell/blob/master/Dockerfile.sidecar
     # https://git.corp.stripe.com/stripe-private-oss-forks/sansshell/blob/master/cmd/sanssh/main.go
     # https://git.corp.stripe.com/stripe-private-oss-forks/sansshell/blob/master/cmd/sansshell-server/main.go
     port = 3791
 
-    if should_use_sansshell_sidecar_gocode(ctx):
-        # Use the new version of the sidecar built in the gocode repository.
-        sansshell_sidecar_name = "sansshell-srv-sidecar"
-        sansshell_entrypoint = "/pay/deploy/sansshell-srv-sidecar/current/sansshell-srv-sidecar/sansshell-srv-sidecar"
-        sansshell_container_image = "stripe/gocode/sansshell-srv-sidecar"
-        sansshell_fallback_digest = SANSSHELL_GOCODE_CONTAINER_FALLBACK_DIGEST
-        sansshell_fallback_env = SANSSHELL_GOCODE_CONTAINER_FALLBACK_ENV
-    else:
-        # Use the legacy version of the sidecar built in the stripe-private-oss-forks repository.
-        sansshell_sidecar_name = "sansshell-sidecar"
-        sansshell_entrypoint = "/sansshell-sidecar"
-        sansshell_container_image = "stripe/stripe-private-oss-forks/sansshell"
-        sansshell_fallback_digest = SANSSHELL_CONTAINER_FALLBACK_DIGEST
-        sansshell_fallback_env = SANSSHELL_CONTAINER_FALLBACK_ENV
+    sansshell_sidecar_name = "sansshell-srv-sidecar"
+    sansshell_entrypoint = "/pay/deploy/sansshell-srv-sidecar/current/sansshell-srv-sidecar/sansshell-srv-sidecar"
+    sansshell_container_image = "stripe/gocode/sansshell-srv-sidecar"
+    sansshell_fallback_digest = SANSSHELL_CONTAINER_FALLBACK_DIGEST
+    sansshell_fallback_env = SANSSHELL_CONTAINER_FALLBACK_ENV
 
     flags = {
         "hostport": ":{}".format(port),
-        "credential-source": "service-credentials"
+        "credential-source": "service-credentials",
     }
 
     return compose_plugins(
@@ -73,17 +66,19 @@ def sansshell_sidecar(ctx):
                     # p99 latency of GetServiceCertificate occasionally spike over a minute threshold.
                     # Allow 180 seconds before declaring startup a failure.
                     startup = tcp_probe(ctx, port, failureThreshold = 180, periodSeconds = 1),
-                    liveness = tcp_probe(ctx, port)),
+                    liveness = tcp_probe(ctx, port),
+                ),
                 add_flags(**{"accept-from": ALLOWED_CLIENTS}),
             ],
             ports = {port: "sansshell"},
+            programming_language = GO_PROGRAMMING_LANGUAGE,
         ),
     )
 
 def serialize_flag(k, v):
     if type(v) in ["list", "tuple", "set"]:
-        v = ','.join(v)
-    return '--{}={}'.format(k, v)
+        v = ",".join(v)
+    return "--{}={}".format(k, v)
 
 def add_flags(container_name = None, **flags):
     return container_plugin(_add_flag, container_name = container_name, flags = flags)

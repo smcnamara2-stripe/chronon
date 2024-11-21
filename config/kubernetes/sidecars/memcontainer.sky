@@ -4,10 +4,22 @@ load("config/kubernetes/helpers/ldap.sky", "mount_ldap_host_volumes")
 load("config/kubernetes/helpers/security.sky", "mount_host_credentials_proxy", "mount_host_stripe_ca_certs")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/core/volume.sky", "mount_host_volume")
+load("config/kubernetes/helpers/context.sky", "get_env", "get_name")
 
 sidecar_name = "memento-sidecar"
 
+memcontainer_always_enabled_services = [
+    "memento-ruby-synthetic-srv",
+    "workflow-work-memento-synthetic-ruby-srv",
+    "memento-ruby-test-srv",
+    "memento-java-test",
+]
+
 def memento_sidecar(ctx):
+    if not (get_env(ctx) == "qa" or get_name(ctx) in memcontainer_always_enabled_services):
+        # returning empty means memcontainer will not be included in the deployment
+        return compose_plugins()
+
     return compose_plugins(
         mount_host_stripe_ca_certs(container_name = sidecar_name),
         mount_host_credentials_proxy(container_name = sidecar_name),
@@ -17,16 +29,16 @@ def memento_sidecar(ctx):
         sidecar_container(
             name = sidecar_name,
             sidecar_service = "memcontainer",
-#            command = [
-#                "/pay/src/memcached/memcached",
-#                "-c1000",
-#                "-ustripe",
-#                "-p8787",
-#                "-t2",
-#                "-o",
-#                "proxy_config=/pay/src/memrouter/memcontainer-lua/topology_loader.lua",
-#            ],
-#            container_image = "stripe/stripe-private-oss-forks/memrouter/memrouter-container",
+            #            command = [
+            #                "/pay/src/memcached/memcached",
+            #                "-c1000",
+            #                "-ustripe",
+            #                "-p8787",
+            #                "-t2",
+            #                "-o",
+            #                "proxy_config=/pay/src/memrouter/memcontainer-lua/topology_loader.lua",
+            #            ],
+            #            container_image = "stripe/stripe-private-oss-forks/memrouter/memrouter-container",
             command = ["/pay/deploy/gocode/current/memcontainer/memcontainer"],
             container_image = "stripe/gocode/memcontainer",
             plugins = [],

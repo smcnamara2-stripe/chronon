@@ -10,8 +10,7 @@ def horizontal_pod_autoscaler(
         scale_down_scaling_policies = None,
         scale_down_select_policy = None,
         scale_down_stabilization_window_seconds = None,
-        memory_utilization_percent = None,
-):
+        memory_utilization_percent = None):
     """
     Returns a plugin that creates an ScaledObject to be deployed with a deployment.
 

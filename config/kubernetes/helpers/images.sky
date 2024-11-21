@@ -3,7 +3,7 @@
 Helper function for generating ECR image URIs to reference when defining containers.
 """
 
-load("config/kubernetes/helpers/context.sky", "get_env", "get_henson_git_commit", "get_container_images", "get_sidecar_container_images", "get_name")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_container_images", "get_env", "get_henson_git_commit", "get_name", "get_sidecar_container_images")
 load("config/kubernetes/helpers/warning.sky", "warn")
 load("config/kubernetes/meta/metadata.sky", "annotations")
 
@@ -40,7 +40,6 @@ def image(ctx, name = None, artifact = None, label = None, env = None, modify_na
     Returns:
         A fully qualified container image name suitable for container specs.
     """
-
     container_images = get_container_images(ctx)
 
     # name can also be a struct, see image_defaults below
@@ -55,9 +54,10 @@ def image(ctx, name = None, artifact = None, label = None, env = None, modify_na
             artifact = container_images.keys()[0]
             name = None
 
-        # otherwise, if they have some container_images defined in the service, one must be the artifact name
-        # specified in the defaults. if it's not there, the user should specify an explicit artifact name or
-        # add the default artifact to their service config.
+            # otherwise, if they have some container_images defined in the service, one must be the artifact name
+            # specified in the defaults. if it's not there, the user should specify an explicit artifact name or
+            # add the default artifact to their service config.
+
         elif len(container_images) > 1:
             if name.artifact in container_images:
                 artifact = name.artifact
@@ -72,10 +72,27 @@ If you wanted to deploy using a different image, specify that artifact name in t
 If you wanted to deploy the default image, add \"%s\" to the container_images in your service configuration.
 """ % (name.artifact, name.artifact))
 
-        # if there are no container_images in the service config, assume we're using a separately deployed image
-        # as a prerequisite, and that the name of that ECR repo is in the `name` field of the defaults.
+            # if there are no container_images in the service config, assume we're using a separately deployed image
+            # as a prerequisite, and that the name of that ECR repo is in the `name` field of the defaults.
+
         else:
             name = name.name
+
+    availability_tier = get_availability_tier(ctx)
+    context_env = get_env(ctx)
+
+    # Enable noble upgrade for all A400 services in QA:
+    if availability_tier in ["A400", "A300"] and artifact != None:
+        if artifact == "pay-server-image":
+            for container_image in container_images:
+                if container_image == "pay-server-image-noble-linux-amd64":
+                    artifact = container_image
+                    break
+        elif artifact == "pay-server-image-linux-arm64":
+            for container_image in container_images:
+                if container_image == "pay-server-image-noble-linux-arm64":
+                    artifact = container_image
+                    break
 
     # Allow passing already rendered ECR image URIs, and just return them
     if name != None and (name.startswith(ctx.vars["aws.account_id"]) or name.startswith("containers.global.prod.stripe.io")):
@@ -97,6 +114,7 @@ If you wanted to deploy the default image, add \"%s\" to the container_images in
     if name != None:
         if env == None:
             env = get_env(ctx)
+
         # Check if the name is allowlisted to use the "latest" tag
         if label == "latest":
             if name not in LATEST_TAG_ALLOWLIST:
@@ -171,7 +189,6 @@ def image_defaults(name, artifact):
         name = name,
         artifact = artifact,
     )
-
 
 def image_architecture_annotation(ctx, instance_type):
     arch = "amd64"

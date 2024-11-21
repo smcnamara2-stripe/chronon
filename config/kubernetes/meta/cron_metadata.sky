@@ -2,10 +2,12 @@
 """
 Plugin for applying Stripe-specific metadata to crons.
 """
+
 load("config/kubernetes/plugins/types.sky", "any_resource_plugin")
 
 CRON_TIERS = ["critical-latency-sensitive", "critical", "standard", "low"]
 CRITICAL_CRON_TIERS = ["critical-latency-sensitive", "critical"]
+
 def _check_cron_metadata(name, cron_tier, description, runbook_url):
     # Existing crons without tiers specified will continue to function without metadata.
     if not cron_tier:
@@ -21,8 +23,7 @@ def _check_cron_metadata(name, cron_tier, description, runbook_url):
         if not runbook_url:
             fail("Runbook URL is required for %s with %s cron_tier" % (name, cron_tier))
 
-
-def cron_metadata(*, cron_tier=None, description=None, runbook_url=None):
+def cron_metadata(*, cron_tier = None, description = None, runbook_url = None):
     """
     Configures Stripe cron metadata.
 
@@ -47,16 +48,16 @@ def _add_cron_metadata(ctx, plugin, resource_def):
 
     if plugin.cron_tier:
         resource_def["metadata"]["labels"].update({
-            "stripe.io/cron-tier": plugin.cron_tier
+            "stripe.io/cron-tier": plugin.cron_tier,
         })
         resource_def["metadata"]["annotations"].update({
-            "stripe.io/cron-tier": plugin.cron_tier
+            "stripe.io/cron-tier": plugin.cron_tier,
         })
     if plugin.description:
         resource_def["metadata"]["annotations"].update({
-            "stripe.io/description": plugin.description
+            "stripe.io/description": plugin.description,
         })
     if plugin.runbook_url:
         resource_def["metadata"]["annotations"].update({
-            "stripe.io/runbook-url": plugin.runbook_url
+            "stripe.io/runbook-url": plugin.runbook_url,
         })

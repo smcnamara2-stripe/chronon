@@ -1,22 +1,22 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/core/container.sky", "init_container")
-load("config/kubernetes/core/lifecycle.sky", "pre_stop", "exec_action", "DEFAULT_NEW_ENDPOINT_PROPAGATION_SECONDS", "generate_infra_sidecar_prestop_command_args")
+load("config/kubernetes/core/lifecycle.sky", "DEFAULT_NEW_ENDPOINT_PROPAGATION_SECONDS", "exec_action", "generate_infra_sidecar_prestop_command_args", "pre_stop")
 load("config/kubernetes/core/probe.sky", "command_probe", "probes")
 load("config/kubernetes/core/env_var.sky", "all_containers_env_vars")
 load("config/kubernetes/meta/metadata.sky", "annotations")
 load(
     "config/kubernetes/core/volume.sky",
-    "pod_volume",
     "host_volume",
+    "pod_volume",
     "volume_mount_all_containers",
 )
 load(
     "config/kubernetes/helpers/context.sky",
-    "get_env",
     "get_blue_green_color",
     "get_cluster",
-    "get_name",
+    "get_env",
     "get_henson_config",
+    "get_name",
 )
 load("config/kubernetes/helpers/images.sky", "image")
 load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME")
@@ -26,20 +26,18 @@ load(
 )
 load(
     "config/kubernetes/networking/internal/common.sky",
-    "PROXYLESS_ADMIN_SERVER_DIR",
     "POD_NETWORKING_HOST_VOLUME_PATH",
+    "PROXYLESS_ADMIN_SERVER_DIR",
 )
-
 load(
     "config/kubernetes/networking/internal/consul.sky",
+    "TAG_IGNORED_BY_HOST_ENVOY",
     "consul_sidecar",
     "finalize_consul_service",
-    "TAG_IGNORED_BY_HOST_ENVOY",
 )
-
 load("config/kubernetes/networking/internal/envoy-config-srv.sky", "envoy_config_srv_sidecar", "henson_listener_config")
 load("config/kubernetes/networking/internal/config/envoy-config-srv-config.sky", "UNPRIVILEGED_ENVOY_PORT")
-load("config/kubernetes/networking/internal/config/override.sky", "target", "NOT_PROVIDED")
+load("config/kubernetes/networking/internal/config/override.sky", "NOT_PROVIDED", "target")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 load("config/kubernetes/sidecars/envoy_ratelimit.sky", "ratelimit_sidecar")
@@ -47,6 +45,7 @@ load(
     "config/kubernetes/networking/internal/proxyless.sky",
     "proxyless_mesh_service_name",
 )
+
 PROXYLESS_METADATA_ANNOTATION_KEY = "networking.stripe.io/network-access-control-lists"
 
 # This array is responsible for keeping track of a list of Henson service names that can
@@ -65,7 +64,7 @@ DEPRECTED_INBOUND_RATE_LIMITED_SERVICE_ALLOWLIST = [
     "taxengine",
 ]
 
-def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workload_name, availability_tier = "A400", host_network = True, register_services = [], config = None, consul_deprecated = False):
+def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workload_name, availability_tier = "A400", host_network = True, register_services = [], config = None, consul_deprecated = False, is_native_sidecar = False):
     """
     This plugin is the public API for configuring service-to-service networking for a pod.
 
@@ -88,6 +87,8 @@ def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workloa
         config: struct of configuration options, defined in `networking_config` (config/kubernetes/networking/public/config.sky)
         consul_deprecated: a boolean that defines if we should inject an extra flag into the envoy-config-srv sidecar, to handle
                 starting up without consul-agent safely.
+        is_native_sidecar: a boolean that defines if this sidecar is running as a Kubernetes native sidecar container or not.
+                If True, we will add a startup probe to envoy to ensure envoy is ready before starting the main container.
     Returns:
         A pod plugin that can be used with an entrypoint like `deployment`.
     """
@@ -102,7 +103,7 @@ def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workloa
         consul_service = srv["service"]
         port = consul_service["port"]
         extra_tags = []
-        envoy_port = None # NB(xyu): Setting the port to `None` uses the default envoy port. Should we be more explicit here?
+        envoy_port = None  # NB(xyu): Setting the port to `None` uses the default envoy port. Should we be more explicit here?
 
         if use_network_isolation:
             # For Shared MSP, we require consul services to specify a non-zero port
@@ -171,7 +172,7 @@ def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workloa
         # TODO(xyu): add interfaces to explicitly declare inbound and outbound
         # network ACLs, so we can experiment with more granular ACLs than the
         # ones specified in a henson service config
-        envoy_config_srv_prestop_call = generate_infra_sidecar_prestop_command_args(ctx, ENVOY_CONFIG_SRV_SIDECAR_NAME, pod_termination_grace_period_seconds=pod_termination_grace_period_seconds) # TODO de-hardcode
+        envoy_config_srv_prestop_call = generate_infra_sidecar_prestop_command_args(ctx, ENVOY_CONFIG_SRV_SIDECAR_NAME, pod_termination_grace_period_seconds = pod_termination_grace_period_seconds)  # TODO de-hardcode
 
         # The POD_NETWORKING_HOST_VOLUME_PATH variable is utilized by the Envoy, Envoy-config-srv, and Proxyless services.
         # Exercise caution when altering the following two plugins.
@@ -197,12 +198,12 @@ def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workloa
             proxyless_container_env_vars(ctx, consul_agent_services, k8s_workload_name),
         ])
 
-
         # This is safe to do as the networking_config implementation made sure
         # this field exists
         if config.enable_global_ratelimit.kwargs.enable == True:
             # By default, use the kubernetes namespace of the pod to identify the client
             rate_limiter_namespace = namespace
+
             # Check if a pod's networking config provided a namespace override to use for global rate limiting
             kwargs = {}
             if config.global_ratelimit != NOT_PROVIDED and config.global_ratelimit != None:
@@ -216,6 +217,11 @@ def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workloa
 
             sn_stack_plugins.extend([
                 ratelimit_sidecar(ctx, "latest", rate_limiter_namespace, **kwargs),
+                all_containers_env_vars(
+                    vars = {
+                        "GLOBAL_RATELIMITER_SIDECAR": "enabled",
+                    },
+                ),
             ])
         if host_network:
             plugins_for_consul_sidecar.extend([
@@ -235,7 +241,7 @@ def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workloa
                 ),
             ])
         sn_stack_plugins.extend([
-            envoy_config_srv_sidecar(ctx, namespace, config_target, config, consul_agent_services, host_network, consul_deprecated, k8s_workload_name),
+            envoy_config_srv_sidecar(ctx, namespace, config_target, config, consul_agent_services, host_network, consul_deprecated, k8s_workload_name, is_native_sidecar),
             pre_stop(exec_action(ctx, *envoy_config_srv_prestop_call), container_name = ENVOY_CONFIG_SRV_SIDECAR_NAME),
         ])
 
@@ -243,7 +249,7 @@ def networking(ctx, namespace, pod_termination_grace_period_seconds, k8s_workloa
         pod_plugin(
             _assert_host_network_matches_pod_def,
             host_network = host_network,
-        )
+        ),
     )
     if host_network:
         plugins.append(consul_sidecar(
@@ -270,13 +276,14 @@ def mount_pod_networking():
     return compose_plugins(
         host_volume(
             POD_NETWORKING_HOST_VOLUME_PATH,
-            type= "Directory",
+            type = "Directory",
             reason = "Each per-pod SN stack has a subpath in this basedir scoped to the pod",
         ),
         volume_mount_all_containers(
             POD_NETWORKING_HOST_VOLUME_PATH,
             read_only = False,
-        ))
+        ),
+    )
 
 def proxyless_mount_admin_server_dir():
     return compose_plugins(
@@ -285,7 +292,7 @@ def proxyless_mount_admin_server_dir():
             type = "Directory",
             reason = "Provides write access for proxyless admin server",
         ),
-        volume_mount_all_containers(PROXYLESS_ADMIN_SERVER_DIR, read_only = False)
+        volume_mount_all_containers(PROXYLESS_ADMIN_SERVER_DIR, read_only = False),
     )
 
 def proxyless_container_env_vars(ctx, consul_agent_services, k8s_workload_name):

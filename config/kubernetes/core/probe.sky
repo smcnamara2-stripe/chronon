@@ -11,8 +11,8 @@ your service, you may not need to manually add probes, as those plugins will add
 for you.
 """
 
+load("config/kubernetes/helpers/proto_or_yaml.sky", "ExecAction", "HTTPGetAction", "HTTPHeader", "IntOrString", "Probe", "ProbeHandler", "TCPSocketAction")
 load("config/kubernetes/plugins/types.sky", "container_plugin")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "ProbeHandler", "Probe", "ExecAction", "HTTPHeader", "HTTPGetAction", "TCPSocketAction", "IntOrString")
 
 def probes(liveness = None, readiness = None, startup = None, container_name = None):
     """
@@ -87,6 +87,12 @@ def http_probe(ctx, path, port, headers = {}, scheme = None, **kwargs):
         **kwargs
     )
 
+def conditional_http_probe(condition, http_probe):
+    if not condition:
+        return None
+
+    return http_probe
+
 def tcp_probe(ctx, port, **kwargs):
     """
     Create a probe that uses TCP to check the status of a container.
@@ -112,7 +118,7 @@ def tcp_probe(ctx, port, **kwargs):
             tcpSocket = TCPSocketAction(
                 ctx,
                 port = IntOrString(ctx, intVal = port),
-            )
+            ),
         ),
         **kwargs
     )

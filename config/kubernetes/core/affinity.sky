@@ -4,7 +4,7 @@ Plugins for adding rules to control how pods are scheduled onto nodes.
 """
 
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Affinity", "PodAffinityTerm", "PodAntiAffinity", "WeightedPodAffinityTerm", "LabelSelector", "LabelSelectorRequirement")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Affinity", "LabelSelector", "LabelSelectorRequirement", "PodAffinityTerm", "PodAntiAffinity", "WeightedPodAffinityTerm")
 
 def avoid_pods_with_labels(ctx, labels, weight = None):
     """
@@ -62,11 +62,10 @@ def render_affinity(ctx, affinity):
                     pod_anti_affinity["requiredDuringSchedulingIgnoredDuringExecution"].append(term)
                 else:
                     pod_anti_affinity.requiredDuringSchedulingIgnoredDuringExecution.append(term)
+            elif type(pod_anti_affinity) == "dict":
+                pod_anti_affinity["preferredDuringSchedulingIgnoredDuringExecution"].append(term)
             else:
-                if type(pod_anti_affinity) == "dict":
-                    pod_anti_affinity["preferredDuringSchedulingIgnoredDuringExecution"].append(term)
-                else:
-                    pod_anti_affinity.preferredDuringSchedulingIgnoredDuringExecution.append(term)
+                pod_anti_affinity.preferredDuringSchedulingIgnoredDuringExecution.append(term)
 
     if affinity["highly_available"]:
         labelSelector = None
@@ -85,14 +84,14 @@ def render_affinity(ctx, affinity):
             )
 
         term = WeightedPodAffinityTerm(
+            ctx,
+            weight = 100,
+            podAffinityTerm = PodAffinityTerm(
                 ctx,
-                weight = 100,
-                podAffinityTerm = PodAffinityTerm(
-                    ctx,
-                    labelSelector = labelSelector,
-                    topologyKey="topology.kubernetes.io/zone",
-                ),
-            )
+                labelSelector = labelSelector,
+                topologyKey = "topology.kubernetes.io/zone",
+            ),
+        )
         if type(pod_anti_affinity) == "dict":
             pod_anti_affinity["preferredDuringSchedulingIgnoredDuringExecution"].append(term)
         else:
@@ -111,11 +110,11 @@ def render_affinity(ctx, affinity):
     )
 
 def _pod_affinity_rule(
-    selector,
-    namespaces = None,
-    topologyKey = "kubernetes.io/hostname",
-    weight = None,
-    negative = False):
+        selector,
+        namespaces = None,
+        topologyKey = "kubernetes.io/hostname",
+        weight = None,
+        negative = False):
     return struct(
         type = "pod",
         selector = selector,

@@ -1,13 +1,13 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
-load("config/kubernetes/core/volume.sky", "pod_volume", "volume_mount", "mount_host_volume")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "pod_volume", "volume_mount")
 load("config/kubernetes/helpers/constants.sky", "VECTOR_SIDECAR_CONTAINER_NAME")
 load("config/kubernetes/helpers/context.sky", "get_env")
-load("config/kubernetes/helpers/security.sky", "mount_host_stripe_ca_certs", "mount_host_credentials_proxy")
+load("config/kubernetes/helpers/security.sky", "mount_host_credentials_proxy", "mount_host_stripe_ca_certs")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/sidecars/variables.sky", "VECTOR_CONTAINER_FALLBACK_DIGEST", "VECTOR_CONTAINER_FALLBACK_ENV")
-
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 DEFAULT_IMAGE_NAME = "stripe/gocode/vector-image"
 
@@ -20,14 +20,12 @@ _VOLUME_NAME = "vector-config"
 # Both port numbers are registered in go/ports
 _VECTOR_SIDECAR_HEALTHCHECK_PORT = 18686
 
-
 def vector_sidecar(
-    ctx,
-    sources,
-    inputs,
-    team_token,
-    credentials_mode='credentials-proxy',
-):
+        ctx,
+        sources,
+        inputs,
+        team_token,
+        credentials_mode = "credentials-proxy"):
     """
     Adds a Vector instance as a sidecar to receive and forward metrics.
 
@@ -76,7 +74,7 @@ def vector_sidecar(
         mount_host_stripe_ca_certs(container_name = VECTOR_SIDECAR_CONTAINER_NAME),
         mount_host_credentials_proxy(container_name = VECTOR_SIDECAR_CONTAINER_NAME),
     ]
-    if credentials_mode == 'host-certificates':
+    if credentials_mode == "host-certificates":
         host_certificate_plugins.append(mount_host_volume("/etc/ssl/certs", volume_args = {"type": "Directory"}))
         host_certificate_plugins.append(mount_host_volume("/etc/ssl/private", volume_args = {"type": "Directory"}))
 
@@ -85,7 +83,6 @@ def vector_sidecar(
             _CONFIG_DIR,
             name = _VOLUME_NAME,
         ),
-
         sidecar_container(
             name = VECTOR_SIDECAR_CONTAINER_NAME,
             sidecar_service = "vector-sidecar",
@@ -94,15 +91,24 @@ def vector_sidecar(
             fallback_env = VECTOR_CONTAINER_FALLBACK_ENV,
             command = [
                 "/pay/bin/vector-init",
-                "--credentials-mode", credentials_mode,
-                "--env", get_env(ctx),
-                "--config-dir", _CONFIG_DIR,
-                "--sources", sources,
-                "--team-token", team_token,
-                "--inputs", ",".join(inputs),
-                "--vector-binary", "/pay/bin/vector",
-                "--vector-healthcheck-port", str(_VECTOR_SIDECAR_HEALTHCHECK_PORT)
+                "--credentials-mode",
+                credentials_mode,
+                "--env",
+                get_env(ctx),
+                "--config-dir",
+                _CONFIG_DIR,
+                "--sources",
+                sources,
+                "--team-token",
+                team_token,
+                "--inputs",
+                ",".join(inputs),
+                "--vector-binary",
+                "/pay/bin/vector",
+                "--vector-healthcheck-port",
+                str(_VECTOR_SIDECAR_HEALTHCHECK_PORT),
             ],
+            programming_language = GO_PROGRAMMING_LANGUAGE,
             plugins = [
                 volume_mount(
                     name = _VOLUME_NAME,

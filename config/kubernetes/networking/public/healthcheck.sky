@@ -6,7 +6,7 @@ Plugin for registering a Consul service with healthchecking.
 load("config/kubernetes/core/generic.sky", "is_shared_msp")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
 load("config/kubernetes/sidecars/consul.sky", "consul_check")
-load("config/kubernetes/networking/public/consul.sky", "define_registered_service", "consul_tag_envoy_healthcheck")
+load("config/kubernetes/networking/public/consul.sky", "consul_tag_envoy_healthcheck", "define_registered_service")
 load("config/kubernetes/sidecars/health.sky", "safely_deployed_service")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
@@ -68,26 +68,26 @@ def shared_msp_healthchecked_service(
         startup_probe_failure_threshold = startup_probe_failure_threshold,
         container_name = container_name,
         request_drain_grace_period_seconds = request_drain_grace_period_seconds,
-        opt_out_of_safe_deploys  = opt_out_of_safe_deploys,
+        opt_out_of_safe_deploys = opt_out_of_safe_deploys,
     )
 
     return compose_plugins(
         conditional_plugin(
-            condition=is_shared_msp,
-            plugin=_deprecate_container_name_plugin(container_name),
+            condition = is_shared_msp,
+            plugin = _deprecate_container_name_plugin(container_name),
         ),
         deployment_plugin(
             _register_service,
-            service=define_registered_healthchecked_service(ctx, **arguments)
+            service = define_registered_healthchecked_service(ctx, **arguments),
         ),
         statefulset_plugin(
             _register_service,
-            service=define_registered_healthchecked_service(ctx, **arguments)
+            service = define_registered_healthchecked_service(ctx, **arguments),
         ),
     )
 
 def _register_service(ctx, arguments, resource_def):
-    resource_def['registered_services'].append(arguments.service)
+    resource_def["registered_services"].append(arguments.service)
 
 def define_registered_healthchecked_service(
         ctx,
@@ -186,14 +186,14 @@ def define_registered_healthchecked_service(
     )
 
     return {
-        'service': data['service'],
-        'plugins': data["plugins"] + probe_plugins,
+        "service": data["service"],
+        "plugins": data["plugins"] + probe_plugins,
     }
 
 def _deprecate_container_name_plugin(container_name):
     return pod_plugin(
         _deprecate_container_name,
-        container_name=container_name,
+        container_name = container_name,
     )
 
 def _deprecate_container_name(ctx, arguments, resource):

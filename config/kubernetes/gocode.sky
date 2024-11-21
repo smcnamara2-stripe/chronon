@@ -48,7 +48,6 @@ def gocode_pod(ctx, **kwargs):
             image = image,
             **kwargs
         ),
-
         pay_health_mount,
     )
 

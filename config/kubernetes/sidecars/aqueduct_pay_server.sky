@@ -10,7 +10,7 @@ AQPS_MOUNT_PATH_MAP = {
     "staging": "/pay/deploy/aqueduct-pay-server-staging/current/lib/hydra",
 }
 
-def aqueduct_pay_server(ctx, target="primary"):
+def aqueduct_pay_server(ctx, target = "primary"):
     """
     pay-server mount owned by reporting-data-interface.
     The version is managed by deploying http://go/service/aqueduct-pay-server-sidecar
@@ -24,8 +24,8 @@ def aqueduct_pay_server(ctx, target="primary"):
     """
     AQPS_MOUNT_PATH = AQPS_MOUNT_PATH_MAP[target]
     return compose_plugins(
-        mount_pod_volume(AQPS_MOUNT_PATH, container_name=AQPS_CONTAINER_NAME, mount_args={"read_only": False}),
-        mount_pod_volume(AQPS_MOUNT_PATH),# Mounts volume to main container
+        mount_pod_volume(AQPS_MOUNT_PATH, container_name = AQPS_CONTAINER_NAME, mount_args = {"read_only": False}),
+        mount_pod_volume(AQPS_MOUNT_PATH),  # Mounts volume to main container
 
         # Previously, we copied in the entirety of the pay-server image into
         # the pod volume. However, at the time of writing this comment, this
@@ -48,11 +48,11 @@ def aqueduct_pay_server(ctx, target="primary"):
         # See https://jira.corp.stripe.com/browse/RUN_DATAORCH-1369 for more
         # context about this change.
         init_container(
-            name=AQPS_CONTAINER_NAME,
-            image=sidecar_image(ctx, name="aqueduct-pay-server-sidecar", fallback=None),
+            name = AQPS_CONTAINER_NAME,
+            image = sidecar_image(ctx, name = "aqueduct-pay-server-sidecar", fallback = None),
             # Specifying `/deploy/pay-server/current/.` copies the contents of `current`,
             # rather than the `current` directory itself
-            command=["cp", "-r", "/deploy/pay-server/current/lib/hydra/.", AQPS_MOUNT_PATH],
-            sidecar_service="aqueduct-pay-server-sidecar",
+            command = ["cp", "-r", "/deploy/pay-server/current/lib/hydra/.", AQPS_MOUNT_PATH],
+            sidecar_service = "aqueduct-pay-server-sidecar",
         ),
     )

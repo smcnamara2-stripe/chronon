@@ -4,8 +4,8 @@ Plugins for working with volumes in pods.
 """
 
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "container_plugin", "pod_plugin", "all_container_plugin")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "VolumeMount", "VolumeSource", "HostPathVolumeSource", "EmptyDirVolumeSource", "Volume")
+load("config/kubernetes/plugins/types.sky", "all_container_plugin", "container_plugin", "pod_plugin")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "EmptyDirVolumeSource", "HostPathVolumeSource", "Volume", "VolumeMount", "VolumeSource")
 
 def mount_host_volume(path, container_name = None, volume_args = {}, mount_args = {}):
     """
@@ -122,9 +122,9 @@ def volume_mount(path, name = None, read_only = True, container_name = None, **k
     )
 
 def _volume_mount_impl(ctx, arguments, container_def):
-    add_volume_mount(container_def, arguments.path, name=getattr(arguments, "name"), read_only=arguments.read_only, **arguments.kwargs)
+    add_volume_mount(container_def, arguments.path, name = getattr(arguments, "name"), read_only = arguments.read_only, **arguments.kwargs)
 
-def add_volume_mount(container_def, path, *, name=None, read_only=True, **kwargs):
+def add_volume_mount(container_def, path, *, name = None, read_only = True, **kwargs):
     if "volume_mounts" not in container_def:
         # Sometimes people create hand-create container_def dicts and only define the properties
         # that are directly relevant to the logic they are implementing.
@@ -170,7 +170,7 @@ def host_volume(path, *, reason = None, **kwargs):
     )
 
 def _host_volume_impl(ctx, arguments, pod_def):
-    add_host_volume(pod_def, arguments.path, reason=arguments.reason, **arguments.kwargs)
+    add_host_volume(pod_def, arguments.path, reason = arguments.reason, **arguments.kwargs)
 
 def add_host_volume(pod_def, path, *, reason = None, **kwargs):
     type_value = kwargs.get("type", "")
@@ -184,7 +184,6 @@ def add_host_volume(pod_def, path, *, reason = None, **kwargs):
         host_path = path,
         host_path_kwargs = kwargs,
     )
-
 
 def pod_volume(path, *, reason = None, **kwargs):
     """
@@ -211,7 +210,7 @@ def pod_volume(path, *, reason = None, **kwargs):
     return pod_plugin(_pod_volume_impl, path = path, reason = reason, kwargs = kwargs)
 
 def _pod_volume_impl(ctx, arguments, pod_def):
-    add_pod_volume(pod_def, arguments.path, reason=arguments.reason, **arguments.kwargs)
+    add_pod_volume(pod_def, arguments.path, reason = arguments.reason, **arguments.kwargs)
 
 def add_pod_volume(pod_def, path, *, reason = None, **kwargs):
     name = kwargs.pop("name", _path_to_name(path))

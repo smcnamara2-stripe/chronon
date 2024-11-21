@@ -1,13 +1,14 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/core/lifecycle.sky", "pre_stop", "exec_action", "grace_period")
+load("config/kubernetes/core/lifecycle.sky", "exec_action", "grace_period", "pre_stop")
 load("config/kubernetes/core/probe.sky", "add_initial_delay_seconds")
-load("config/kubernetes/core/volume.sky", "host_volume", "mount_pod_volume", "pod_volume", "volume_mount", "add_host_volume", "add_volume_mount")
+load("config/kubernetes/core/volume.sky", "add_host_volume", "add_volume_mount", "host_volume", "mount_pod_volume", "pod_volume", "volume_mount")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
-load("config/kubernetes/sidecars/variables.sky", "HEALTH_CONTAINER_FALLBACK_SHA", "HEALTH_CONTAINER_FALLBACK_ENV")
+load("config/kubernetes/sidecars/variables.sky", "HEALTH_CONTAINER_FALLBACK_ENV", "HEALTH_CONTAINER_FALLBACK_SHA")
 load("config/kubernetes/sidecars/consul.sky", "consul_termination_delay")
 load("config/kubernetes/core/container.sky", "sidecar_container")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 health_container_name = "health-sidecar"
 health_pod_volume_name = "pay-pod-health"
@@ -26,11 +27,10 @@ def pod_health_volume():
     )
 
 def safely_deployed_service(
-    ctx,
-    request_drain_grace_period_seconds = None,
-    consul_propagation_period_seconds = 90,
-    container_name = None,
-):
+        ctx,
+        request_drain_grace_period_seconds = None,
+        consul_propagation_period_seconds = 90,
+        container_name = None):
     """
     This plugin mutates a pod to deploy without dropping requests.
 
@@ -56,7 +56,7 @@ def safely_deployed_service(
 
     standard_plugins = compose_plugins(
         # ensures that consul keeps advertising the service while traffic drains
-        consul_termination_delay(delay="{}s".format(consul_propagation_period_seconds)),
+        consul_termination_delay(delay = "{}s".format(consul_propagation_period_seconds)),
 
         # ensures the deploy halts while the service propagates through consul
         add_initial_delay_seconds(probe = "startupProbe", delay = consul_propagation_period_seconds, container_name = container_name),
@@ -64,7 +64,6 @@ def safely_deployed_service(
         # add consul time and grace period because container only gets SIGTERM after
         # the consul propagation period
         grace_period(consul_propagation_period_seconds + request_drain_grace_period_seconds),
-
     )
 
     # The Shared MSP plugin is applied in deployment.sky, since the plugin must be run after all containers already exist.
@@ -81,7 +80,8 @@ def safely_deployed_service(
             fallback_env = HEALTH_CONTAINER_FALLBACK_ENV,
             plugins = [
                 volume_mount("/pay/pod/health", read_only = False),
-            ]
+            ],
+            programming_language=GO_PROGRAMMING_LANGUAGE,
         ),
 
         # This is a duplicate and strange. This is the only place where name is not matching the path
@@ -90,14 +90,15 @@ def safely_deployed_service(
             path = "/pay/health",
             name = "pay-pod-health",
             container_name = container_name,
-        )
+        ),
     )
 
     dedicated_plugins = compose_plugins(
         pod_health_volume(),
-        host_volume("/pay/health",
+        host_volume(
+            "/pay/health",
             type = "Directory",
-            reason = "Allows the health sidecar to read the state of the host's stripe-health check."
+            reason = "Allows the health sidecar to read the state of the host's stripe-health check.",
         ),
         pre_stop(exec_action(ctx, "/bin/sleep", str(consul_propagation_period_seconds)), container_name = container_name),
         sidecar_container(
@@ -115,7 +116,7 @@ def safely_deployed_service(
                 volume_mount("/pay/pod/health", read_only = False),
                 # mount the node health so the sidecar can factor it into the pod health
                 volume_mount("/pay/health", container_name = health_container_name),
-            ]
+            ],
         ),
 
         # This is a duplicate and strange. This is the only place where name is not matching the path
@@ -124,9 +125,8 @@ def safely_deployed_service(
             path = "/pay/health",
             name = "pay-pod-health",
             container_name = container_name,
-        )
+        ),
     )
-
 
     return compose_plugins(
         standard_plugins,

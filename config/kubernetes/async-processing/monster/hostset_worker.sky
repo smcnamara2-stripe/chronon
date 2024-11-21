@@ -5,7 +5,14 @@
 load("config/kubernetes/async-processing/monster/util.sky", "ALL_CLUSTERS")
 load(
     "config/kubernetes/helpers/aws_instance_sizes.sky",
-    "m5_2xlarge", "m6g_2xlarge", "m6g_16xlarge", "r6g_8xlarge", "r6g_xlarge", "r7g_xlarge", "r7g_8xlarge", "r6g_4xlarge"
+    "m5_2xlarge",
+    "m6g_16xlarge",
+    "m6g_2xlarge",
+    "r6g_4xlarge",
+    "r6g_8xlarge",
+    "r6g_xlarge",
+    "r7g_8xlarge",
+    "r7g_xlarge",
 )
 
 DEFAULT_WORKER_COUNT = 2
@@ -20,7 +27,7 @@ DEFAULT_WORKER_MEM_SCALES = {
     # with fewer replicas is currently believed to be superior
     # to adding extra replicas for low traffic use cases
     "bom": 1250,
-    "cmh": 1000
+    "cmh": 1000,
 }
 
 # Default instance type per env/cluster
@@ -30,17 +37,21 @@ DEFAULT_INSTANCE_TYPE_BY_ENV_CLUSTER = {
         "cmh": r6g_8xlarge,
     },
 }
+
 # Any env/cluster not specified will use this by default
 DEFAULT_DEFAULT_INSTANCE_TYPE = r6g_xlarge
 
 ALLOWED_INSTANCE_TYPES = [
     # Default option for clusters with low traffic
-    r6g_xlarge, r7g_xlarge, r7g_8xlarge,
+    r6g_xlarge,
+    r7g_xlarge,
+    r7g_8xlarge,
     # Default option for clusters with higher traffic
     r6g_8xlarge,
 
     # For workers that need more CPU, low traffic
-    m5_2xlarge, m6g_2xlarge,
+    m5_2xlarge,
+    m6g_2xlarge,
     # For workers that need more CPU, higher traffic
     m6g_16xlarge,
 
@@ -50,9 +61,11 @@ ALLOWED_INSTANCE_TYPES = [
 
 def get_default_instance_type(env, cluster):
     return DEFAULT_INSTANCE_TYPE_BY_ENV_CLUSTER.get(
-        env, {}
+        env,
+        {},
     ).get(
-        cluster, DEFAULT_DEFAULT_INSTANCE_TYPE
+        cluster,
+        DEFAULT_DEFAULT_INSTANCE_TYPE,
     )
 
 # Declares a cluster, or template cluster, describing worker replica counts
@@ -67,24 +80,27 @@ def get_default_instance_type(env, cluster):
 #
 # For more details, see the user guide at http://go/monster-hostset-decl.
 def cluster(
-        consume_replicas=None,
-        fanout_replicas=None,
-        mb_per_worker=None,
-        instance_type=None,
-        graviton_migration_enabled=False,
-        graviton_migration_size=0,
-        graviton_migration_target_6g=False,
-        image_artifact='pay-server-image',
-):
+        consume_replicas = None,
+        fanout_replicas = None,
+        mb_per_worker = None,
+        instance_type = None,
+        graviton_migration_enabled = False,
+        graviton_migration_size = 0,
+        graviton_migration_target_6g = False,
+        image_artifact = "pay-server-image",
+        consume_autoscaling = None,
+        fanout_autoscaling = None):
     return struct(
-        consume=consume_replicas,
-        fanout=fanout_replicas,
-        mb_per_worker=mb_per_worker,
-        instance_type=instance_type,
-        graviton_migration_enabled=graviton_migration_enabled,
-        graviton_migration_size=graviton_migration_size,
-        graviton_migration_target_6g=graviton_migration_target_6g,
-        image_artifact=image_artifact,
+        consume = consume_replicas,
+        fanout = fanout_replicas,
+        mb_per_worker = mb_per_worker,
+        instance_type = instance_type,
+        graviton_migration_enabled = graviton_migration_enabled,
+        graviton_migration_size = graviton_migration_size,
+        graviton_migration_target_6g = graviton_migration_target_6g,
+        image_artifact = image_artifact,
+        consume_autoscaling = consume_autoscaling,
+        fanout_autoscaling = fanout_autoscaling,
     )
 
 # (Private API) Helper function to return the first non-None value from a list
@@ -103,32 +119,35 @@ def _first_set(*vals):
 # global constants for worker counts and memory per worker.
 def _global_default_template_cluster():
     return cluster(
-        consume_replicas=DEFAULT_WORKER_COUNT,
-        fanout_replicas=DEFAULT_WORKER_COUNT,
-        mb_per_worker=DEFAULT_MB_PER_WORKER,
-        instance_type=None,
-        graviton_migration_enabled=False,
-        graviton_migration_size=0,
-        graviton_migration_target_6g=False,
-        image_artifact='pay-server-image',
+        consume_replicas = DEFAULT_WORKER_COUNT,
+        fanout_replicas = DEFAULT_WORKER_COUNT,
+        mb_per_worker = DEFAULT_MB_PER_WORKER,
+        instance_type = None,
+        graviton_migration_enabled = False,
+        graviton_migration_size = 0,
+        graviton_migration_target_6g = False,
+        image_artifact = "pay-server-image",
+        consume_autoscaling = None,
+        fanout_autoscaling = None,
     )
 
 # (Test API) Defines a "worker defaults" to hold default values. Only test
 # code actually calls this, to set stable defaults so assertions don't depend
 # on production defaults. Do not use in production.
-def worker_defs(template_cluster=_global_default_template_cluster(),
-                worker_mem_scales_per_cluster=DEFAULT_WORKER_MEM_SCALES):
+def worker_defs(
+        template_cluster = _global_default_template_cluster(),
+        worker_mem_scales_per_cluster = DEFAULT_WORKER_MEM_SCALES):
     if template_cluster == None:
         fail("template_cluster cannot be None in worker_defs")
 
-    if template_cluster.consume == None \
-        or template_cluster.fanout == None \
-        or template_cluster.mb_per_worker == None:
+    if template_cluster.consume == None or \
+       template_cluster.fanout == None or \
+       template_cluster.mb_per_worker == None:
         fail("template_cluster cannot have any unset fields in worker_defs")
 
     return struct(
-        template=template_cluster,
-        worker_mem_scales=worker_mem_scales_per_cluster,
+        template = template_cluster,
+        worker_mem_scales = worker_mem_scales_per_cluster,
     )
 
 # (Private API) Executes the default cascade given a new template cluster,
@@ -139,17 +158,21 @@ def _merge_templates(new_cluster, old_defs):
         return old_defs
 
     template = cluster(
-        consume_replicas=_first_set(new_cluster.consume, old_defs.template.consume),
-        fanout_replicas=_first_set(new_cluster.fanout, old_defs.template.fanout),
-        mb_per_worker=_first_set(new_cluster.mb_per_worker, old_defs.template.mb_per_worker),
-        instance_type=_first_set(new_cluster.instance_type, old_defs.template.instance_type),
-        graviton_migration_enabled=_first_set(new_cluster.graviton_migration_enabled, old_defs.template.graviton_migration_enabled),
-        graviton_migration_size=_first_set(new_cluster.graviton_migration_size, old_defs.template.graviton_migration_size),
-        graviton_migration_target_6g=_first_set(new_cluster.graviton_migration_target_6g, old_defs.template.graviton_migration_target_6g),
+        consume_replicas = _first_set(new_cluster.consume, old_defs.template.consume),
+        fanout_replicas = _first_set(new_cluster.fanout, old_defs.template.fanout),
+        mb_per_worker = _first_set(new_cluster.mb_per_worker, old_defs.template.mb_per_worker),
+        instance_type = _first_set(new_cluster.instance_type, old_defs.template.instance_type),
+        graviton_migration_enabled = _first_set(new_cluster.graviton_migration_enabled, old_defs.template.graviton_migration_enabled),
+        graviton_migration_size = _first_set(new_cluster.graviton_migration_size, old_defs.template.graviton_migration_size),
+        graviton_migration_target_6g = _first_set(new_cluster.graviton_migration_target_6g, old_defs.template.graviton_migration_target_6g),
+        consume_autoscaling = _first_set(new_cluster.consume_autoscaling, old_defs.template.consume_autoscaling),
+        fanout_autoscaling = _first_set(new_cluster.fanout_autoscaling, old_defs.template.fanout_autoscaling),
     )
 
-    return worker_defs(template_cluster=template,
-                       worker_mem_scales_per_cluster=old_defs.worker_mem_scales)
+    return worker_defs(
+        template_cluster = template,
+        worker_mem_scales_per_cluster = old_defs.worker_mem_scales,
+    )
 
 # (Private API) Calculates a scaled memory value, using integer math and a
 # per-mille (out of 1000) scale factor.
@@ -163,7 +186,8 @@ def worker_mem(cluster, cluster_name, defs):
 
     return _first_set(
         cluster.mb_per_worker,
-        scale_mem(defs.template.mb_per_worker, scale))
+        scale_mem(defs.template.mb_per_worker, scale),
+    )
 
 # (Private API) Creates a final JSON document containing, for a given cluster,
 # all of the properties of a worker relevant to deployments. Final values are
@@ -188,7 +212,9 @@ def render_cluster(env_name, cluster_map, cluster_name, defs):
             "graviton_migration_size": _first_set(c.graviton_migration_size, defs.template.graviton_migration_size),
             "graviton_migration_target_6g": _first_set(c.graviton_migration_target_6g, defs.template.graviton_migration_target_6g),
             "image_artifact": _first_set(c.image_artifact, defs.template.image_artifact),
-        }
+            "consume_autoscaling": _first_set(c.consume_autoscaling, defs.template.consume_autoscaling),
+            "fanout_autoscaling": _first_set(c.fanout_autoscaling, defs.template.fanout_autoscaling),
+        },
     }
 
 # (Private API) Creates a final JSON document containing, for a given
@@ -209,34 +235,62 @@ def render_env(env_name, env_map, defs):
 
 # Creates a deployment declaration for an isolation group (aka host-set). For
 # more details, see the user guide at http://go/monster-hostset-decl.
-def hostset(name,
-            default=None,
-            qa=None,
-            preprod=cluster(consume_replicas=0,
-                            fanout_replicas=0),
-            prod=None,
-            is_canary=False,
-            disable_preloading=False,
-            defs=worker_defs(),
-            suffix="",
-            autoscaling = None,
-            rate_limiter_namespace_override=None):
+def hostset(
+        name,
+        default = None,
+        qa = None,
+        preprod = cluster(
+            consume_replicas = 0,
+            fanout_replicas = 0,
+        ),
+        prod = None,
+        is_canary = False,
+        disable_preloading = False,
+        defs = worker_defs(),
+        suffix = "",
+        rate_limiter_namespace_override = None):
     # Setting suffix will add to it to the k8s service name
     # nothing else would change, so that capacity would share the same consul service name as main capacity
     # Similarly, setting is_canary will add "-canary" (after the suffix, if any)
 
-    defs=_merge_templates(default, defs)
+    defs = _merge_templates(default, defs)
     qa_json = render_env("qa", qa or {}, defs)
     preprod_json = render_env("preprod", preprod or {}, defs)
     prod_json = render_env("prod", prod or {}, defs)
 
     return struct(
-        name=name,
-        qa=qa_json,
-        preprod=preprod_json,
-        prod=prod_json,
-        is_canary=is_canary,
-        disable_preloading=disable_preloading,
-        suffix=suffix,
-        autoscaling = autoscaling,
-        rate_limiter_namespace_override=rate_limiter_namespace_override)
+        name = name,
+        qa = qa_json,
+        preprod = preprod_json,
+        prod = prod_json,
+        is_canary = is_canary,
+        disable_preloading = disable_preloading,
+        suffix = suffix,
+        rate_limiter_namespace_override = rate_limiter_namespace_override,
+    )
+
+def autoscaling(
+        min_replicas,
+        max_replicas,
+        cpu_trigger = None,
+        memory_trigger = None,
+        prom_metric = None,
+        schedule_triggers = None,
+        scale_up_scaling_policies = None,
+        scale_up_stabilization_window_seconds = None,
+        scale_down_scaling_policies = None,
+        scale_down_stabilization_window_seconds = None,
+        enable_immediate_scaling = None):
+    return struct(
+        min_replicas = min_replicas,
+        max_replicas = max_replicas,
+        cpu_trigger = cpu_trigger,
+        memory_trigger = memory_trigger,
+        prom_metric = prom_metric,
+        schedule_triggers = schedule_triggers,
+        scale_up_scaling_policies = scale_up_scaling_policies,
+        scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds,
+        scale_down_scaling_policies = scale_down_scaling_policies,
+        scale_down_stabilization_window_seconds = scale_down_stabilization_window_seconds,
+        enable_immediate_scaling = enable_immediate_scaling,
+    )

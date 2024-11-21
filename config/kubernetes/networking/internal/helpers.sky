@@ -8,16 +8,17 @@ load(
 )
 
 _stripe_cas_path = "/etc/ssl/certs/stripe-cas"
+
 def host_mount_stripe_cas(container_name):
     return mount_host_volume(
         _stripe_cas_path,
         container_name = container_name,
-        mount_args = { "read_only": True },
+        mount_args = {"read_only": True},
         volume_args = {
             "reason": "Used by per-pod SN stack as validation context for mTLS identities over the network.",
-            "type": "Directory"
+            "type": "Directory",
         },
     )
 
-def pod_mount(container_name, path, read_only=False):
+def pod_mount(container_name, path, read_only = False):
     return mount_pod_volume(path, container_name = container_name, mount_args = {"read_only": read_only})

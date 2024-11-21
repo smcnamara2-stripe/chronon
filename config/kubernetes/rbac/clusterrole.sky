@@ -4,7 +4,7 @@ For the structure of ClusterRole message please refer to
 https://github.com/kubernetes/api/blob/v0.24.2/rbac/v1/generated.proto#L40-L54
 """
 
-load("config/kubernetes/helpers/proto_or_yaml.sky", "ClusterRole", "AggregationRule", "LabelSelector", "LabelSelectorRequirement")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "AggregationRule", "ClusterRole", "LabelSelector", "LabelSelectorRequirement")
 load("config/kubernetes/meta/metadata.sky", "render_metadata")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "rbac_plugin")
@@ -43,13 +43,13 @@ def _render_cluster_role(ctx, cluster_role_mapping):
     kargs = cluster_role_mapping.kwargs
     obj_rule_list = []
     if kargs.get("rules"):
-            if type(kargs.get("rules")) == type([]):
-                for rule in kargs.get("rules"):
-                    obj_rule = policy_rule(ctx, rule)
-                    obj_rule_list.append(obj_rule)
+        if type(kargs.get("rules")) == type([]):
+            for rule in kargs.get("rules"):
+                obj_rule = policy_rule(ctx, rule)
+                obj_rule_list.append(obj_rule)
 
-            else:
-                fail("ClusterRole rules field called with non list value")
+        else:
+            fail("ClusterRole rules field called with non list value")
 
     obj_aggregation_rule = None
     if kargs.get("aggregationRule"):
@@ -69,8 +69,6 @@ def _render_cluster_role(ctx, cluster_role_mapping):
                 obj_aggregation_rule["clusterRoleSelectors"] = obj_cluster_role_selector_list
             else:
                 fail("ClusterRole aggregationRule.clusterRoleSelectors field called with non list value")
-
-
 
     obj_cluster_role = ClusterRole(ctx)
     obj_cluster_role["metadata"] = render_metadata(ctx, cluster_role_mapping.metadata)
@@ -105,4 +103,4 @@ def _label_selector_requirement(ctx, requirement):
     if requirement.get("values") and type(requirement.get("values")) != "string":
         fail("LabelSelectorRequirement values field called with non string value")
 
-    return LabelSelectorRequirement(ctx, ** requirement)
+    return LabelSelectorRequirement(ctx, **requirement)

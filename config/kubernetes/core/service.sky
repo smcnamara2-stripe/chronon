@@ -4,7 +4,7 @@ Functions for building Kubernetes `Service` resources, which allow backends to
 be registered as routable endpoints.
 """
 
-load("config/kubernetes/helpers/msp_shard.sky", "MSP_SHARD_ANNOTATION", "MSP_CLUSTER_ANNOTATION")
+load("config/kubernetes/helpers/msp_shard.sky", "MSP_CLUSTER_ANNOTATION", "MSP_SHARD_ANNOTATION")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "ObjectMeta", "Service", "ServiceSpec")
 
 def external_name_service(ctx, name, namespace, shard, external_name):

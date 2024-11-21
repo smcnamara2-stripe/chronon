@@ -1,7 +1,7 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/helpers/context.sky", "get_cluster")
 
-def get_deployset_config_value(config, ctx, priority, deployset, key, fallback=True, required=True):
+def get_deployset_config_value(config, ctx, priority, deployset, key, fallback = True, required = True):
     """Get config value from priority tier spec, allowing either top level keys of <key>_by_deployset or <key>_by_deployset_cluster.
 
     # Allow overriding a config with a per-deployset version. A per-deployset

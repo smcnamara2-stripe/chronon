@@ -1,11 +1,10 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/context.sky", "get_env", "get_cluster", "is_bin_packing_enabled", "get_target_shard")
+load("config/kubernetes/helpers/context.sky", "get_cluster", "get_env", "get_target_shard", "is_bin_packing_enabled")
 load("config/kubernetes/helpers/shards_list.sky", "get_shards_from_context")
 
 """
 Functions that apply to generic k8s resources instead of any particular type
 """
-
 
 def set_shared_msp(resource):
     """
@@ -15,7 +14,6 @@ def set_shared_msp(resource):
       resource: a resource definition
     """
     resource["shared_msp"] = True
-
 
 def is_shared_msp(ctx, resource):
     """
@@ -29,7 +27,6 @@ def is_shared_msp(ctx, resource):
     """
     return resource.get("shared_msp", False)
 
-
 def is_dedicated_msp(ctx, resource):
     """
     Condition for running the plugin for deployments to dedicated MSP
@@ -41,7 +38,6 @@ def is_dedicated_msp(ctx, resource):
       True iff the resource has not been marked to run on shared MSP
     """
     return not is_shared_msp(ctx, resource)
-
 
 def get_shared_msp_label(ctx, resource):
     """
@@ -58,12 +54,11 @@ def get_shared_msp_label(ctx, resource):
     Returns:
       True iff the resource has been marked to run on shared MSP
     """
-    md = resource.get('metadata')
+    md = resource.get("metadata")
     if md == None:
         return False
-    labels = md.get("labels", {}) if type(md) == 'dict' else md.labels
+    labels = md.get("labels", {}) if type(md) == "dict" else md.labels
     return bool(labels.get("stripe.io/shared-msp", "false"))
-
 
 def _get_account_for_shard(ctx, shard):
     # We have to implement this here to avoid a circular dependency between msp_shard and generic.sky

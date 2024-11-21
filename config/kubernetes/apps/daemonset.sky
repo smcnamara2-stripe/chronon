@@ -4,17 +4,18 @@ Functions for creating and configuring Kubernetes [DaemonSet][]s
 
 [daemonset]: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
 """
+
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/apps/strategy.sky", "rolling_update_daemonset_strategy")
 load("config/kubernetes/core/pod.sky", "all_containers", "pod")
-load("config/kubernetes/helpers/node_selectors.sky", "node_selectors", "host_type", "SHARED_MSP_HOST_TYPE")
+load("config/kubernetes/helpers/node_selectors.sky", "SHARED_MSP_HOST_TYPE", "host_type", "node_selectors")
 load("config/kubernetes/helpers/msp_shard.sky", "msp_shard")
 load("config/kubernetes/helpers/tolerations.sky", "add_toleration")
-load("config/kubernetes/meta/metadata.sky", "render_metadata", "render_selector", "metadata")
+load("config/kubernetes/meta/metadata.sky", "metadata", "render_metadata", "render_selector")
 load("config/kubernetes/plugins/types.sky", "daemonset_plugin")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "DaemonSet", "DaemonSetSpec")
 load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
-load("config/kubernetes/helpers/context.sky", "get_render_yaml", "get_env", "is_isolated_deploy")
+load("config/kubernetes/helpers/context.sky", "get_env", "get_render_yaml", "is_isolated_deploy")
 
 def daemonset(ctx, *plugins, **kwargs):
     """
@@ -101,7 +102,7 @@ def _render_daemonset(ctx, daemonset_def):
         sgp_yaml = yaml.marshal(sgp_obj)
         return [
             sgp_yaml,
-            rendered_daemonset
+            rendered_daemonset,
         ]
     return rendered_daemonset
 
@@ -138,7 +139,7 @@ def mspworker_daemonset(ctx, name, shard, *plugins, max_unavailable = None, node
         add_toleration(key = "stripe.io/pod-evictor", operator = "Exists", effect = "NoExecute"),
         add_toleration(key = "msp.stripe.io/host-set-template", operator = "Exists", effect = "NoSchedule"),
         add_toleration(key = "stripe.io/henson-service", operator = "Exists", effect = "NoSchedule"),
-        add_toleration(key = "stripe.io/msp-fleet-manager", operator = "Exists", effect = "NoSchedule")
+        add_toleration(key = "stripe.io/msp-fleet-manager", operator = "Exists", effect = "NoSchedule"),
     ]
 
     if node_selectors_map == None:
@@ -162,4 +163,3 @@ def mspworker_daemonset(ctx, name, shard, *plugins, max_unavailable = None, node
         compose_plugins(*all_plugins),
         updateStrategy = rolling_update_daemonset_strategy(ctx, max_unavailable),
     )
-

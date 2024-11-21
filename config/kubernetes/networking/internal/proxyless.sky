@@ -1,7 +1,6 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 ENVOY_CONFIG_SRV_PB = proto.package("stripe_internal.envoy_config_srv")
 
-
 def proxyless_mesh_service_name(ctx, consul_agent_services, k8s_workload_name):
     mesh_service_configs = _get_mesh_service_configs(ctx)
     if mesh_service_configs == None:
@@ -70,15 +69,18 @@ def _get_registration_type(ctx, consul_service, mesh_service_configs, k8s_worklo
         return ENVOY_CONFIG_SRV_PB.ProxylessRegistration.Type.UNSPECIFIED
 
     filter = proxyless_registration.filter
+
     ## No filter means the registration type is applied to the mesh service across all k8s workloads.
     if filter == None:
         return proxyless_registration.type
+
     ## Otherwise, only enable proxyless for matched k8s workloads.
     k8s_workload_name = _k8s_workload_name_no_color(k8s_workload_name)
     for workload in filter.k8s_workloads:
         if k8s_workload_name == workload:
             ## Proxyless is enabled for this matched workload.
             return proxyless_registration.type
+
     ## Current k8s workload does not match any k8s workloads in the filter, default to disable.
     return ENVOY_CONFIG_SRV_PB.ProxylessRegistration.Type.UNSPECIFIED
 

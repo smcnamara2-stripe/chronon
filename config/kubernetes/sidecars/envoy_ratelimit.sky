@@ -4,12 +4,13 @@ load("config/kubernetes/core/container.sky", "container", "container_port")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/core/volume.sky", "mount_host_volume")
-load("config/kubernetes/helpers/context.sky", "get_env", "get_cluster")
+load("config/kubernetes/helpers/context.sky", "get_cluster", "get_env")
 load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/networking/internal/helpers.sky", "host_mount_stripe_cas")
-load("config/kubernetes/sidecars/variables.sky", "ENVOY_RATELIMIT_SRV_CONTAINER_FALLBACK_DIGEST", "ENVOY_RATELIMIT_SRV_CONTAINER_ENV")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/sidecars/variables.sky", "ENVOY_RATELIMIT_SRV_CONTAINER_ENV", "ENVOY_RATELIMIT_SRV_CONTAINER_FALLBACK_DIGEST")
 load(
     "config/kubernetes/helpers/security.sky",
     "mount_credentials_proxy",
@@ -75,7 +76,7 @@ def get_force_updater_option(passed_override):
         # Definitely a positive number.
         return ["--force-update-no-usage-interval", str(passed_override)]
 
-def ratelimit_sidecar(ctx, label, host_type, enable = True, namespace_override="", log_updater_canonical_lines=None,  force_update_interval=None):
+def ratelimit_sidecar(ctx, label, host_type, enable = True, namespace_override = "", log_updater_canonical_lines = None, force_update_interval = None):
     """
     Adds the Envoy-RateLimit sidecar to the deployment.
     This sidecar is needed to perform global rate-limiting.
@@ -126,7 +127,8 @@ def ratelimit_sidecar(ctx, label, host_type, enable = True, namespace_override="
     return compose_plugins(
         container(
             name = "envoy-ratelimit-srv",
-            image = sidecar_image(ctx,
+            image = sidecar_image(
+                ctx,
                 name = "envoy-ratelimit-srv-image",
                 fallback = image(
                     ctx,
@@ -140,24 +142,25 @@ def ratelimit_sidecar(ctx, label, host_type, enable = True, namespace_override="
             plugins = [
                 container_env_vars(
                     from_fields = {
-                        NAMESPACE.env_var: NAMESPACE.field
+                        NAMESPACE.env_var: NAMESPACE.field,
                     },
                     vars = {
-                        'OUTBOUND_ACLS': outbound_acls
-                    }
+                        "OUTBOUND_ACLS": outbound_acls,
+                    },
                 ),
             ],
+            programming_language = GO_PROGRAMMING_LANGUAGE,
             # Memento needs access to stripe-cas for authentication
         ),
         container_port(20081, "envoy-ratelimit-srv", "grpc"),
         container_port(20082, "envoy-ratelimit-srv", "http"),
         conditional_plugin(
-            condition=is_shared_msp,
-            plugin=shared_plugins,
+            condition = is_shared_msp,
+            plugin = shared_plugins,
         ),
         conditional_plugin(
-            condition=is_dedicated_msp,
-            plugin=dedicated_plugins,
+            condition = is_dedicated_msp,
+            plugin = dedicated_plugins,
         ),
         use_credentials_proxy(),
         mount_credentials_proxy("envoy-ratelimit-srv"),

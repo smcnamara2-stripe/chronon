@@ -1,12 +1,19 @@
 # DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/core/ha.sky", "prefer_zone_balance", "require_node_balance", "require_zone_balance")
+load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/core/pod.sky", "pod_runtime_class")
 load("config/kubernetes/core/volume.sky", "mount_pod_volume", "volume_mount_all_containers")
-load("config/kubernetes/sidecars/credentials_proxy_shim.sky", "credentials_proxy_shim_sidecar")
+load("config/kubernetes/helpers/context.sky", "is_bin_packing_v1_enabled", "is_bin_packing_v2_enabled", "get_env")
+load("config/kubernetes/helpers/node_selectors.sky", "node_selectors")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/shards_list.sky", "BINPACKING_VERSION")
+load("config/kubernetes/helpers/tolerations.sky", "add_toleration")
 load("config/kubernetes/meta/metadata.sky", "labels")
-load("config/kubernetes/core/ha.sky", "prefer_zone_balance", "require_zone_balance", "require_node_balance")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/sidecars/credentials_proxy_shim.sky", "credentials_proxy_shim_sidecar")
+load("config/kubernetes/plugins/types.sky", "pod_plugin")
 
-def get_require_node_balance_plugin(set_require_node_balance_with_skew):
+def get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew):
     """
     conditional_plugin won't work here as the plugin will be evaluated first and then the condition is evaluated. If the condition
     fails the plugin is ignored. Here we should not evaluate the plugin itself hence using the if condition
@@ -16,45 +23,131 @@ def get_require_node_balance_plugin(set_require_node_balance_with_skew):
     else:
         return None
 
-def get_require_zone_balance_plugin(set_require_zone_balance_with_skew):
+def get_require_zone_balance_plugin(ctx, set_require_zone_balance_with_skew):
     if set_require_zone_balance_with_skew == -1:
         return compose_plugins(prefer_zone_balance())
     else:
-        return compose_plugins(require_zone_balance(set_require_zone_balance_with_skew))
+        if get_env(ctx) == "qa":
+            min_domains = 2
+        else:
+            min_domains = 3
+        return compose_plugins(require_zone_balance(set_require_zone_balance_with_skew, min_domains = min_domains))
 
-def bin_packing(set_require_zone_balance_with_skew=-1, set_require_node_balance_with_skew=-1):
+def _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, version):
+    plugins = [
+        # For tracking, attach an extra label when we use soft constraints
+        labels({
+            "stripe.io/binpacking-soft-constraints": "enabled",
+            "stripe.io/bin-packing-version": str(version).lower(),
+        }),
+
+        # We want to automatically spread BinPacked workloads across Availability Zones
+        # however we do not want this to be a hard constraint, unless specified.
+        get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew),
+        get_require_zone_balance_plugin(ctx, set_require_zone_balance_with_skew),
+
+    ]
+    return plugins
+
+def _get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier):
+    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V1)
+    common_plugins.extend(
+        [
+            # Set the proper runtime for this pod, which is kata runtime. Which will enclose the pod in a MicroVM
+            pod_runtime_class("kata-clh"),
+            # The /run/stripe/credentials-proxy which is usually a host_mount needs to now be a pod_mount
+            # as each pod in a multi-tenant node will need their own isolated credentials-proxy socket.
+            volume_mount_all_containers("/run/stripe/credentials-proxy", name = None, read_only = False),
+            mount_pod_volume("/run/stripe/credentials-proxy", mount_args = {"read_only": False}),
+
+            # Since the /run/stripe/credentials-proxy socket is now a pod_mount, we need a shim to
+            # transparently copy the requests/responses through a vsocket to the credentials-proxy daemonset
+            # which lives outside of the pod and handles requests for all multi-tenant pods.
+            credentials_proxy_shim_sidecar(),
+        ],
+    )
+    return common_plugins
+
+def _get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier):
+    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V2)
+    common_plugins.extend(
+        [
+            node_selectors({
+                "stripe.io/bin-packing-version": "v2",
+            }),
+            add_toleration(
+                key = "stripe.io/bin-packing-version",
+                operator = "Equal",
+                value = "v2",
+                effect = "NoSchedule",
+            ),
+            add_toleration(
+                key = "msp.stripe.io/availability-tier",
+                operator = "Equal",
+                value = deployment_availability_tier,
+                effect = "NoSchedule",
+            ),
+            update_sidecar_env_vars(ctx),
+        ]
+    )
+    return common_plugins
+
+def bin_packing(ctx, set_require_zone_balance_with_skew = -1, set_require_node_balance_with_skew = -1, deployment_availability_tier = None):
     """
     Returns the plugins needed to support binpacking in a deployment.
 
     Args:
+        ctx: The Henson context.
         set_require_zone_balance_with_skew: Set the require_zone_balance flag on the deployment with the provided skew
         set_require_node_balance_with_skew: Set the require_node_balance flag on the deployment with the provided skew
 
     Returns:
         A composed plugin that enables all features required for bin packing to functionality
     """
-    return compose_plugins(
-        # Set the proper runtime for this pod, which is kata runtime. Which will enclose the pod in a MicroVM
-        pod_runtime_class("kata-clh"),
+    plugins = []
+    if deployment_availability_tier == None:
+        deployment_availability_tier = ""
+    if is_bin_packing_v1_enabled(ctx):
+        plugins = _get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier)
+    elif is_bin_packing_v2_enabled(ctx):
+        plugins = _get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier)
+    return compose_plugins(*plugins)
 
-        # The /run/stripe/credentials-proxy which is usually a host_mount needs to now be a pod_mount
-        # as each pod in a multi-tenant node will need their own isolated credentials-proxy socket.
-        volume_mount_all_containers("/run/stripe/credentials-proxy", name = None, read_only = False),
-        mount_pod_volume("/run/stripe/credentials-proxy", mount_args = {"read_only": False}),
+def update_sidecar_env_vars(ctx):
+        return pod_plugin(updater=_update_pod)
 
-        # Since the /run/stripe/credentials-proxy socket is now a pod_mount, we need a shim to
-        # transparently copy the requests/responses through a vsocket to the credentials-proxy daemonset
-        # which lives outside of the pod and handles requests for all multi-tenant pods.
-        credentials_proxy_shim_sidecar(),
+def _update_pod(ctx, plugin, pod_def):
+    containers = pod_def["containers"]
+    memory = None
+    cpu = None
+    #Find the main container's resource allocation
+    for container in containers:
+        if  container.get("is_main_container", False):
+            memory = container["memory"]
+            cpu = container["cpu"]
+    for container in containers:
+        if container.get("programming_language", None) == GO_PROGRAMMING_LANGUAGE:
+            container_env = container.get("env", {})
+            container_env.update({"GOMEMLIMIT": _transform_memory_units(memory),
+                "GOMAXPROCS": _transform_cpu(cpu),})
+            container["env"] = container_env
+    for container in pod_def["init_containers"]:
+            container_env = container.get("env", {})
+            container_env.update({"GOMEMLIMIT": _transform_memory_units(memory),
+                "GOMAXPROCS": _transform_cpu(cpu),})
+            container["env"] = container_env
 
-        # For tracking, attach an extra label when we use soft constraints
-        labels({
-            "stripe.io/binpacking-soft-constraints": "enabled",
-        }),
 
-        # We want to automatically spread BinPacked workloads across Availability Zones
-        # however we do not want this to be a hard constraint, unless specified.
-        get_require_node_balance_plugin(set_require_node_balance_with_skew),
-        get_require_zone_balance_plugin(set_require_zone_balance_with_skew)
+# GOMEMLIMIT is a numeric value in bytes with an optional unit suffix.
+# The supported suffixes include B, KiB, MiB, GiB, and TiB.
+def _transform_memory_units(memory):
+    return str(memory) + "B" #We currently store this as 4096 Mi
 
-    )
+# GOMAXPROCS Supports only integer values, the minimum is 1
+# Based on the CPU assigned to the container choose a value between max(1, int_ceil(cpu))
+def _transform_cpu(cpu):
+    precision_cpu = float(cpu)
+    int_cpu = int(precision_cpu) #Starlark doesn't allow conversion from "1.0" -> 1 directly
+    if int_cpu < precision_cpu:
+        int_cpu += 1
+    return str(int_cpu)

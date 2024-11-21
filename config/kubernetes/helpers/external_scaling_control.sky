@@ -27,8 +27,7 @@ def external_scaling_control():
         _external_scaling_control,
     )
 
-
 def _external_scaling_control(ctx, arguments, deployment_def):
-    deployment_def['metadata']['annotations'].update({
+    deployment_def["metadata"]["annotations"].update({
         "stripe.io/external-scaling-control": "yes",
     })

@@ -95,12 +95,12 @@ def add_blue_green_metrics_tagging():
 def add_blue_green_strategy():
     return compose_plugins(
         conditional_plugin(
-            condition=is_dedicated_msp,
-            plugin=deployment_plugin(_add_blue_green_strategy_dedicated_msp),
+            condition = is_dedicated_msp,
+            plugin = deployment_plugin(_add_blue_green_strategy_dedicated_msp),
         ),
         conditional_plugin(
-            condition=is_shared_msp,
-            plugin=deployment_plugin(_add_blue_green_strategy_shared_msp),
+            condition = is_shared_msp,
+            plugin = deployment_plugin(_add_blue_green_strategy_shared_msp),
         ),
     )
 

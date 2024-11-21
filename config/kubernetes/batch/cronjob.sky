@@ -6,17 +6,33 @@ job workloads on a regular schedule.
 [cronjob]: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
 """
 
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
+load("config/kubernetes/core/lifecycle.sky", "DEFAULT_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS", "grace_period", "restart_policy")
 load("config/kubernetes/core/pod.sky", "all_containers")
-load("config/kubernetes/core/lifecycle.sky", "restart_policy")
-load("config/kubernetes/meta/metadata.sky", "render_metadata")
+load("config/kubernetes/core/volume.sky", "volume_mount")
+load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME")
+load("config/kubernetes/helpers/context.sky", "is_isolated_deploy")
+load("config/kubernetes/helpers/cron.sky", "DEFAULT_FAILED_JOB_HISTORY_LIMIT", "DEFAULT_SUCCESSFUL_JOB_HISTORY_LIMIT")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "CronJob", "CronJobSpec", "JobSpec", "JobTemplateSpec")
+load("config/kubernetes/helpers/shared_msp.sky", "native_sidecar_support")
+load("config/kubernetes/meta/metadata.sky", "get_availability_tier_from_metadata", "render_metadata")
+load("config/kubernetes/networking/public/networking.sky", "networking")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "cronjob_plugin")
 load("config/kubernetes/public/sox_compliance/exception_list.sky", "cron_in_exceptions")
-load("config/kubernetes/helpers/context.sky", "is_isolated_deploy", "get_env")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "CronJob", "CronJobSpec", "JobTemplateSpec", "JobSpec")
-load("config/kubernetes/helpers/cron.sky", "DEFAULT_SUCCESSFUL_JOB_HISTORY_LIMIT", "DEFAULT_FAILED_JOB_HISTORY_LIMIT")
+load("config/kubernetes/sidecars/metrics.sky", "metrics")
+load("config/kubernetes/stripe.sky", "CONSUL_AGENT_ENABLED_LABEL", "CONSUL_AGENT_ENABLED_LABEL_DISABLED")
 
-def cronjob(ctx, *plugins, ttl_secs_after_finish=2592000, job_backoff_limit=6, active_deadline_seconds=None, **kwargs):
+# Names of the non-orchestration owned cronjobs that have been opted in to run on Shared MSP with native sidecars prior to a general rollout.
+# You should not modify this list unless you have been given explicit permission to do so by Orchestration. Please reach out in #msp if you'd like to opt in.
+SHARED_MSP_CRONJOB_WHITELIST = [
+    "ecr-archiver-cron-job-us-west-2",
+    "ecr-archiver-cron-job-us-east-1",
+    "ecr-archiver-cron-job-us-east-2",
+    "ecr-archiver-cron-job-ap-south-1",
+]
+
+def cronjob(ctx, *plugins, ttl_secs_after_finish = 2592000, job_backoff_limit = 6, active_deadline_seconds = None, shared_msp = False, shared_msp_networking_plugin = False, **kwargs):
     """
     Define a batch job that will run on a schedule.
 
@@ -35,6 +51,9 @@ def cronjob(ctx, *plugins, ttl_secs_after_finish=2592000, job_backoff_limit=6, a
         job_backoff_limit: Number of times to backoff. This is set in the Job template spec. Defaults to 6.
         active_deadline_seconds: Number of seconds after which the Job is forcibly terminated and marked as failed.
             Defaults to unlimited.
+        shared_msp: boolean which is True iff the cronjob should run on shared MSP (default is False)
+            Shared MSP cronjobs are currently experimental only and are not yet generally available. Please do not enable without checking in #msp first.
+        shared_msp_networking_plugin: boolean which is True iff the cronjob should have the networking plugin (default is False). You can only enable this if shared_msp=True
         **kwargs: Options for the [CronJobSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#cronjobspec-v1beta1-batch).
             A shortcut for the `cronjob_options` plugin.
 
@@ -54,6 +73,10 @@ def cronjob(ctx, *plugins, ttl_secs_after_finish=2592000, job_backoff_limit=6, a
         "ttl_secs_after_finish": ttl_secs_after_finish,
         "backoff_limit": job_backoff_limit,
         "active_deadline_seconds": active_deadline_seconds,
+        "shared_msp": shared_msp,
+        "registered_services": [],
+        "networking_config": None,
+        "metrics_config": None,
     }
 
     all_plugins = [
@@ -64,11 +87,51 @@ def cronjob(ctx, *plugins, ttl_secs_after_finish=2592000, job_backoff_limit=6, a
     all_plugins.append(cronjob_options(**kwargs))
 
     plugin = compose_plugins(*all_plugins)
-    plugin.update_cronjob(ctx, plugin, cronjob)
-    plugin.update_pod(ctx, plugin, cronjob["pod"])
+    _apply_plugin(ctx, plugin, cronjob)
 
-    for container in all_containers(cronjob["pod"]):
-        plugin.update_containers(ctx, plugin, container)
+    if shared_msp_networking_plugin and not shared_msp:
+        fail("shared_msp_networking_plugin can only be enabled if shared_msp=True")
+
+    if shared_msp:
+        if cronjob["metadata"]["owner"] != "orchestration" and cronjob["metadata"]["name"] not in SHARED_MSP_CRONJOB_WHITELIST:
+            fail("Shared MSP CronJobs are currently in experimental mode and are not yet generally available. Please check with #msp if you'd like to enable this")
+
+        namespace = cronjob["metadata"].get("namespace", None)
+        if namespace == None:
+            fail("Namespace not set for shared MSP CronJob. Perhaps missing a namespace param to your pod?")
+
+        _apply_plugin(ctx, compose_plugins(native_sidecar_support()), cronjob)
+
+        # If no grace period is set, use the default for shared MSP jobs
+        _apply_plugin(ctx, compose_plugins(grace_period(DEFAULT_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS, overwrite = False)), cronjob)
+
+        if shared_msp_networking_plugin:
+            consul_agent_enabled_value = cronjob["metadata"].get("labels", {}).get(CONSUL_AGENT_ENABLED_LABEL, "")
+
+            # NOTE: Include metrics-sidecar for networking plugin as envoy-config-srv needs it.
+            _apply_plugin(ctx, metrics(ctx, config = cronjob["metrics_config"]), cronjob)
+
+            networking_plugin = networking(
+                ctx,
+                namespace = namespace,
+                availability_tier = get_availability_tier_from_metadata(cronjob["metadata"]),
+                host_network = False,
+                register_services = cronjob["registered_services"],
+                config = cronjob["networking_config"],
+                pod_termination_grace_period_seconds = cronjob["pod"]["grace_period"],
+                consul_deprecated = (consul_agent_enabled_value == CONSUL_AGENT_ENABLED_LABEL_DISABLED),
+                k8s_workload_name = cronjob["metadata"]["name"],
+                is_native_sidecar = True,
+            )
+            _apply_plugin(ctx, networking_plugin, cronjob)
+
+            _apply_plugin(ctx, compose_plugins(
+                volume_mount(
+                    "/usr/stripe/bin/kube-prestop",
+                    container_name = ENVOY_CONFIG_SRV_SIDECAR_NAME,
+                    read_only = True,
+                ),
+            ), cronjob)
 
     return cronjob["render"](ctx, cronjob)
 
@@ -98,6 +161,13 @@ _default_cronjob_kwargs = {
     "startingDeadlineSeconds": 7200,
 }
 
+def _apply_plugin(ctx, plugin, cronjob):
+    plugin.update_cronjob(ctx, plugin, cronjob)
+    plugin.update_pod(ctx, plugin, cronjob["pod"])
+
+    for container in all_containers(cronjob["pod"]):
+        plugin.update_containers(ctx, plugin, container)
+
 # _get_sox_control_labels returns a label for sox_control depending on whether the
 # cron falls under the SOX controls.
 def _get_sox_control_labels(namespace, name):
@@ -118,14 +188,15 @@ def _render_cronjob(ctx, cronjob_def):
     pod_template = cronjob.pod["render"](ctx, cronjob.pod)
     kwargs = cronjob.kwargs
     extra_labels = _get_sox_control_labels(cronjob.metadata.namespace, cronjob.metadata.name)
-    return CronJob(
+
+    rendered_cronjob = CronJob(
         ctx,
-        metadata = render_metadata(ctx, cronjob.metadata, extra_labels=extra_labels),
+        metadata = render_metadata(ctx, cronjob.metadata, extra_labels = extra_labels),
         spec = CronJobSpec(
             ctx,
             jobTemplate = JobTemplateSpec(
                 ctx,
-                metadata = render_metadata(ctx, cronjob.metadata, extra_labels=extra_labels),
+                metadata = render_metadata(ctx, cronjob.metadata, extra_labels = extra_labels),
                 spec = JobSpec(
                     ctx,
                     # Delete the completed Job in specified time.
@@ -138,3 +209,21 @@ def _render_cronjob(ctx, cronjob_def):
             **kwargs
         ),
     )
+
+    sgp_yaml = None
+
+    if cronjob_def.get("securitygrouppolicy", "") and is_security_group_policy_enabled(ctx, cronjob_def):
+        sgp_obj = cronjob.securitygrouppolicy["render"](ctx, cronjob.securitygrouppolicy)
+        sgp_yaml = yaml.marshal(sgp_obj)
+
+    if sgp_yaml == None:
+        return rendered_cronjob
+
+    obj_list = []
+
+    if sgp_yaml != None:
+        obj_list.append(sgp_yaml)
+
+    obj_list.append(rendered_cronjob)
+
+    return obj_list

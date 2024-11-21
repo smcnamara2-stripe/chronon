@@ -1,0 +1,57 @@
+# DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/core/generic.sky", "is_shared_msp")
+load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "volume_mount")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "use_credentials_proxy")
+load("config/kubernetes/core/container.sky", "sidecar_container")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/core/volume.sky", "mount_pod_volume")
+load("config/kubernetes/core/env_var.sky", "container_env_vars")
+
+SIDECAR_NAME = "workflow-queue-worker-sidecar"
+
+def workflow_queue_worker_sidecar(ctx):
+    iam_aws_cred_ini = "/pay/aws-config/kube_iam_aws_credentials.ini"
+    kube_iam_cred = "/usr/stripe/bin/kube-iam-credentials"
+
+    shared_plugins = compose_plugins(
+        mount_host_volume(path = iam_aws_cred_ini, container_name = SIDECAR_NAME, volume_args = {"type": "File"}),
+        mount_host_volume(path = kube_iam_cred, container_name = SIDECAR_NAME, volume_args = {"type": "File"}),
+        mount_pod_volume(path = "/kube-iam-credentials", volume_args = {"medium": "Memory"}, mount_args = {"read_only": False}),
+    )
+
+    return compose_plugins(
+        use_credentials_proxy(),
+        conditional_plugin(
+            condition = is_shared_msp,
+            plugin = shared_plugins,
+        ),
+        sidecar_container(
+            name = SIDECAR_NAME,
+            sidecar_service = "workflow-queue-worker-sidecar",
+            command = ["/pay/deploy/workflow-queue-worker/current/workflow-queue-worker/workflow-queue-worker"],
+            container_image = "stripe/gocode/workflow-queue-worker-sidecar",
+            plugins = [
+                mount_credentials_proxy(),
+                conditional_plugin(
+                    condition = is_shared_msp,
+                    plugin = volume_mount(iam_aws_cred_ini),
+                ),
+                conditional_plugin(
+                    condition = is_shared_msp,
+                    plugin = volume_mount(kube_iam_cred),
+                ),
+                conditional_plugin(
+                    condition = is_shared_msp,
+                    plugin = volume_mount("/kube-iam-credentials", read_only = False),
+                ),
+                conditional_plugin(
+                    condition = is_shared_msp,
+                    plugin = container_env_vars({
+                        "AWS_CONFIG_FILE": "/pay/aws-config/kube_iam_aws_credentials.ini",
+                        "AWS_SDK_LOAD_CONFIG": "true",
+                    }),
+                ),
+            ],
+        ),
+    )

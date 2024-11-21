@@ -4,11 +4,11 @@ Plugins for annotating which shard a pod will be deployed to.
 """
 
 load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
-load("config/kubernetes/helpers/context.sky", "get_target_shard", "get_env", "get_cluster")
+load("config/kubernetes/helpers/context.sky", "get_cluster", "get_env", "get_target_shard")
+load("config/kubernetes/helpers/shards_list.sky", "BINPACKING_STATE", "SHARD_STATE", "SHARD_TYPE", "get_shards_from_context")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/types.sky", "any_resource_plugin")
-load("config/kubernetes/helpers/shards_list.sky", "get_shards_from_context", "BINPACKING_STATE", "SHARD_TYPE", "SHARD_STATE")
 
 # TODO(dfradette): remove this annotation once Amp has been changed to use `stripe.io/msp-shard`
 MSP_CLUSTER_ANNOTATION = "stripe.io/msp-cluster"
@@ -22,7 +22,7 @@ ACCOUNT_NAME_TO_ID = {
     "test.account.1": "213343938293",
 }
 
-def all_available_shards_info(ctx, shared_msp=None, shard_states=None, shard_types=None, binpacking_states=None, _override_shards_map=None):
+def all_available_shards_info(ctx, shared_msp = None, shard_states = None, shard_types = None, binpacking_states = None, _override_shards_map = None):
     """
     Returns all available shards info based on the current Henson context.
 
@@ -35,6 +35,7 @@ def all_available_shards_info(ctx, shared_msp=None, shard_states=None, shard_typ
       _override_shards_map: Only used for tests, overrides the default shard map to allow testing for custom shard combinations
     """
     shards = get_shards_from_context(ctx)
+
     # Only used in tests to provide a custom list of shards
     if _override_shards_map != None:
         clusters = _override_shards_map.get(get_env(ctx), {})
@@ -50,58 +51,58 @@ def all_available_shards_info(ctx, shared_msp=None, shard_states=None, shard_typ
         shards = [s for s in shards if s.binpacking_state in binpacking_states]
     return shards
 
-def all_available_shards(ctx, shared_msp=None, shard_states=None, shard_types=None, binpacking_states=None, _override_shards_map=None):
-    return [s.name for s in all_available_shards_info(ctx, shared_msp, shard_states, shard_types, binpacking_states, _override_shards_map )]
+def all_available_shards(ctx, shared_msp = None, shard_states = None, shard_types = None, binpacking_states = None, _override_shards_map = None):
+    return [s.name for s in all_available_shards_info(ctx, shared_msp, shard_states, shard_types, binpacking_states, _override_shards_map)]
 
-def all_deployable_shards_info(ctx, shared_msp=None, shard_types=None, binpacking_states=None, _override_shards_map=None):
+def all_deployable_shards_info(ctx, shared_msp = None, shard_types = None, binpacking_states = None, _override_shards_map = None):
     """
     Returns all shards to which henson can deploy. Excludes DECOMMISSIONING
     """
     return all_available_shards_info(
-        ctx=ctx,
-        shared_msp=shared_msp,
-        shard_states=[SHARD_STATE.PROVISIONING, SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
-        shard_types=shard_types,
-        binpacking_states=binpacking_states,
-        _override_shards_map=_override_shards_map,
+        ctx = ctx,
+        shared_msp = shared_msp,
+        shard_states = [SHARD_STATE.PROVISIONING, SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
+        shard_types = shard_types,
+        binpacking_states = binpacking_states,
+        _override_shards_map = _override_shards_map,
     )
 
-def all_deployable_shards(ctx, shared_msp=None, shard_types=None, binpacking_states=None, _override_shards_map=None):
+def all_deployable_shards(ctx, shared_msp = None, shard_types = None, binpacking_states = None, _override_shards_map = None):
     """
     Returns all shard names to which henson can deploy. Excludes DECOMMISSIONING
     """
     return all_available_shards(
-        ctx=ctx,
-        shared_msp=shared_msp,
-        shard_states=[SHARD_STATE.PROVISIONING, SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
-        shard_types=shard_types,
-        binpacking_states=binpacking_states,
-        _override_shards_map=_override_shards_map,
+        ctx = ctx,
+        shared_msp = shared_msp,
+        shard_states = [SHARD_STATE.PROVISIONING, SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
+        shard_types = shard_types,
+        binpacking_states = binpacking_states,
+        _override_shards_map = _override_shards_map,
     )
 
-def all_canary_shards_info(ctx, _override_shards_map=None):
+def all_canary_shards_info(ctx, _override_shards_map = None):
     """
     Returns all GA canary shards information based on the current Henson context.
     """
     return all_available_shards_info(
-        ctx=ctx,
-        shard_states=[SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
-        shard_types=[SHARD_TYPE.CANARY],
-        _override_shards_map=_override_shards_map,
+        ctx = ctx,
+        shard_states = [SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
+        shard_types = [SHARD_TYPE.CANARY],
+        _override_shards_map = _override_shards_map,
     )
 
-def all_canary_shards(ctx, _override_shards_map=None):
+def all_canary_shards(ctx, _override_shards_map = None):
     """
     Returns all GA canary shards names based on the current Henson context.
     """
     return all_available_shards(
-        ctx=ctx,
-        shard_states=[SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
-        shard_types=[SHARD_TYPE.CANARY],
-        _override_shards_map=_override_shards_map,
+        ctx = ctx,
+        shard_states = [SHARD_STATE.GA, SHARD_STATE.RELEASE_CANDIDATE],
+        shard_types = [SHARD_TYPE.CANARY],
+        _override_shards_map = _override_shards_map,
     )
 
-def all_ga_shards(ctx, shard_types=None, _override_shards_map=None):
+def all_ga_shards(ctx, shard_types = None, _override_shards_map = None):
     """
     Returns all GA shards based on the current Henson context.
 
@@ -111,13 +112,13 @@ def all_ga_shards(ctx, shard_types=None, _override_shards_map=None):
       _override_shards_map: Only used for tests, overrides the default shard map to allow testing for custom shard combinations
     """
     return all_available_shards(
-        ctx=ctx,
-        shard_states=SHARD_STATE.GA,
-        shard_types=shard_types,
-        _override_shards_map=_override_shards_map,
+        ctx = ctx,
+        shard_states = SHARD_STATE.GA,
+        shard_types = shard_types,
+        _override_shards_map = _override_shards_map,
     )
 
-def all_binpacking_enabled_shards(ctx, shared_msp=None, shard_states=None, shard_types=None, _override_shards_map=None):
+def all_binpacking_enabled_shards(ctx, shared_msp = None, shard_states = None, shard_types = None, _override_shards_map = None):
     """
     Returns all shards that have binpacking enabled based on the current Henson context.
 
@@ -129,14 +130,13 @@ def all_binpacking_enabled_shards(ctx, shared_msp=None, shard_states=None, shard
       _override_shards_map: Only used for tests, overrides the default shard map to allow testing for custom shard combinations
     """
     return all_available_shards(
-        ctx=ctx,
-        shared_msp=shared_msp,
-        shard_states=shard_states,
-        shard_types=shard_types,
-        binpacking_states=[BINPACKING_STATE.ENABLED],
-        _override_shards_map=_override_shards_map,
+        ctx = ctx,
+        shared_msp = shared_msp,
+        shard_states = shard_states,
+        shard_types = shard_types,
+        binpacking_states = [BINPACKING_STATE.ENABLED],
+        _override_shards_map = _override_shards_map,
     )
-
 
 def account_for_shard(ctx, shard):
     """
@@ -150,7 +150,6 @@ def account_for_shard(ctx, shard):
             return s.account
 
     fail("Shard not found: {}".format(shard))
-
 
 def all_available_shards_with_cron(ctx):
     """
@@ -174,7 +173,7 @@ def msp_shard(shard):
 def _set_msp_shard(ctx, plugin, resource_def):
     shard = getattr(plugin, "shard")
     resource_def["metadata"]["annotations"].update(
-            _shard_annotations(shard),
+        _shard_annotations(shard),
     )
 
 def autoset_shard():
@@ -189,14 +188,14 @@ def autoset_shard():
     """
     return compose_plugins(
         conditional_plugin(
-            condition=is_shared_msp,
-            plugin=autoset_shard_shared_msp(),
+            condition = is_shared_msp,
+            plugin = autoset_shard_shared_msp(),
         ),
         conditional_plugin(
-            condition=is_dedicated_msp,
+            condition = is_dedicated_msp,
             # legacy dedicated MSP services are fixed to run on kubemaster
             # for the time being
-            plugin=msp_shard("kubemaster"),
+            plugin = msp_shard("kubemaster"),
         ),
     )
 
@@ -212,7 +211,6 @@ def autoset_shard_shared_msp():
     """
     return any_resource_plugin(_shard_from_henson)
 
-
 def _shard_from_henson(ctx, plugin, resource_def):
     """
     Set the MSP target resource's shard to the shard provided by henson. Henson
@@ -222,16 +220,14 @@ def _shard_from_henson(ctx, plugin, resource_def):
     """
     shard = get_target_shard(ctx)
     resource_def["metadata"]["annotations"].update(
-        _shard_annotations(shard)
+        _shard_annotations(shard),
     )
-
 
 def _shard_annotations(shard):
     return {
         MSP_CLUSTER_ANNOTATION: shard,
         MSP_SHARD_ANNOTATION: shard,
     }
-
 
 def get_account_for_shard(ctx, shard):
     local_shards = get_shards_from_context(ctx)
@@ -240,10 +236,8 @@ def get_account_for_shard(ctx, shard):
             return s.account
     return "mainland"
 
-
 def get_account_id(ctx, account_name):
     return ACCOUNT_NAME_TO_ID.get(account_name)
-
 
 def maybe_enable_security_group_policy(ctx, shard_name):
     """
@@ -262,3 +256,18 @@ def maybe_enable_security_group_policy(ctx, shard_name):
             break
 
     return new_ctx
+
+def shard_supports_native_sidecars(ctx):
+    """
+    Returns True iff the shard supports native sidecars.
+    Native sidecars are only supported on Kubernetes 1.28 or later,
+    so this function will only return True for shards that are running Kubernetes 1.28 or later.
+    """
+    shard = get_target_shard(ctx)
+
+    # If the shard has not been set on ctx.vars["stripe.shard"] that means the shard has not been set by Henson. This
+    # should only happen in CI or local so we are returning True here.
+    if shard == None or shard == "" or shard == "DYNAMICALLY_SET_SHARD":
+        return True
+
+    return get_account_for_shard(ctx, shard) != "mainland"

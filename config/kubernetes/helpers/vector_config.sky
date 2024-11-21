@@ -61,12 +61,12 @@ def build_vector_config(ctx, targets):
 
     sources = _BASE_CONFIG.format(
         sources = "\n".join(source_entries),
-        transforms = "\n".join(transform_entries)
+        transforms = "\n".join(transform_entries),
     )
 
     return struct(**{
         "sources": sources,
-        "inputs": input_entries
+        "inputs": input_entries,
     })
 
 ###########
@@ -92,7 +92,7 @@ _PROMETHEUS_SCRAPE_TARGET_TLS_CONFIG = """\
       key_file: "{{.key_file}}"
 """
 
-def vector_target(ctx, name, endpoints, scrape_interval=10, filter_rules=None, remap_rules=None, extra_tags=None):
+def vector_target(ctx, name, endpoints, scrape_interval = 10, filter_rules = None, remap_rules = None, extra_tags = None):
     """
     Builds a subset of the Vector configuration for a specific target, which should be scraped on the given endpoint.
 
@@ -139,7 +139,7 @@ def vector_target(ctx, name, endpoints, scrape_interval=10, filter_rules=None, r
         )
         ```
     """
-    source = _PROMETHEUS_SCRAPE_TARGET_CONFIG.format(name=name, endpoints=endpoints, scrape_interval=scrape_interval)
+    source = _PROMETHEUS_SCRAPE_TARGET_CONFIG.format(name = name, endpoints = endpoints, scrape_interval = scrape_interval)
 
     if any([endpoint.startswith("https") for endpoint in endpoints]):
         source += _PROMETHEUS_SCRAPE_TARGET_TLS_CONFIG
@@ -149,10 +149,10 @@ def vector_target(ctx, name, endpoints, scrape_interval=10, filter_rules=None, r
     return struct(**{
         "sources": [source],
         "transforms": transforms,
-        "inputs": [tagged_name]
+        "inputs": [tagged_name],
     })
 
-def vector_internal_metrics_target(ctx, scrape_interval=10, filter_rules=None, remap_rules=None, extra_tags=None):
+def vector_internal_metrics_target(ctx, scrape_interval = 10, filter_rules = None, remap_rules = None, extra_tags = None):
     """
     Returns the configuration for the static vector_internal_metrics target.
 
@@ -184,24 +184,24 @@ def vector_internal_metrics_target(ctx, scrape_interval=10, filter_rules=None, r
         ```
     """
 
-    source = _VECTOR_INTERNAL_METRICS_TARGET_CONFIG.format(scrape_interval=scrape_interval)
+    source = _VECTOR_INTERNAL_METRICS_TARGET_CONFIG.format(scrape_interval = scrape_interval)
 
     transforms, tagged_name = _build_transforms(ctx, "vector_internal_metrics", filter_rules, remap_rules, extra_tags)
 
     return struct(**{
         "sources": [source],
         "transforms": transforms,
-        "inputs": [tagged_name]
+        "inputs": [tagged_name],
     })
 
 ################
 # Conditionals #
 ################
 
-def _conditional_go_template(if_condition, text, add_newlines=True):
+def _conditional_go_template(if_condition, text, add_newlines = True):
     """Given raw text, wraps it in a Go template if statement which is processed by vector-init."""
-    newline = '\n' if add_newlines else ''
-    return '{{if %s}}%s%s{{end}}%s' % (if_condition, newline, text, newline)
+    newline = "\n" if add_newlines else ""
+    return "{{if %s}}%s%s{{end}}%s" % (if_condition, newline, text, newline)
 
 def vector_conditional_target(ctx, if_condition, target_struct):
     """
@@ -230,9 +230,9 @@ def vector_conditional_target(ctx, if_condition, target_struct):
     """
 
     return struct(**{
-        "sources": [_conditional_go_template(if_condition, source, add_newlines=True) for source in target_struct.sources],
-        "transforms": [_conditional_go_template(if_condition, transform, add_newlines=True) for transform in target_struct.transforms],
-        "inputs": [_conditional_go_template(if_condition, input, add_newlines=False) for input in target_struct.inputs]
+        "sources": [_conditional_go_template(if_condition, source, add_newlines = True) for source in target_struct.sources],
+        "transforms": [_conditional_go_template(if_condition, transform, add_newlines = True) for transform in target_struct.transforms],
+        "inputs": [_conditional_go_template(if_condition, input, add_newlines = False) for input in target_struct.inputs],
     })
 
 ##############
@@ -263,18 +263,18 @@ _TRANSFORM_REMAP_CONFIG = """\
 {remap_vrl}
 """
 
-def _build_transforms(ctx, name, filter_rules=None, remap_rules=None, extra_tags=None):
+def _build_transforms(ctx, name, filter_rules = None, remap_rules = None, extra_tags = None):
     """Helper function to build a set of transforms which applies any given set of VRL statements, filters, and extra tags."""
     transforms = []
 
     base_tags = {
         "host_cluster": get_cluster(ctx),
-        "host_env": get_env(ctx)
+        "host_env": get_env(ctx),
     }
 
     filtered_name = name
     if filter_rules:
-        filtered_name = "{name}_filtered".format(name=name)
+        filtered_name = "{name}_filtered".format(name = name)
 
         filter_statements = []
         filter_condition = " || ".join(filter_rules)
@@ -283,14 +283,14 @@ def _build_transforms(ctx, name, filter_rules=None, remap_rules=None, extra_tags
         filter_vrl = _indent(8, "\n".join(filter_statements))
 
         filter_transform = _TRANSFORM_FILTER_CONFIG.format(
-            filtered_name=filtered_name,
-            name=name,
-            filter_vrl=filter_vrl,
+            filtered_name = filtered_name,
+            name = name,
+            filter_vrl = filter_vrl,
         )
 
         transforms.append(filter_transform)
 
-    remap_name = "{name}_remapped".format(name=name)
+    remap_name = "{name}_remapped".format(name = name)
 
     if not remap_rules:
         remap_rules = []
@@ -299,13 +299,14 @@ def _build_transforms(ctx, name, filter_rules=None, remap_rules=None, extra_tags
     if extra_tags:
         tags.update(extra_tags)
 
-    remap_rules += ['.tags."{key}" = "{val}"'.format(key=key, val=val) for key, val in tags.items()]
+    remap_rules += ['.tags."{key}" = "{val}"'.format(key = key, val = val) for key, val in tags.items()]
     remap_vrl = _indent(6, "\n".join(remap_rules))
 
     remapped_transform = _TRANSFORM_REMAP_CONFIG.format(
-        remap_name=remap_name,
-        filtered_name=filtered_name,
-        remap_vrl=remap_vrl)
+        remap_name = remap_name,
+        filtered_name = filtered_name,
+        remap_vrl = remap_vrl,
+    )
 
     transforms.append(remapped_transform)
     return transforms, remap_name
@@ -431,8 +432,7 @@ def metric_label_filter_regex_match(label_name, *label_patterns):
     for pattern in label_patterns:
         formatted_patterns.append("r'%s'" % pattern)
 
-    return ['match_any(to_string(.tags."%s") ?? "", [%s])' % (label_name, ', '.join(formatted_patterns))]
-
+    return ['match_any(to_string(.tags."%s") ?? "", [%s])' % (label_name, ", ".join(formatted_patterns))]
 
 ##############
 # Transforms #
@@ -443,6 +443,7 @@ _DROP_LABELS_REMAP_CONDITIONAL = """\
 if {vrl_if} {{
 {vrl_then}
 }}"""
+
 def drop_labels_remap(filter_rules, dropped_labels):
     """
     Returns a remap_rule which drops the specified label names on Vector events with a matching filter.
@@ -472,11 +473,10 @@ def drop_labels_remap(filter_rules, dropped_labels):
     if not filter_rules:
         return drop_vrl
 
-    vrl_if = ' || '.join(filter_rules)
+    vrl_if = " || ".join(filter_rules)
     vrl_then = _indent(2, "\n".join(drop_vrl))
 
-    return [_DROP_LABELS_REMAP_CONDITIONAL.format(vrl_if=vrl_if, vrl_then=vrl_then)]
-
+    return [_DROP_LABELS_REMAP_CONDITIONAL.format(vrl_if = vrl_if, vrl_then = vrl_then)]
 
 _VECTOR_INTERNAL_METRICS_TARGET_CONFIG = """\
   "vector_internal_metrics":
@@ -506,7 +506,7 @@ def and_filters(*filter_rules):
         ```
         returns a filter where ((metric_name is http_requests_total) OR (metric_name is grpc_requests_total)) AND ((http_status is 200) OR (grpc_status is OK))
     """
-    return ['(%s)' % (' && '.join(['(%s)' % (' || '.join(rules)) for rules in filter_rules]))]
+    return ["(%s)" % (" && ".join(["(%s)" % (" || ".join(rules)) for rules in filter_rules]))]
 
 def not_filters(*filter_rules):
     """
@@ -528,8 +528,7 @@ def not_filters(*filter_rules):
         ```
         returns a filter where NOT ((metric_name is very_high_cardinality_metric OR metric_name starts with high_cardinality_) OR (ignore_me is true))
     """
-    return ['!(%s)' % (' || '.join(['(%s)' % (' || '.join(rules)) for rules in filter_rules]))]
-
+    return ["!(%s)" % (" || ".join(["(%s)" % (" || ".join(rules)) for rules in filter_rules]))]
 
 def _indent(chars, string):
     """Indents each line of the given string by the number of characters."""

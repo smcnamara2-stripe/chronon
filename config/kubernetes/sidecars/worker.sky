@@ -1,33 +1,32 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-
 load("config/kubernetes/core/env_var.sky", "default_env_vars")
-load("config/kubernetes/core/volume.sky", "mount_pod_volume", "volume_mount", "render_volume_mount")
+load("config/kubernetes/core/volume.sky", "mount_pod_volume", "render_volume_mount", "volume_mount")
 load("config/kubernetes/helpers/context.sky", "get_blue_green_color")
 load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 load("config/kubernetes/sidecars/health.sky", "pod_health_volume")
-load("config/kubernetes/sidecars/variables.sky", "WORKER_CONTAINER_FALLBACK_SHA", "WORKER_CONTAINER_FALLBACK_ENV")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "EnvVar", "Container")
+load("config/kubernetes/sidecars/variables.sky", "WORKER_CONTAINER_FALLBACK_ENV", "WORKER_CONTAINER_FALLBACK_SHA")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Container", "EnvVar")
 load("config/kubernetes/core/container.sky", "resource_requirements")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 sidecar_name = "worker-sidecar"
 health_pod_volume_name = "pay-pod-health"
 
 def add_worker_sidecar(
-    einhorn_socket_dir,
-    puma_statefile_dir,
-    einhorn_socket_name = None,
-    worker_availability_threshold = "0.7",
-    service = None,
-    container_name = None,
-    mode = "einhorn",
-    puma_statefile_name = None,
-    hack_kick_interval = None,
-    hack_kick_start_delay = None,
-    hack_kick_restart_only = None,
-    hack_kick_start_jitter = None):
-
+        einhorn_socket_dir,
+        puma_statefile_dir,
+        einhorn_socket_name = None,
+        worker_availability_threshold = "0.7",
+        service = None,
+        container_name = None,
+        mode = "einhorn",
+        puma_statefile_name = None,
+        hack_kick_interval = None,
+        hack_kick_start_delay = None,
+        hack_kick_restart_only = None,
+        hack_kick_start_jitter = None):
     # TODO: make einhorn_socket_dir optional when mode is 'puma-cluster'
     if mode == "einhorn":
         if einhorn_socket_name == None:
@@ -39,61 +38,56 @@ def add_worker_sidecar(
         fail("Mode must be one of 'einhorn' or 'puma-cluster', got '{}'".format(mode))
 
     config = {
-       "service": service,
-       "container_name": container_name,
-       "einhorn_socket_dir": einhorn_socket_dir,
-       "einhorn_socket_name": einhorn_socket_name,
-       "puma_statefile_dir": puma_statefile_dir,
-       "worker_availability_threshold": worker_availability_threshold,
-       "mode": mode,
-       "puma_statefile_name": puma_statefile_name,
-       "hack_kick_interval": hack_kick_interval,
-       "hack_kick_start_delay": hack_kick_start_delay,
-       "hack_kick_restart_only": hack_kick_restart_only,
-       "hack_kick_start_jitter": hack_kick_start_jitter,
+        "service": service,
+        "container_name": container_name,
+        "einhorn_socket_dir": einhorn_socket_dir,
+        "einhorn_socket_name": einhorn_socket_name,
+        "puma_statefile_dir": puma_statefile_dir,
+        "worker_availability_threshold": worker_availability_threshold,
+        "mode": mode,
+        "puma_statefile_name": puma_statefile_name,
+        "hack_kick_interval": hack_kick_interval,
+        "hack_kick_start_delay": hack_kick_start_delay,
+        "hack_kick_restart_only": hack_kick_restart_only,
+        "hack_kick_start_jitter": hack_kick_start_jitter,
     }
 
     pod = pod_plugin(
         _add_worker_container_to_pod,
-        config = config
+        config = config,
     )
 
     return compose_plugins(
-       pod,
-
+        pod,
         mount_pod_volume(
             einhorn_socket_dir,
             mount_args = {"read_only": False},
             container_name = container_name,
         ),
-
         mount_pod_volume(
             puma_statefile_dir,
             mount_args = {"read_only": False},
             container_name = container_name,
         ),
-
         volume_mount(
             einhorn_socket_dir,
             read_only = False,
             container_name = sidecar_name,
         ),
-
         volume_mount(
             puma_statefile_dir,
             read_only = False,
             container_name = sidecar_name,
         ),
-
         pod_health_volume(),
         volume_mount(
-            '/pay/health',
+            "/pay/health",
             name = health_pod_volume_name,
             read_only = False,
             container_name = sidecar_name,
         ),
         volume_mount(
-            '/pay/health',
+            "/pay/health",
             name = health_pod_volume_name,
             container_name = container_name,
         ),
@@ -117,6 +111,7 @@ def _add_worker_container_to_pod(ctx, plugin, pod_def):
         "volume_mounts": {},
         "config": config,
         "sidecar_service": "workermanager-sidecar",
+        "programming_language": GO_PROGRAMMING_LANGUAGE,
     }
 
     pod_def[sidecar_name] = sidecar
@@ -146,7 +141,7 @@ def _render_go_worker_sidecar(ctx, container_def, pod):
     return Container(
         ctx,
         name = container.name,
-        image=img,
+        image = img,
         command = command,
         env = env,
         volumeMounts = volume_mounts,
@@ -184,11 +179,12 @@ def _go_worker_command(config):
 
     return cmd
 
-
 def _worker_image(ctx):
-    return sidecar_image(ctx,
+    return sidecar_image(
+        ctx,
         name = "workermanager-sidecar",
-        fallback = image(ctx,
+        fallback = image(
+            ctx,
             name = "stripe/compute/workermanager-sidecar-image",
             label = "git-%s" % WORKER_CONTAINER_FALLBACK_SHA,
             env = WORKER_CONTAINER_FALLBACK_ENV,

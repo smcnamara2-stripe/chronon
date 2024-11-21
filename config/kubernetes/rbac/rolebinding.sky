@@ -60,9 +60,6 @@ def _render_role_binding(ctx, role_binding_mapping):
 
         role_binding["roleRef"] = role_ref(ctx, role_ref_helper(kwargs.get("roleName"), reftype))
 
-
     role_binding["metadata"] = render_metadata(ctx, struct(**role_binding_mapping["metadata"]))
 
     return yaml.marshal(RoleBinding(ctx, **role_binding))
-
-

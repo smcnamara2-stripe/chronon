@@ -5,7 +5,6 @@ Functions to control the failure threshold for a deployment
 
 load("config/kubernetes/plugins/types.sky", "deployment_plugin")
 
-
 def failure_threshold(failure_threshold):
     """
     Configures the deployment to allow a percentage of replicas to fail.
@@ -21,11 +20,10 @@ def failure_threshold(failure_threshold):
     """
     return deployment_plugin(
         _add_failure_threshold,
-        failure_threshold=str(failure_threshold),
+        failure_threshold = str(failure_threshold),
     )
 
-
 def _add_failure_threshold(ctx, arguments, deployment_def):
-    deployment_def['metadata']['annotations'].update({
+    deployment_def["metadata"]["annotations"].update({
         "stripe.io/failure-threshold": arguments.failure_threshold,
     })

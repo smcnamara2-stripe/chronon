@@ -6,7 +6,7 @@ See our [Rollouts](http://go/sky/rollouts) topic page for more information about
 how Kubernetes rollouts work and how to configure them.
 """
 
-load("config/kubernetes/helpers/proto_or_yaml.sky", "DeploymentStrategy", "DaemonSetUpdateStrategy", "RollingUpdateDeployment", "StatefulSetUpdateStrategy", "RollingUpdateStatefulSetStrategy", "RollingUpdateDaemonSet", "IntOrString")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "DaemonSetUpdateStrategy", "DeploymentStrategy", "IntOrString", "RollingUpdateDaemonSet", "RollingUpdateDeployment", "RollingUpdateStatefulSetStrategy", "StatefulSetUpdateStrategy")
 
 def deployment_strategy(ctx, strategy_type):
     return DeploymentStrategy(ctx, type = strategy_type)
@@ -110,7 +110,7 @@ def rolling_update_statefulset_strategy(ctx, partition = 0):
         rollingUpdate = RollingUpdateStatefulSetStrategy(
             ctx,
             partition = partition,
-        )
+        ),
     )
 
 def blue_green_deployment_strategy_shared_msp(ctx):

@@ -1,16 +1,15 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
-load("config/kubernetes/helpers/context.sky", "get_owner", "get_env", "get_cluster", "get_blue_green_color", "get_availability_tier", "get_workspace_id", "is_isolated_deploy")
-
 load("config/kubernetes/core/container.sky", "container")
-load("config/kubernetes/core/volume.sky", "pod_volume", "volume_mount", "host_volume")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
-
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/core/volume.sky", "host_volume", "pod_volume", "volume_mount")
 load("config/kubernetes/helpers/constants.sky", "METRICS_SIDECAR_CONTAINER_NAME")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_blue_green_color", "get_cluster", "get_cost_bearing_team", "get_env", "get_owner", "get_workspace_id", "is_isolated_deploy")
+load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", use_credentials_proxy_plugin = "use_credentials_proxy")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "deployment_plugin", "statefulset_plugin")
-load("config/kubernetes/helpers/security.sky", use_credentials_proxy_plugin = "use_credentials_proxy", "mount_credentials_proxy")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 VENEUR_IMAGE_NAME = "stripe/observability/veneur-shared-msp"
 
@@ -57,7 +56,7 @@ POD_IP = struct(
 )
 
 # Defines how long we attempt to fetch config values for before quitting
-DEFAULT_CONFIG_TIMEOUT="10s"
+DEFAULT_CONFIG_TIMEOUT = "10s"
 
 ### constants (don't autodoc these)
 # Directory to which config is rendered. This directory is a volume mount,
@@ -83,7 +82,6 @@ UNIX_SOCKET_SSF = "/veneur-sockets/ssf-trace.sock"
 # Name of the volume to which config is rendered
 _VOLUME_NAME = "veneur-config"
 
-
 # Listen port (future: may become variable)
 _VENEUR_HEALTHCHECK_PORT = 8200
 
@@ -101,22 +99,22 @@ PROBER_WORKSPACE_URL = {
 }
 
 def metrics(
-    ctx,
-    config=None,
-    image_env_override=None,
-    image_version_override=None,
-    tags=None,
-    drop_metric_prefixes=[],
-    drop_tag_prefixes=[],
-    flush_interval="10s",
-    aggregates=["min", "max", "count", "sum"],
-    percentiles=["0.5", "0.9", "0.95", "0.99"],
-    attach_routing_rules=False,
-    config_timeout=DEFAULT_CONFIG_TIMEOUT,
-    enable_prober=False,
-    cortex_batch_write_size=None,
-    cortex_num_workers=None,
-):
+        ctx,
+        config = None,
+        image_env_override = None,
+        image_version_override = None,
+        tags = None,
+        drop_metric_prefixes = [],
+        drop_tag_prefixes = [],
+        flush_interval = "10s",
+        aggregates = ["min", "max", "count", "sum"],
+        percentiles = ["0.5", "0.9", "0.95", "0.99"],
+        attach_routing_rules = False,
+        config_timeout = DEFAULT_CONFIG_TIMEOUT,
+        enable_prober = False,
+        cortex_batch_write_size = None,
+        cortex_num_workers = None,
+        unsanitized_sirn_tag = None):
     """
     Adds a Veneur instance as a sidecar to receive and forward metrics.
 
@@ -160,6 +158,11 @@ def metrics(
             will override args passed to the function
         cortex_batch_write_size: `int` The number of metrics to batch write to Cortex. Defaults to 1000
         cortex_num_workers: `int` The number of workers to use when writing to Cortex. Defaults to 10
+        unsanitized_sirn_tag: `string` Veneur sanitizes (replaces certain characters with _) tags by default. This is a special tag to
+            add an implicit & unsanitized "sirn" label to all metrics emitted by this container. Prometheus tags should comply with
+            the documentation [here](https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels). Defaults to None.
+            See go/sirn more details regarding what the unsanitized SIRN is. This parameters should only be used where passing SIRN
+            is essential considering this could increase the cardinality of the metrics emitted by this container considerably.
 
     Returns:
         A plugin that installs a Veneur sidecar to receive metrics
@@ -181,7 +184,7 @@ def metrics(
     if tags == None:
         tags = default_tags_plus()
 
-    responsible_team = get_owner(ctx)
+    responsible_team = get_responsible_team(ctx)
     extra_tags = _render_tags(ctx, tags)
     sentry_dsn = _SENTRY_DSNS[get_env(ctx)]
 
@@ -192,24 +195,31 @@ def metrics(
         # the entry command passes it to veneur-init as -output <file>, but
         # it gets passed to veneur as -f <file>
         _CONFIG_FILE,
-
-        "-sentry-dsn", sentry_dsn,
+        "-sentry-dsn",
+        sentry_dsn,
 
         # the ip to listen on for health checks
-        "-healthcheck-address", "$(%s):%s" % (POD_IP.env_var, _VENEUR_HEALTHCHECK_PORT),
+        "-healthcheck-address",
+        "$(%s):%s" % (POD_IP.env_var, _VENEUR_HEALTHCHECK_PORT),
 
         # the input data to merge
-        "-defaults", _DEFAULTS_FILE,
+        "-defaults",
+        _DEFAULTS_FILE,
 
         # attribution
-        "-responsible-team", responsible_team,
+        "-responsible-team",
+        responsible_team,
 
         # other config
-        "-flush-interval", flush_interval,
-        "-aggregates",  ",".join(aggregates),
-        "-percentiles", ",".join(percentiles),
+        "-flush-interval",
+        flush_interval,
+        "-aggregates",
+        ",".join(aggregates),
+        "-percentiles",
+        ",".join(percentiles),
         # used to tag "pod_id" on all Prometheus Shared MSP metrics to satisfy Single Writer principle
-        "-pod-id", "$(STRIPE_POD_NAME)",
+        "-pod-id",
+        "$(STRIPE_POD_NAME)",
     ]
 
     if cortex_batch_write_size != None:
@@ -237,6 +247,9 @@ def metrics(
 
         # this wont't do anything if -attach-routing-rules isn't passed
         command = command + ["-config-timeout", config_timeout]
+
+    if unsanitized_sirn_tag != None:
+        command = command + ["-unsanitized-sirn-tag", unsanitized_sirn_tag]
 
     if enable_prober:
         command = command + [
@@ -268,7 +281,7 @@ def metrics(
             ctx,
             name = VENEUR_IMAGE_NAME,
             label = image_version_override,
-            **additional_opts,
+            **additional_opts
         )
 
     if attach_routing_rules == False:
@@ -283,21 +296,19 @@ def metrics(
     return compose_plugins(
         use_credentials_proxy_plugin(),
         host_volume("/etc/ssl/certs/stripe-cas", type = "Directory"),
-
         pod_volume(
             _UNIX_SOCKET_DIR,
         ),
-
         pod_volume(
             _CONFIG_DIR,
             name = _VOLUME_NAME,
         ),
-
         container(
             name = METRICS_SIDECAR_CONTAINER_NAME,
             image = sidecar_img,
             command = command,
             sidecar_service = "veneur-image",
+            programming_language = GO_PROGRAMMING_LANGUAGE,
             plugins = [
                 volume_mount(
                     name = _VOLUME_NAME,
@@ -359,37 +370,35 @@ def metrics_config_statefulset(**kwargs):
     return _metrics_config(statefulset_plugin, **kwargs)
 
 def _metrics_config(
-    plugin,
-    config_timeout=DEFAULT_CONFIG_TIMEOUT,
-    attach_routing_rules=False,
-    enable_vnext_metrics=False,
-    enable_prober=False,
-    image_env_override=None,
-    image_version_override=None,
-    cortex_batch_write_size=None,
-    cortex_num_workers=None,
-):
+        plugin,
+        config_timeout = DEFAULT_CONFIG_TIMEOUT,
+        attach_routing_rules = False,
+        enable_vnext_metrics = False,
+        enable_prober = False,
+        image_env_override = None,
+        image_version_override = None,
+        cortex_batch_write_size = None,
+        cortex_num_workers = None):
     if enable_vnext_metrics:
-      attach_routing_rules = True
+        attach_routing_rules = True
 
     return plugin(
         _update_deployment_metrics_config,
         config = struct(
-            config_timeout=config_timeout,
-            attach_routing_rules=attach_routing_rules,
-            enable_prober=enable_prober,
-            image_env_override=image_env_override,
-            image_version_override=image_version_override,
-            cortex_batch_write_size=cortex_batch_write_size,
-            cortex_num_workers=cortex_num_workers,
-        )
+            config_timeout = config_timeout,
+            attach_routing_rules = attach_routing_rules,
+            enable_prober = enable_prober,
+            image_env_override = image_env_override,
+            image_version_override = image_version_override,
+            cortex_batch_write_size = cortex_batch_write_size,
+            cortex_num_workers = cortex_num_workers,
+        ),
     )
-
 
 def _update_deployment_metrics_config(_, plugin, deployment_def):
     deployment_def["metrics_config"] = plugin.config
 
-def unix_socket_metric_listeners(container_name=None):
+def unix_socket_metric_listeners(container_name = None):
     """
     Mounts a volume containing Veneur unix socket listeners into the target container. The file paths are exported as `UNIX_SOCKET_STATSD` and `UNIX_SOCKET_SSF`.
 
@@ -430,7 +439,7 @@ def implicit_tags(*args, **kwargs):
     Returns:
         A list of structs representing the implicit tags with which to configure Veneur
     """
-    return list(args) + [struct(key=k, value=v) for k, v in kwargs.items()]
+    return list(args) + [struct(key = k, value = v) for k, v in kwargs.items()]
 
 def default_tags_plus(**kwargs):
     """
@@ -449,42 +458,45 @@ def default_tags_plus(**kwargs):
     return implicit_tags(*_default_tags(), **kwargs)
 
 def _tag_blue_green(ctx):
-    return struct(key="deploy_color", value=get_blue_green_color(ctx))
+    return struct(key = "deploy_color", value = get_blue_green_color(ctx))
 
 def _tag_owner(ctx):
-    return struct(key="responsible_team", value=get_owner(ctx))
+    return struct(key = "responsible_team", value = get_responsible_team(ctx))
 
 def _tag_env(ctx):
-    return struct(key="host_env", value=get_env(ctx))
+    return struct(key = "host_env", value = get_env(ctx))
 
 def _tag_cluster(ctx):
-    return struct(key="host_cluster", value=get_cluster(ctx))
+    return struct(key = "host_cluster", value = get_cluster(ctx))
 
 def _tag_namespace(ctx):
-    return struct(key=NAMESPACE.tag_key, value="$(%s)" % NAMESPACE.env_var)
+    return struct(key = NAMESPACE.tag_key, value = "$(%s)" % NAMESPACE.env_var)
 
 def _tag_service_name(ctx):
-    return struct(key=SERVICE_NAME.tag_key, value="$(%s)" % SERVICE_NAME.env_var)
+    return struct(key = SERVICE_NAME.tag_key, value = "$(%s)" % SERVICE_NAME.env_var)
 
 def _tag_isolated_deploy_workspace_id(ctx):
     value = get_workspace_id(ctx) if is_isolated_deploy(ctx) else None
-    return struct(key="isolated_deploy_workspace_id", value=value)
+    return struct(key = "isolated_deploy_workspace_id", value = value)
 
 def _tag_send_only_to_tsdb(ctx):
     # For isolated deployments we only want to send the metrics to Prometheus,
     # not SFX
     value = "prometheus" if is_isolated_deploy(ctx) else None
-    return struct(key="send_only_to_tsdb", value=value)
+    return struct(key = "send_only_to_tsdb", value = value)
 
 def _tag_henson_service_name(ctx):
-    return struct(key=HENSON_SERVICE_NAME.tag_key, value="$(%s)" % HENSON_SERVICE_NAME.env_var)
+    return struct(key = HENSON_SERVICE_NAME.tag_key, value = "$(%s)" % HENSON_SERVICE_NAME.env_var)
 
 def _tag_availability_tier(ctx):
     tier_name = get_availability_tier(ctx)
-    return struct(key="availability_tier", value=tier_name.lower())
+    return struct(key = "availability_tier", value = tier_name.lower())
 
 def _default_tags():
     return [getattr(tags, tagfn) for tagfn in dir(tags)]
+
+def get_responsible_team(ctx):
+    return get_cost_bearing_team(ctx) or get_owner(ctx)
 
 # A struct of extractor functions that can be passed to `implicit_tags` to add
 # various contextual tags to the implicit metrics emitted by the sidecar.
@@ -516,7 +528,7 @@ tags = struct(
     availability_tier = _tag_availability_tier,
 )
 
-def _render_tags(ctx, tags=[]):
+def _render_tags(ctx, tags = []):
     if len(tags) == 0:
         return None
 
@@ -529,10 +541,10 @@ def _render_tags(ctx, tags=[]):
             #   when including it in pod tags, e.g. tags=[tags.namespace()]
             # skycfg does not seem to support error handling, so I can't easily give a different
             # error message to make this clearer :(
-            tag_struct = tag(ctx=ctx)
+            tag_struct = tag(ctx = ctx)
         elif type(tag) == "struct":
             # we recreate the struct as a means of asserting that `key` and `value` exist on a per-item level
-            tag_struct = struct(key=tag.key, value=tag.value)
+            tag_struct = struct(key = tag.key, value = tag.value)
         else:
             fail("Unsupported tag value: %s" % tag)
 

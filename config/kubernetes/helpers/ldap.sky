@@ -12,6 +12,7 @@ _host_files = [
 ]
 
 LDAP_MOUNT_NAME = "etc-lmscache"
+
 # There are more legacy ldap mount names
 # This is defined here to test presence of legacy mounts
 LEGACY_LDAP_MOUNT_NAME = "etc-group"
@@ -35,12 +36,12 @@ def mount_ldap_host_volumes(container_name = None, legacy_mount = None):
     if legacy_mount == None:
         return compose_plugins(
             conditional_plugin(
-                condition=is_shared_msp,
-                plugin=_mount_ldap_host_volumes(container_name),
+                condition = is_shared_msp,
+                plugin = _mount_ldap_host_volumes(container_name),
             ),
             conditional_plugin(
-                condition=is_dedicated_msp,
-                plugin=_legacy_mount_ldap_host_volumes(container_name),
+                condition = is_dedicated_msp,
+                plugin = _legacy_mount_ldap_host_volumes(container_name),
             ),
         )
 
@@ -50,7 +51,7 @@ def mount_ldap_host_volumes(container_name = None, legacy_mount = None):
     return _legacy_mount_ldap_host_volumes(container_name)
 
 def _mount_ldap_host_volumes(container_name = None):
-    return mount_host_volume("/etc/lmscache", container_name = container_name, volume_args = {"type" : "Directory", "reason": "For access to LDAP data"})
+    return mount_host_volume("/etc/lmscache", container_name = container_name, volume_args = {"type": "Directory", "reason": "For access to LDAP data"})
 
 def _legacy_mount_ldap_host_volumes(container_name = None):
     # lmscache currently writes to `/etc/{group,passwd,shadow}.cache`. We want

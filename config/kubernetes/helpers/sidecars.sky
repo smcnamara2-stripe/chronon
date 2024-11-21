@@ -24,6 +24,6 @@ def _generate_sidecars_dict(containers):
         sidecar_service = container.get("sidecar_service")
         if sidecar_service:
             sidecars.setdefault(sidecar_service, [])
-            sidecars[sidecar_service].append(container['name'])
+            sidecars[sidecar_service].append(container["name"])
 
     return sidecars

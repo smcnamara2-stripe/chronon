@@ -3,11 +3,11 @@
 Plugins for applying metadata to Kubernetes resources.
 """
 
-load("config/kubernetes/helpers/tags.sky", "default_annotations", "default_labels", "default_isolated_deployment_labels", "service_selectors", "DEPRECATED_OWNER_LABEL")
+load("config/kubernetes/helpers/tags.sky", "DEPRECATED_OWNER_LABEL", "default_annotations", "default_isolated_deployment_labels", "default_labels", "service_selectors")
 load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_function_name", "get_henson_git_commit", "get_name", "get_owner", "is_isolated_deploy")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "any_resource_plugin", "cronjob_plugin", "daemonset_plugin", "deployment_plugin", "job_plugin", "pod_plugin", "rbac_plugin", "crd_plugin", "statefulset_plugin", "webhook_configuration_plugin")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "ObjectMeta", "LabelSelector")
+load("config/kubernetes/plugins/types.sky", "any_resource_plugin", "crd_plugin", "cronjob_plugin", "daemonset_plugin", "deployment_plugin", "job_plugin", "pod_plugin", "rbac_plugin", "statefulset_plugin", "webhook_configuration_plugin")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "LabelSelector", "ObjectMeta")
 
 def metadata(namespace, service_name = None, owner = None, selectors_override = None):
     """

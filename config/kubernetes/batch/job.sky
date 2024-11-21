@@ -6,20 +6,23 @@ running fire-and-forget batch workloads.
 [job]: https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/
 """
 
-load("config/kubernetes/core/lifecycle.sky", "restart_policy", "grace_period", "DEFAULT_GRACE_PERIOD_SECONDS")
+load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
+load("config/kubernetes/core/lifecycle.sky", "DEFAULT_GRACE_PERIOD_SECONDS", "DEFAULT_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS", "MAX_ENFORCED_GRACE_PERIOD_SECONDS", "grace_period", "restart_policy")
 load("config/kubernetes/core/pod.sky", "all_containers")
-load("config/kubernetes/meta/metadata.sky", "render_metadata", "get_availability_tier_from_metadata")
+load("config/kubernetes/core/volume.sky", "volume_mount")
+load("config/kubernetes/helpers/binpacking.sky", "bin_packing")
+load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME")
+load("config/kubernetes/helpers/context.sky", "get_env", "is_bin_packing_enabled", "is_isolated_deploy")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Job", "JobSpec")
+load("config/kubernetes/helpers/shared_msp.sky", "native_sidecar_support", "shared_msp_experimental_job_support")
+load("config/kubernetes/meta/metadata.sky", "get_availability_tier_from_metadata", "render_metadata")
 load("config/kubernetes/networking/public/networking.sky", "networking")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "job_plugin")
 load("config/kubernetes/sidecars/metrics.sky", "metrics")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "is_isolated_deploy", "get_env")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Job", "JobSpec")
-load("config/kubernetes/helpers/shared_msp.sky", "shared_msp_experimental_job_support")
-load("config/kubernetes/helpers/binpacking.sky", "bin_packing")
 load("config/kubernetes/stripe.sky", "CONSUL_AGENT_ENABLED_LABEL", "CONSUL_AGENT_ENABLED_LABEL_DISABLED")
 
-def job(ctx, *plugins, shared_msp=False, shared_msp_networking_plugin=False, enable_shared_msp_experimental_job_support=False, **kwargs):
+def job(ctx, *plugins, shared_msp = False, shared_msp_networking_plugin = False, enable_shared_msp_experimental_job_support = False, enable_native_sidecar_support = False, **kwargs):
     """
     Define a batch job that will run once.
 
@@ -36,9 +39,12 @@ def job(ctx, *plugins, shared_msp=False, shared_msp_networking_plugin=False, ena
         shared_msp_networking_plugin: boolean which is True iff the job should have networking plugin (default is False). Note: this feature is
           in alpha, and largely untested by Service Networking. Please test thoroughly, and consult in #service-networking if you have any questions
           or issues.
-        experimental_shared_msp_job_sidecar_support: boolean enabling the support for experimental jobs in Shared MSP. This functionalty is
+        enable_shared_msp_experimental_job_support: boolean enabling the support for experimental jobs in Shared MSP. This functionalty is
           highly experimental and not guaranteed to work for the general use case. Your application (and all sidecars) need to have `sh`
-          available for this to work properly.
+          available for this to work properly. Can only be enabled if enable_native_sidecar_support=False.
+        enable_native_sidecar_support: boolean enabling all sidecars to be run as kubernetes [native sidecars](https://kubernetes.io/blog/2023/08/25/native-sidecar-containers/).
+            Can only be enabled if shared_msp=True and experimental_shared_msp_job_sidecar_support=False.
+            This functionality is currently experimental only and is not yet allowed for general use. Please talk to #msp if you have questions.
         **kwargs: Options for the [JobSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#jobspec-v1-batch).
             A shortcut for the `job_options` plugin.
 
@@ -70,39 +76,64 @@ def job(ctx, *plugins, shared_msp=False, shared_msp_networking_plugin=False, ena
     plugin = compose_plugins(*all_plugins)
     _apply_plugin(ctx, plugin, job)
 
+    if enable_native_sidecar_support and not shared_msp:
+        fail("enable_native_sidecar_support can only be enabled if shared_msp=True")
+
+    if shared_msp and enable_native_sidecar_support and enable_shared_msp_experimental_job_support:
+        fail("enable_native_sidecar_support and enable_shared_msp_experimental_job_support cannot both be enabled")
+
     if shared_msp:
+        pod_termination_grace_period_seconds = DEFAULT_GRACE_PERIOD_SECONDS
+
+        if enable_native_sidecar_support:
+            _apply_plugin(ctx, compose_plugins(native_sidecar_support()), job)
+
+            # Update the grace period to the default for shared MSP jobs which is greater than the normal mspworker default of 5 min
+            # This ensures long running shared MSP jobs with native sidecars do not get terminated prematurely
+            pod_termination_grace_period_seconds = DEFAULT_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS
+
         # for shared msp, services get registered at update time, but the plugin needs them
         # at create time, so we init and update the networking plugin after all the others
         if shared_msp_networking_plugin:
-            namespace = job['metadata'].get("namespace", None)
+            namespace = job["metadata"].get("namespace", None)
             if namespace == None:
                 fail("Namespace not set for shared MSP job. Perhaps missing a namespace param to your pod?")
 
+            # NOTE: Include metrics-sidecar for networking plugin as envoy-config-srv needs it.
+            _apply_plugin(ctx, metrics(ctx, config = job["metrics_config"]), job)
+
             # If no grace period is set, use the default
-            _apply_plugin(ctx, compose_plugins(grace_period(DEFAULT_GRACE_PERIOD_SECONDS, overwrite = False)), job)
+            _apply_plugin(ctx, compose_plugins(grace_period(pod_termination_grace_period_seconds, overwrite = False)), job)
             pod_termination_grace_period_seconds = job["pod"]["grace_period"]
 
             consul_deprecated_in_pod = job["metadata"].get("labels", {}).get(CONSUL_AGENT_ENABLED_LABEL, "")
             networking_plugin = networking(
                 ctx,
-                namespace=namespace,
-                availability_tier=get_availability_tier_from_metadata(job["metadata"]),
-                host_network=False,
-                register_services=job['registered_services'],
-                config=job["networking_config"],
-                pod_termination_grace_period_seconds=pod_termination_grace_period_seconds,
-                consul_deprecated=(consul_deprecated_in_pod == CONSUL_AGENT_ENABLED_LABEL_DISABLED),
-                k8s_workload_name=job["metadata"]["name"],
+                namespace = namespace,
+                availability_tier = get_availability_tier_from_metadata(job["metadata"]),
+                host_network = False,
+                register_services = job["registered_services"],
+                config = job["networking_config"],
+                pod_termination_grace_period_seconds = pod_termination_grace_period_seconds,
+                consul_deprecated = (consul_deprecated_in_pod == CONSUL_AGENT_ENABLED_LABEL_DISABLED),
+                k8s_workload_name = job["metadata"]["name"],
+                is_native_sidecar = enable_native_sidecar_support,
             )
             _apply_plugin(ctx, networking_plugin, job)
-            # NOTE: Include metrics-sidecar for networking plugin as envoy-config-srv needs it.
-            _apply_plugin(ctx, metrics(ctx, config=job["metrics_config"]), job)
+
+            _apply_plugin(ctx, compose_plugins(
+                volume_mount(
+                    "/usr/stripe/bin/kube-prestop",
+                    container_name = ENVOY_CONFIG_SRV_SIDECAR_NAME,
+                    read_only = True,
+                ),
+            ), job)
 
         if enable_shared_msp_experimental_job_support:
             _apply_plugin(ctx, compose_plugins(shared_msp_experimental_job_support()), job)
 
         if is_bin_packing_enabled(ctx) == True:
-            _apply_plugin(ctx, bin_packing(), job)
+            _apply_plugin(ctx, bin_packing(ctx), job)
 
     return job["render"](ctx, job)
 
@@ -140,6 +171,13 @@ def job_options(**kwargs):
 _default_job_kwargs = {
 }
 
+# Ensures that bin-packed jobs cannot accidentally set a grace period higher than the max of 7 minutes
+def _validate_bin_packing_grace_period(resource, pod_template):
+    bin_packing_version = resource.metadata.labels.get("stripe.io/bin-packing-version", None)
+
+    if (bin_packing_version == "v1" or bin_packing_version == "v2") and pod_template["spec"]["terminationGracePeriodSeconds"] > MAX_ENFORCED_GRACE_PERIOD_SECONDS:
+        fail("Job %s has a grace period of %d seconds, which is higher than the maximum of %d seconds allowed for bin-packed deployments" % (resource.metadata.name, pod_template["spec"]["terminationGracePeriodSeconds"], MAX_ENFORCED_GRACE_PERIOD_SECONDS))
+
 def _update_job_options(ctx, plugin, job_def):
     job_def["kwargs"].update(plugin.kwargs)
 
@@ -148,9 +186,11 @@ def _render_job(ctx, job_def):
     job = struct(**job_def)
 
     pod_template = job.pod["render"](ctx, job.pod)
+
+    _validate_bin_packing_grace_period(job, pod_template)
     kwargs = job.kwargs
 
-    return Job(
+    rendered_job = Job(
         ctx,
         metadata = render_metadata(ctx, job.metadata),
         spec = JobSpec(
@@ -159,3 +199,21 @@ def _render_job(ctx, job_def):
             **kwargs
         ),
     )
+
+    sgp_yaml = None
+
+    if job_def.get("securitygrouppolicy", "") and is_security_group_policy_enabled(ctx, job_def):
+        sgp_obj = job.securitygrouppolicy["render"](ctx, job.securitygrouppolicy)
+        sgp_yaml = yaml.marshal(sgp_obj)
+
+    if sgp_yaml == None:
+        return rendered_job
+
+    obj_list = []
+
+    if sgp_yaml != None:
+        obj_list.append(sgp_yaml)
+
+    obj_list.append(rendered_job)
+
+    return obj_list

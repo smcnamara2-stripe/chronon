@@ -1,10 +1,9 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/core/container.sky", "container", "container_port")
-load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
-load("config/kubernetes/core/probe.sky", "http_probe", "probes")
-load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume")
-load("config/kubernetes/core/pod.sky", "pod_share_pid_namespace")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/core/pod.sky", "pod_share_pid_namespace")
+load("config/kubernetes/core/probe.sky", "conditional_http_probe", "http_probe", "probes")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume")
 load(
     "config/kubernetes/helpers/context.sky",
     "get_env",
@@ -12,25 +11,25 @@ load(
     "get_inbound_rate_limits",
     "get_service_variant",
     "get_workspace_id",
-    "is_bin_packing_enabled",
+    "is_bin_packing_v1_enabled",
     "is_isolated_deploy",
 )
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load(
-    "config/kubernetes/networking/internal/helpers.sky",
-    "host_mount_stripe_cas",
-    "pod_mount",
-)
+load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
 load("config/kubernetes/helpers/ldap.sky", "mount_ldap_host_volumes")
-load("config/kubernetes/networking/internal/common.sky", "POD_NETWORKING_BASEDIR")
+load(
+    "config/kubernetes/helpers/security.sky",
+    "allow_ulimit_management",
+    "mount_credentials_proxy",
+    "use_credentials_proxy",
+)
 load(
     "config/kubernetes/networking/internal/config/envoy-config-srv-config.sky",
     "CDS_PORT",
     "DEBUG_PORT",
     "DEFAULT_CROSS_DOMAIN_SERVICES_BY_ENV",
     "ENVOY_CONFIG_SRV_RUNTIME_DIR",
-    "ENVOY_EGRESS_SOCKETS_DIR",
     "ENVOY_CONFIG_SRV_SERVICE_REGISTRATIONS_DIR",
+    "ENVOY_EGRESS_SOCKETS_DIR",
     "ENVOY_LOGS_DIR",
     "ENVOY_OUTBOUND_UNIX_SOCKETS_DIR",
     "ENVOY_RUNTIME_DIR",
@@ -38,10 +37,10 @@ load(
     "UNPRIVILEGED_ENVOY_PORT",
     "XDS_DEBUG_BASEDIR",
     "apply_user_config_ratchets",
-    "generate_sidecar_version",
     "generate_sidecar_cli_args",
     "generate_sidecar_config",
     "generate_sidecar_container_config",
+    "generate_sidecar_version",
     "local_rate_limit",
 )
 load(
@@ -49,15 +48,15 @@ load(
     "generate_monitor_cli_args",
 )
 load(
-    "config/kubernetes/helpers/security.sky",
-    "mount_credentials_proxy",
-    "use_credentials_proxy",
-    "allow_ulimit_management",
-)
-load(
     "config/kubernetes/networking/internal/config/envoy-sidecar-config.sky",
     "generate_cli_args",
 )
+load(
+    "config/kubernetes/networking/internal/helpers.sky",
+    "host_mount_stripe_cas",
+    "pod_mount",
+)
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load(
     "config/kubernetes/networking/internal/proxyless.sky",
     "augment_with_proxyless_registrations",
@@ -72,7 +71,7 @@ ENVOY_CONFIG_SRV_IMAGE_NAME = "stripe/traffic/envoy-config-srv"
 ENVOY_CONFIG_SRV_SIDECAR_SERVICE_NAME = "envoy-config-srv-sidecar"
 ENVOY_CONFIG_SRV_DEBUG_SIDECAR_SERVICE_NAME = "envoy-config-srv-debug-sidecar"
 
-def envoy_config_srv_sidecar(ctx, namespace, config_target, user_overrides, consul_agent_services, host_network, consul_deprecated, k8s_workload_name):
+def envoy_config_srv_sidecar(ctx, namespace, config_target, user_overrides, consul_agent_services, host_network, consul_deprecated, k8s_workload_name, is_native_sidecar = False):
     consul_agent_services = augment_with_proxyless_registrations(ctx, consul_agent_services, k8s_workload_name)
     local_consul_services = _consul_agent_services_to_sidecar_consul_config(consul_agent_services)
     validate_registrations(local_consul_services)
@@ -80,7 +79,7 @@ def envoy_config_srv_sidecar(ctx, namespace, config_target, user_overrides, cons
     name = "envoy-config-srv"
     plugins = []
     plugins.extend([
-        pod_share_pid_namespace(True), # this is needed for kube-prestop to work
+        pod_share_pid_namespace(True),  # this is needed for kube-prestop to work
         envoy_config_srv_container(
             ctx,
             name,
@@ -91,6 +90,7 @@ def envoy_config_srv_sidecar(ctx, namespace, config_target, user_overrides, cons
             consul_agent_services,
             host_network,
             consul_deprecated,
+            is_native_sidecar,
         ),
         host_mount_stripe_cas(name),
         # Need this for:
@@ -149,7 +149,7 @@ def envoy_config_srv_sidecar(ctx, namespace, config_target, user_overrides, cons
                     "type": "Directory",
                     "reason": "Allows accessing host Consul agent from within a network-isolated pod.",
                 },
-            )
+            ),
         )
 
     plugins.extend([
@@ -173,7 +173,7 @@ def envoy_config_srv_sidecar(ctx, namespace, config_target, user_overrides, cons
 
     return compose_plugins(*plugins)
 
-def envoy_config_srv_container(ctx, self, namespace, local_consul_services, config_target, user_overrides, consul_agent_services, host_network, consul_deprecated):
+def envoy_config_srv_container(ctx, self, namespace, local_consul_services, config_target, user_overrides, consul_agent_services, host_network, consul_deprecated, is_native_sidecar = False):
     args = generate_sidecar_cli_args(config_target, user_overrides)
     monitor_args = generate_monitor_cli_args(user_overrides)
     egress_tier = args["egress_proxy_tier"]
@@ -236,7 +236,7 @@ def envoy_config_srv_container(ctx, self, namespace, local_consul_services, conf
 
         # If BinPacking is enabled we want to connect to consul-proxy-srv through a vsocket
         # More information can be read at go/binpacking
-        if is_bin_packing_enabled(ctx):
+        if is_bin_packing_v1_enabled(ctx):
             command.append("--consul-sidecar-consul-address=vsock://2:1234")
         else:
             command.append("--consul-sidecar-consul-address=unix://{}/{}".format(_consul_proxy_dir, _proxy_file))
@@ -272,6 +272,20 @@ def envoy_config_srv_container(ctx, self, namespace, local_consul_services, conf
                 port = DEBUG_PORT,
                 path = "/msp-infra-ready",
             ),
+            # If envoy-config-srv is running as a native sidecar container, adding this startup probe
+            # will ensure k8s will wait for envoy to become ready before starting any other subsequent sidecars or the main container.
+            # This ensures the main container will immediately be able to serve traffic on startup.
+            # Learn more about native sidecar containers here: https://kubernetes.io/blog/2023/08/25/native-sidecar-containers/
+            startup = conditional_http_probe(
+                condition = is_native_sidecar,
+                http_probe = http_probe(
+                    ctx,
+                    port = DEBUG_PORT,
+                    path = "/msp-infra-ready",
+                    failureThreshold = 300,  # 300 * 1s = 300s = 5 min to startup
+                    periodSeconds = 1,
+                ),
+            ),
         ),
     ]
 
@@ -296,7 +310,7 @@ def envoy_config_srv_container(ctx, self, namespace, local_consul_services, conf
     if is_isolated_deploy(ctx):
         # The isolated deploy metadata is used to tag isolated deployment pods
         # Design doc: https://docs.google.com/document/d/1ax4rZoVYKCJqD08xBzJye40EJ_M3s4OQ9Ka_U2lIKVE/edit#bookmark=id.1r1nhpm7g8tj
-        plugins.append(container_env_vars(vars={
+        plugins.append(container_env_vars(vars = {
             "ISOLATED_DEPLOY_L7_DIRECT_ONLY": "true",
             "ISOLATED_DEPLOY_SERVICE_VARIANT": get_service_variant(ctx),
             "ISOLATED_DEPLOY_RESOURCE_WORKSPACE": get_workspace_id(ctx),
@@ -320,7 +334,7 @@ def envoy_config_srv_container(ctx, self, namespace, local_consul_services, conf
         image = _envoy_config_srv_image(ctx, config_target, user_overrides),
         command = command,
         sidecar_service = envoy_config_srv_sidecar_service(user_overrides),
-        plugins = plugins
+        plugins = plugins,
     )
 
 def _envoy_config_srv_image(ctx, config_target, user_overrides):
@@ -330,6 +344,7 @@ def _envoy_config_srv_image(ctx, config_target, user_overrides):
     version = generate_sidecar_version(config_target, user_overrides)
     fallback_version_sha = "sha256:%s" % version["version"]
     is_version_overriden = version["is_version_overriden"]
+
     # if version was overriden by user, return image URI with user provided version
     # NB: If version is from a non-master build, you are manually testing a non-master build and must change ENVOY_CONFIG_SRV_CONTAINER_FALLBACK_ENV to qa
     if is_version_overriden:
@@ -342,15 +357,15 @@ def _envoy_config_srv_image(ctx, config_target, user_overrides):
 
     # NB: If version is from a non-master build, you are manually testing a non-master build and must change ENVOY_CONFIG_SRV_CONTAINER_FALLBACK_ENV to qa
     return sidecar_image(
+        ctx,
+        name = envoy_config_srv_sidecar_service(user_overrides),
+        fallback = image(
             ctx,
-            name = envoy_config_srv_sidecar_service(user_overrides),
-            fallback = image(
-                ctx,
-                name = ENVOY_CONFIG_SRV_IMAGE_NAME,
-                label = fallback_version_sha,
-                env = ENVOY_CONFIG_SRV_CONTAINER_FALLBACK_ENV,
-            ),
-        )
+            name = ENVOY_CONFIG_SRV_IMAGE_NAME,
+            label = fallback_version_sha,
+            env = ENVOY_CONFIG_SRV_CONTAINER_FALLBACK_ENV,
+        ),
+    )
 
 def _henson_inbound_acl(acl):
     return {
@@ -499,7 +514,6 @@ def _envoy_config_srv_config(ctx, local_consul_services, config_target, user_ove
 
     return {"sidecar": cfg}
 
-
 def use_debug_sidecar_container(user_overrides):
     container_cfg = generate_sidecar_container_config(user_overrides)
     return container_cfg["enable_debug_sidecar_container"] == True
@@ -508,7 +522,6 @@ def envoy_config_srv_sidecar_service(user_overrides):
     if use_debug_sidecar_container(user_overrides):
         return ENVOY_CONFIG_SRV_DEBUG_SIDECAR_SERVICE_NAME
     return ENVOY_CONFIG_SRV_SIDECAR_SERVICE_NAME
-
 
 # Convert consul agent services struct (known to consul-sidecar) to sidecar_consul_config struct (known to envoy-config-srv-sidecar)
 def _consul_agent_services_to_sidecar_consul_config(consul_agent_services):
@@ -525,12 +538,12 @@ def _consul_agent_services_to_sidecar_consul_config(consul_agent_services):
 def validate_registrations(service_registrations):
     for service_registration in service_registrations:
         if (
-            "meta" in service_registration
-            and "proxyless" in service_registration["meta"]
-            and service_registration["meta"]["proxyless"] == "true"
-            and (
-                "tags" not in service_registration
-                or "grpc" not in service_registration["tags"]
+            "meta" in service_registration and
+            "proxyless" in service_registration["meta"] and
+            service_registration["meta"]["proxyless"] == "true" and
+            (
+                "tags" not in service_registration or
+                "grpc" not in service_registration["tags"]
             )
         ):
             fail("Invalid service registration: Services with `proxyless:true` metadata must have 'grpc' tag")

@@ -27,29 +27,27 @@ def auto_size(ctx, shirt_size, workload_type):
     """
 
     _SIZE_AND_WORKLOAD_TO_SIZING_MAPPING = {
-            "general_purpose": {
-                "medium": {
-                    'cpu': cores(ctx, 3),
-                    'memory': gibibytes(ctx, 14),
-                    'instance_type': 'm5d.xlarge', # 4 cpu and 16 GB
-                },
+        "general_purpose": {
+            "medium": {
+                "cpu": cores(ctx, 3),
+                "memory": gibibytes(ctx, 14),
+                "instance_type": "m5d.xlarge",  # 4 cpu and 16 GB
             },
-        }
+        },
+    }
 
     def _get_sizing(shirt_size, workload_type):
         if workload_type not in _SIZE_AND_WORKLOAD_TO_SIZING_MAPPING:
-            fail("This workload type " + workload_type + " is currently unsupported. List of currently supported workload types: " + ', '.join(_SIZE_AND_WORKLOAD_TO_SIZING_MAPPING.keys()))
+            fail("This workload type " + workload_type + " is currently unsupported. List of currently supported workload types: " + ", ".join(_SIZE_AND_WORKLOAD_TO_SIZING_MAPPING.keys()))
         elif shirt_size not in _SIZE_AND_WORKLOAD_TO_SIZING_MAPPING[workload_type]:
-            fail("This shirt size " + shirt_size + " for workload type " + workload_type + " is currently unsupported. List of currently supported sizes for this workload_type: " + ', '.join(_SIZE_AND_WORKLOAD_TO_SIZING_MAPPING[workload_type].keys()))
+            fail("This shirt size " + shirt_size + " for workload type " + workload_type + " is currently unsupported. List of currently supported sizes for this workload_type: " + ", ".join(_SIZE_AND_WORKLOAD_TO_SIZING_MAPPING[workload_type].keys()))
 
         return _SIZE_AND_WORKLOAD_TO_SIZING_MAPPING[workload_type][shirt_size]
 
-
     if shirt_size not in _SHIRT_SIZES:
-        fail("Unknown shirt size " + shirt_size + ". List of supported shirt sizes: " + ', '.join(_SHIRT_SIZES))
+        fail("Unknown shirt size " + shirt_size + ". List of supported shirt sizes: " + ", ".join(_SHIRT_SIZES))
 
     if workload_type not in _WORKLOAD_TYPES:
-        fail("Unknown workload type " + workload_type + ". List of supported workload types: " + ', '.join(_WORKLOAD_TYPES))
+        fail("Unknown workload type " + workload_type + ". List of supported workload types: " + ", ".join(_WORKLOAD_TYPES))
 
     return _get_sizing(shirt_size, workload_type)
-

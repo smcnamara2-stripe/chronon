@@ -6,6 +6,7 @@ Functions for creating and configuring Workflow engine workers to run on MSP.
 load("config/kubernetes/apps/deployment.sky", "deployment")
 load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/core/ha.sky", "prefer_node_balance_by_henson_service")
 load("config/kubernetes/core/lifecycle.sky", "DEFAULT_ENVOY_HEALTHCHECK_PROPAGATION_TIME", "grace_period")
 load("config/kubernetes/core/probe.sky", "command_probe", "probes")
 load("config/kubernetes/crds/keda/scaledobject.sky", "scaled_object_plugin_from_compute_config")
@@ -16,37 +17,35 @@ load("config/kubernetes/helpers/context.sky", "get_env", "get_name", "get_owner"
 load("config/kubernetes/helpers/external_scaling_control.sky", "external_scaling_control")
 load("config/kubernetes/helpers/images.sky", "image_defaults")
 load("config/kubernetes/helpers/msp_shard.sky", "MSP_CLUSTER_ANNOTATION", "MSP_SHARD_ANNOTATION")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "PodDisruptionBudget", "PodDisruptionBudgetSpec", "ObjectMeta")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "ObjectMeta", "PodDisruptionBudget", "PodDisruptionBudgetSpec")
 load("config/kubernetes/helpers/tags.sky", "SERVICE_OWNER_LABEL", "default_annotations")
 load("config/kubernetes/meta/metadata.sky", "labels")
 load("config/kubernetes/pay-server.sky", "einhorn_service", "pay_server_pod")
 load("config/kubernetes/policy/pdb.sky", "pod_disruption_budget")
 load("config/kubernetes/service-config/compute.sky", "get_merged_compute_v2_config")
 load("config/kubernetes/service-config/ruby_common.sky", "ruby_canary_suffix")
-load("config/kubernetes/core/ha.sky", "prefer_node_balance_by_henson_service")
 
 # Can't be overriden because the canary is always one node.
 def deployment_strategy_canary_func(ctx):
-  return rolling_update_strategy(
-    ctx,
-    max_unavailable = 1,
-    max_surge = 1,
-  )
+    return rolling_update_strategy(
+        ctx,
+        max_unavailable = 1,
+        max_surge = 1,
+    )
 
 def deployment_strategy_regular_func(ctx):
-  return rolling_update_strategy(
-    ctx,
-    max_unavailable = 1,
-    max_surge = 1,
-  )
+    return rolling_update_strategy(
+        ctx,
+        max_unavailable = 1,
+        max_surge = 1,
+    )
 
 def deployment_strategy_serverless_func(ctx):
-  return rolling_update_strategy(
-    ctx,
-    max_unavailable = 0,
-    max_surge = "20%",
-  )
-
+    return rolling_update_strategy(
+        ctx,
+        max_unavailable = 0,
+        max_surge = "20%",
+    )
 
 def ruby_workflow_worker_shared_msp(
         *,
@@ -55,7 +54,7 @@ def ruby_workflow_worker_shared_msp(
         namespace,
         instance_type,
         availability_tier = A400,
-        deployment_strategy_func = deployment_strategy_regular_func,
+        deployment_strategy_func = None,
         workers_per_replica = 4,
         replicas_func,
         plugins_func = None,
@@ -71,8 +70,7 @@ def ruby_workflow_worker_shared_msp(
         memory = None,
         requires_consul = None,
         image = None,
-        resource_requirements_spec = None,
-    ):
+        resource_requirements_spec = None):
     """
     Create deployments for a Ruby Workflow Engine worker that runs on Shared MSP.
 
@@ -120,9 +118,8 @@ def ruby_workflow_worker_shared_msp(
             of needing more complex search query to find all log lines in Splunk.
         hack_kick_interval: How often to restart einhorn workers
         serverless: Run the worker in a serverless configuration
-        blue_green: Run the worker in a blue-green configuration. This is experimental.
-            Do NOT use without speaking with #proj-workflow-engine-safe-deploys first.
-            TODO(WOFLO-2328): remove this comment once the feature is stable.
+        blue_green: Run the worker in a blue-green configuration. See
+            https://go/woflo-blue-green/ruby for more info.
         cpu: The amount of CPU the main container needs, provided using a single `cores` or `millicores` if you are setting both request
             and limits to the same value. Or a tuple (requests, limits) if you are specifying different values.
         memory: The amount of memory the main container needs, provided using a single `gigabytes` or `megabytes` if you are setting both
@@ -149,7 +146,7 @@ def ruby_workflow_worker_shared_msp(
         if plugins_func:
             plugins = plugins_func(ctx)
 
-        if type(plugins) == 'struct':
+        if type(plugins) == "struct":
             plugins = plugins.canary
 
         if blue_green:
@@ -191,6 +188,7 @@ def ruby_workflow_worker_shared_msp(
     TEMPORARY_PACKAGING_VALIDATION_OPT_OUT = [
         "workflow-work-connections-dre",
         "workflow-work-issuing-xp",
+        "workflow-work-acct-status-notification",
     ]
 
     def _main(ctx):
@@ -198,11 +196,20 @@ def ruby_workflow_worker_shared_msp(
         if plugins_func:
             plugins = plugins_func(ctx)
 
-        if type(plugins) == 'struct':
+        if type(plugins) == "struct":
             plugins = plugins.main
 
         # This needs to be reassigned because we're not allowed to mutate the original.
         main_deployment_strategy_func = deployment_strategy_func
+
+        if not blue_green:
+            # Fold in a default deployment strategy for non-blue-green workers.
+            #
+            # For all blue-green workers, we should use the Dedicated MSP Platform default
+            # strategy (which is max_surge=100%, max_unavailable=100%) unless the service
+            # overrides it (which we don't recommend).
+            if main_deployment_strategy_func == None:
+                main_deployment_strategy_func = deployment_strategy_regular_func
 
         if serverless:
             _maybe_enable_binpacking(ctx)
@@ -278,7 +285,7 @@ def ruby_workflow_worker_dedicated_msp(
         cpu,
         memory,
         workers_per_replica = 4,
-        deployment_strategy_func = deployment_strategy_regular_func,
+        deployment_strategy_func = None,
         replicas_func,
         plugins_func = None,
         startup_timeout,
@@ -319,10 +326,8 @@ def ruby_workflow_worker_dedicated_msp(
             the replicas. This means that you can detect issues with ambient
             health detectors that are specifically target the canary at the cost
             of needing more complex search query to find all log lines in Splunk.
-        blue_green: Run the worker in a blue-green configuration. This is experimental.
-            Do NOT use without speaking with #proj-workflow-engine-safe-deploys first.
-            TODO(WOFLO-2328): remove this comment once the feature is stable.
-
+        blue_green: Run the worker in a blue-green configuration. See
+            https://go/woflo-blue-green/ruby for more info.
     Returns:
         A struct with two members, canary and main (except for blue-green
         workers, which will only have a 'main' memeber). These are functions
@@ -372,6 +377,18 @@ def ruby_workflow_worker_dedicated_msp(
         if separate_canary_by_name and blue_green:
             fail("Blue-green workers do not have canaries, so the `separate_canary_by_name` option will not have any effect.")
 
+        # This needs to be reassigned because we're not allowed to mutate the original.
+        main_deployment_strategy_func = deployment_strategy_func
+
+        if not blue_green:
+            # Fold in a default deployment strategy for non-blue-green workers.
+            #
+            # For all blue-green workers, we should use the Shared MSP Platform default
+            # strategy (which is max_surge=100%, max_unavailable=100%) unless the service
+            # overrides it (which we don't recommend).
+            if main_deployment_strategy_func == None:
+                main_deployment_strategy_func = deployment_strategy_regular_func
+
         return _service_dedicated_msp(
             ctx,
             plugins,
@@ -380,7 +397,7 @@ def ruby_workflow_worker_dedicated_msp(
             host_type = host_type,
             cpu = cpu,
             memory = memory,
-            deployment_strategy_func = deployment_strategy_func,
+            deployment_strategy_func = main_deployment_strategy_func,
             workers_per_replica = workers_per_replica,
             startup_timeout = startup_timeout,
             drain_timeout = drain_timeout,
@@ -423,8 +440,7 @@ def _service_shared_msp(
         memory = None,
         requires_consul = None,
         image = None,
-        resource_requirements_spec = None,
-    ):
+        resource_requirements_spec = None):
     envs = {}
     file_to_wait_for = "/tmp/workflowworker-alive"
     consul_name = name
@@ -515,12 +531,18 @@ def _service_shared_msp(
         compute_config = get_merged_compute_v2_config(ctx)
         all_plugins.append(scaled_object_plugin_from_compute_config(compute_config))
 
+    extra_kwargs = {}
+
+    deployment_strategy = _eval_deployment_strategy_func(ctx, deployment_strategy_func)
+    if deployment_strategy != None:
+        extra_kwargs["strategy"] = deployment_strategy
+
     deploy = deployment(
         ctx,
         replicas = replicas,
-        strategy = deployment_strategy_func(ctx),
         shared_msp = True,
-        *all_plugins
+        *all_plugins,
+        **extra_kwargs
     )
 
     # We don't need two custom pod disruption budgets for the canary
@@ -621,12 +643,18 @@ def _service_dedicated_msp(
     if is_blue_green:
         all_plugins.append(add_blue_green_metrics_tagging())
 
+    extra_kwargs = {}
+
+    deployment_strategy = _eval_deployment_strategy_func(ctx, deployment_strategy_func)
+    if deployment_strategy != None:
+        extra_kwargs["strategy"] = deployment_strategy
+
     deploy = deployment(
         ctx,
         replicas = replicas,
-        strategy = deployment_strategy_func(ctx),
         shared_msp = False,
-        *all_plugins
+        *all_plugins,
+        **extra_kwargs
     )
     return [deploy]
 
@@ -670,16 +698,16 @@ def _validate_serverless_canary_replicas(canary_replicas):
 
 def _validate_drain_timeout(timeout):
     if timeout < 10 or timeout > 300:
-       fail("The worker drain timeout (%s specified) must be set between 10 seconds and 300 seconds. If you require these limits to change, please reach out at #services." % (timeout))
+        fail("The worker drain timeout (%s specified) must be set between 10 seconds and 300 seconds. If you require these limits to change, please reach out at #services." % (timeout))
 
 def _validate_packaging_settings(name, startup_timeout, workers_per_replica, memory_mib):
     if startup_timeout < 600:
-        fail("The worker service {name} is marked as having unpackaged code (strict_packaging=False) but has a short startup timeout ({startup_timeout}s). We've seen unpackaged code take up to 10 minutes (600 seconds) to start up during a deploy. Please increase your startup_timeout to at least 600 seconds to avoid deployment flakiness.".format(name=name, startup_timeout=startup_timeout))
+        fail("The worker service {name} is marked as having unpackaged code (strict_packaging=False) but has a short startup timeout ({startup_timeout}s). We've seen unpackaged code take up to 10 minutes (600 seconds) to start up during a deploy. Please increase your startup_timeout to at least 600 seconds to avoid deployment flakiness.".format(name = name, startup_timeout = startup_timeout))
 
     UNPACKAGED_PAY_SERVER_MEMORY_MIB = 4096
     expected_memory_mib = workers_per_replica * UNPACKAGED_PAY_SERVER_MEMORY_MIB
     if expected_memory_mib > memory_mib:
-        fail("The worker service {name} is marked as having unpackaged code (strict_packaging=False) but the instance size that it's using doesn't have enough memory to run the number of unpackaged workers that are currently configured. An unpackaged pay-server worker uses about {payserver_memory}GB of RAM and you have {workers_per_replica} workers on your host (workers_per_replica) which means that you're estimated to use {expected_memory}GB of RAM but your host only has {memory}GB of RAM. You can either decrease the number of workers per replica or increase the size of your host. An r5.xlarge (instance_type = 'r5_xlarge') often works better.".format(name=name, payserver_memory=(UNPACKAGED_PAY_SERVER_MEMORY_MIB//1024), workers_per_replica=workers_per_replica, expected_memory=(expected_memory_mib//1024), memory=(memory_mib//1024)))
+        fail("The worker service {name} is marked as having unpackaged code (strict_packaging=False) but the instance size that it's using doesn't have enough memory to run the number of unpackaged workers that are currently configured. An unpackaged pay-server worker uses about {payserver_memory}GB of RAM and you have {workers_per_replica} workers on your host (workers_per_replica) which means that you're estimated to use {expected_memory}GB of RAM but your host only has {memory}GB of RAM. You can either decrease the number of workers per replica or increase the size of your host. An r5.xlarge (instance_type = 'r5_xlarge') often works better.".format(name = name, payserver_memory = (UNPACKAGED_PAY_SERVER_MEMORY_MIB // 1024), workers_per_replica = workers_per_replica, expected_memory = (expected_memory_mib // 1024), memory = (memory_mib // 1024)))
 
 def _compensate_drain_timeout(timeout):
     # When the drain period starts, the service will not be notified of the drain
@@ -721,3 +749,8 @@ def _disruption_budget(ctx, *, name, namespace, min_available):
             },
         ),
     )
+
+def _eval_deployment_strategy_func(ctx, func):
+    if func:
+        return func(ctx)
+    return None

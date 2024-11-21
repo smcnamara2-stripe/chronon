@@ -12,26 +12,30 @@ kafka_credentials_container_name = "kafka-init"
 sidecar_main = [
     "java",
     "-Dlog4j2.formatMsgNoLookups=true",
-    "-cp", "/pay/kafka-sidecar/kafka-tools-sidecar_deploy.jar",
+    "-cp",
+    "/pay/kafka-sidecar/kafka-tools-sidecar_deploy.jar",
     "com.stripe.kafkatools.sidecar.Main",
 ]
 
 def kafka_credentials(
-    container_name = None,
-    output_path = "/pay/kafka/client-ssl",
-    output_owner = "kubernetes-pod",
-    output_group = "kubernetes-pod",
-    machine_cas_path = "/etc/ssl/certs/stripe-cas/machine-cas.pem",
-    include_pem = False, # whether to include PEM certificate, for non-JVM services
-):
+        container_name = None,
+        output_path = "/pay/kafka/client-ssl",
+        output_owner = "kubernetes-pod",
+        output_group = "kubernetes-pod",
+        machine_cas_path = "/etc/ssl/certs/stripe-cas/machine-cas.pem",
+        include_pem = False):  # whether to include PEM certificate, for non-JVM services
     sidecar_args = [
-        "--output-path", output_path,
-        "--output-owner", output_owner,
-        "--output-group", output_group,
-        "--machine-cas-path", machine_cas_path,
+        "--output-path",
+        output_path,
+        "--output-owner",
+        output_owner,
+        "--output-group",
+        output_group,
+        "--machine-cas-path",
+        machine_cas_path,
     ]
     if include_pem:
-        sidecar_args.append('--include-pem')
+        sidecar_args.append("--include-pem")
     return _kafka_sidecar(
         container_name = container_name,
         credentials_volume_path = output_path,
@@ -40,11 +44,10 @@ def kafka_credentials(
     )
 
 def _kafka_sidecar(
-    container_name = None,
-    credentials_volume_path = None,
-    machine_cas_path = None,
-    sidecar_args = []
-):
+        container_name = None,
+        credentials_volume_path = None,
+        machine_cas_path = None,
+        sidecar_args = []):
     def _mount_kafka_credentials(container_name, read_only):
         return volume_mount(
             path = credentials_volume_path,
@@ -91,7 +94,6 @@ def _kafka_sidecar(
         )
         pod_def[kafka_credentials_container_name] = sidecar
         pod_def["init_containers"].append(sidecar)
-
 
     return compose_plugins(
         use_credentials_proxy(),

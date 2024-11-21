@@ -4,7 +4,6 @@
 
 # If you are **enabling host isolation**, you must follow this guide (https://trailhead.corp.stripe.com/docs/service-platform/priority-tiering/how-to-enable-host-isolation-for-your-service).
 
-
 HOST_ISOLATION_ALLOWLIST = [
     "accounts-bapi-srv",
     "accounts-bridge-srv",
@@ -32,6 +31,7 @@ HOST_ISOLATION_ALLOWLIST = [
     "mastercard-settlement-services-srv",
     "mms-bapi-srv",
     "mono-bapi-srv",
+    "notifications-bridge-srv",
     "ntproxygrpc-srv",
     "ocs-bapi-srv",
     "payins-bapi-srv",
@@ -48,6 +48,7 @@ HOST_ISOLATION_ALLOWLIST = [
     "sample-api-srv",
     "terminal-bapi-srv",
     "transfer-photon-srv",
+    "tos-exemptions-srv",
     "user-auth-bridge-srv",
     "issuing-funding-srv",
     "account-status-srv",
@@ -57,4 +58,7 @@ HOST_ISOLATION_ALLOWLIST = [
     "payins-records-bridge-srv",
     "verification-srv",
     "confirmation-of-payee-requester-srv",
+    "open-banking-v-one-executor-srv",
+    "crypto-fa-grpc-srv",
+    "off-session-payments-srv",
 ]

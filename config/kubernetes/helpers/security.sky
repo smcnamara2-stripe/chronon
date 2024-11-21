@@ -3,10 +3,9 @@
 Helper functions for configuring security properties of your service
 """
 
-
-load("config/kubernetes/plugins/types.sky", "pod_or_container_plugin", "pod_plugin", "container_plugin")
-load("config/kubernetes/core/volume.sky", "host_volume", "volume_mount", "mount_host_volume")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "SecurityContext", "Capabilities", "PodSecurityContext")
+load("config/kubernetes/plugins/types.sky", "container_plugin", "pod_or_container_plugin", "pod_plugin")
+load("config/kubernetes/core/volume.sky", "host_volume", "mount_host_volume", "volume_mount")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Capabilities", "PodSecurityContext", "SecurityContext")
 load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
 load("config/kubernetes/crds/resource/security_group_policies/securitygrouppolicy.sky", "security_group_policy")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
@@ -50,8 +49,8 @@ def run_as_unprivileged(uid = None, gid = None, container_name = None, supplemen
 
 _credentials_proxy_path = "/run/stripe/credentials-proxy"
 _credentials_proxy_volume_args = {
-        "reason": "Securely provides certificates and other credentials to containers.",
-        "type": "Directory",
+    "reason": "Securely provides certificates and other credentials to containers.",
+    "type": "Directory",
 }
 
 def mount_credentials_proxy(container_name = None, read_only = True):
@@ -65,9 +64,10 @@ def mount_host_credentials_proxy(container_name = None):
     mount_host_credentials_proxy() combines use_credentials_proxy() and mount_credentials_proxy() into one plugin
     """
     return mount_host_volume(
-            _credentials_proxy_path,
-            container_name = container_name,
-            volume_args = _credentials_proxy_volume_args)
+        _credentials_proxy_path,
+        container_name = container_name,
+        volume_args = _credentials_proxy_volume_args,
+    )
 
 def mount_host_stripe_ca_certs(container_name = None):
     return mount_host_volume(
@@ -75,7 +75,7 @@ def mount_host_stripe_ca_certs(container_name = None):
         container_name = container_name,
         volume_args = {
             "reason": "Stripe CA certificates used for signing mTLS cerficates",
-            "type": "Directory"
+            "type": "Directory",
         },
     )
 
@@ -91,7 +91,6 @@ def render_pod_security_context(ctx, security_def, pod):
         securityContext["runAsGroup"] = gid
         securityContext["fsGroup"] = gid
 
-
         if "supplementalGroups" in security_def:
             securityContext["supplementalGroups"] = security_def["supplementalGroups"]
 
@@ -104,7 +103,6 @@ def render_security_context(ctx, security_def, pod):
         securityContext["runAsNonRoot"] = True
         securityContext["runAsUser"] = _uidgid_or_default(security_def["uid"], pod)
         securityContext["runAsGroup"] = _uidgid_or_default(security_def["gid"], pod)
-
 
     if "capabilities" in security_def:
         securityContext["capabilities"] = _add_to_default_capabilities(ctx, security_def["capabilities"])
@@ -134,7 +132,7 @@ def _uidgid_or_default(uidgid, pod):
         return uidgid
 
     if getattr(pod, "shared_msp", False):
-        return 1577241873 # Should match $kubernetes_pod_unix_id: https://go/lg/$kubernetes_pod_unix_id%20=
+        return 1577241873  # Should match $kubernetes_pod_unix_id: https://go/lg/$kubernetes_pod_unix_id%20=
     return 3001
 
 def _add_to_default_capabilities(ctx, capabilities):
@@ -167,20 +165,21 @@ def add_security_groups(*secgroups):
     Args:
         *secgroups: the security groups to add
     """
+
     # Account local security groups are not supported by the VPC RC. Anyway this is a default SG,
     # so it gets added to every pod anyway and there's no reason to add it explicitly.
-    if 'account-cluster' in secgroups:
+    if "account-cluster" in secgroups:
         fail("account-cluster is a default security group and should not be added explicitly")
 
     return compose_plugins(
         pod_plugin(
-        _add_pod_secgroups,
-        secgroups=secgroups,
+            _add_pod_secgroups,
+            secgroups = secgroups,
         ),
         conditional_plugin(
-            condition=is_security_group_policy_enabled,
-            plugin=security_group_policy(secgroups=secgroups),
-        )
+            condition = is_security_group_policy_enabled,
+            plugin = security_group_policy(secgroups = secgroups),
+        ),
     )
 
 def _add_pod_secgroups(ctx, arguments, pod_def):
@@ -192,8 +191,9 @@ def _add_pod_secgroups(ctx, arguments, pod_def):
         pod_def["sec_groups"] = {}
     sec_groups = pod_def["sec_groups"]
     sec_groups.update([(group, True) for group in arguments.secgroups])
+
     # update the annotation which will be a JSON encoded sorted list of the sec groups
-    pod_def['resource']["metadata"]["annotations"][SECGROUP_KEY] = json.marshal(sorted(sec_groups))
+    pod_def["resource"]["metadata"]["annotations"][SECGROUP_KEY] = json.marshal(sorted(sec_groups))
 
 def allow_ulimit_management(container_name):
     return container_plugin(
@@ -240,13 +240,13 @@ def unique_horizon_identity_annotation(enableUniqueIdentities):
     """
     return pod_plugin(
         _unique_horizon_identity_annotation,
-        enableUniqueIdentities = enableUniqueIdentities
+        enableUniqueIdentities = enableUniqueIdentities,
     )
 
 def _unique_horizon_identity_annotation(ctx, plugin, pod_def):
-    if "stripe.io/platform" in pod_def['resource']["metadata"]["labels"]:
-        if pod_def['resource']["metadata"]["labels"]["stripe.io/platform"] == "horizon":
-            pod_def['resource']["metadata"]["annotations"][UNIQUE_HORIZON_IDENTITY_ANNOTATION_KEY] = str(plugin.enableUniqueIdentities).lower()
+    if "stripe.io/platform" in pod_def["resource"]["metadata"]["labels"]:
+        if pod_def["resource"]["metadata"]["labels"]["stripe.io/platform"] == "horizon":
+            pod_def["resource"]["metadata"]["annotations"][UNIQUE_HORIZON_IDENTITY_ANNOTATION_KEY] = str(plugin.enableUniqueIdentities).lower()
             return
     fail("Pod isn't a Horizon pod, this plugin expects the label stripe.io/platform=horizon")
 
@@ -267,7 +267,7 @@ def use_global_iam_role_annotation():
     )
 
 def _use_global_iam_role_annotation(ctx, plugin, pod_def):
-    annotations = pod_def['resource']["metadata"]["annotations"]
+    annotations = pod_def["resource"]["metadata"]["annotations"]
     annotations[USE_GLOBAL_IAM_ROLE_ANNOTATION_KEY] = USE_GLOBAL_IAM_ROLE_ANNOTATION_VALUE
 
 def iam_role_account_affinity_annotation(affinity):
@@ -286,12 +286,12 @@ def iam_role_account_affinity_annotation(affinity):
     """
     return pod_plugin(
         _iam_role_account_affinity_annotation,
-        affinity = affinity
+        affinity = affinity,
     )
 
 def _iam_role_account_affinity_annotation(ctx, plugin, pod_def):
     if plugin.affinity == "FROM_WORKER" or plugin.affinity == "FROM_ENVIRONMENT":
-        pod_def['resource']["metadata"]["annotations"][IAM_ROLE_ACCOUNT_AFFINITY_ANNOTATION_KEY] = plugin.affinity
+        pod_def["resource"]["metadata"]["annotations"][IAM_ROLE_ACCOUNT_AFFINITY_ANNOTATION_KEY] = plugin.affinity
         return
 
     fail("Unsupported affinity for plugin: ", plugin.affinity)

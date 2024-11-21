@@ -1,25 +1,30 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 SHARD_TYPE = struct(
-    TEST="TEST",
-    SHARED_MSP="SHARED_MSP",
-    DEDICATED_MSP="DEDICATED_MSP",
-    CANARY="CANARY",
+    TEST = "TEST",
+    SHARED_MSP = "SHARED_MSP",
+    DEDICATED_MSP = "DEDICATED_MSP",
+    CANARY = "CANARY",
 )
 
 SHARD_STATE = struct(
-    PROVISIONING="PROVISIONING",
-    RELEASE_CANDIDATE="RELEASE_CANDIDATE",
-    GA="GA",
-    DECOMMISSIONING="DECOMMISSIONING",
+    PROVISIONING = "PROVISIONING",
+    RELEASE_CANDIDATE = "RELEASE_CANDIDATE",
+    GA = "GA",
+    DECOMMISSIONING = "DECOMMISSIONING",
 )
 
 BINPACKING_STATE = struct(
-    ENABLED="ENABLED",
-    DISABLED="DISABLED",
+    ENABLED = "ENABLED",
+    DISABLED = "DISABLED",
 )
 
-def shard(name, *, shared_msp=True, cron=False, account="mainland", shard_type=SHARD_TYPE.SHARED_MSP, shard_state=SHARD_STATE.GA, binpacking_state=BINPACKING_STATE.DISABLED, preferred_availability_tiers = ["A100", "A200", "A300", "A400"]):
-    return struct(name=name, shared_msp=shared_msp, cron=cron, account=account, shard_type=shard_type, shard_state=shard_state, binpacking_state=binpacking_state, preferred_availability_tiers=preferred_availability_tiers)
+BINPACKING_VERSION = struct(
+    V1 = "V1",
+    V2 = "V2",
+)
+
+def shard(name, *, shared_msp = True, cron = False, account = "mainland", shard_type = SHARD_TYPE.SHARED_MSP, shard_state = SHARD_STATE.GA, binpacking_state = BINPACKING_STATE.DISABLED, preferred_availability_tiers = ["A100", "A200", "A300", "A400"], binpacking_version = None):
+    return struct(name = name, shared_msp = shared_msp, cron = cron, account = account, shard_type = shard_type, shard_state = shard_state, binpacking_state = binpacking_state, preferred_availability_tiers = preferred_availability_tiers, binpacking_version = binpacking_version)
 
 def get_shards_from_context(ctx):
     """
@@ -36,16 +41,30 @@ def get_shards_from_context(ctx):
     shards = []
     for name, shard_dict in ctx_shards.items():
         # In config-srv "all tiers" is represented as None, but in skycfg we need the full tier list instead.
-        tiers = shard_dict['preferred_availability_tiers'] if shard_dict['preferred_availability_tiers'] else ["A100", "A200", "A300", "A400"]
+        tiers = shard_dict["preferred_availability_tiers"] if shard_dict["preferred_availability_tiers"] else ["A100", "A200", "A300", "A400"]
+
+        # binpacking_state will be set to ENABLED if shard either supports v1 or v2 binpacking, and DISABLED otherwise
+        # binpacking_version will be set to v1 if supports_binpacking is true, v2 if supports_binpacking_v2 is true, and None otherwise
+        binpacking_version = None
+        if shard_dict["supports_binpacking"] == "true" or shard_dict["supports_binpacking_v2"] == "true":
+            binpacking_state = BINPACKING_STATE.ENABLED
+            if shard_dict["supports_binpacking_v2"] == "true":
+                binpacking_version = BINPACKING_VERSION.V2
+            elif shard_dict["supports_binpacking"] == "true":
+                binpacking_version = BINPACKING_VERSION.V1
+        else:
+            binpacking_state = BINPACKING_STATE.DISABLED
+
         shards.append(shard(
             name,
-            account=shard_dict["account"],
-            shared_msp=False if shard_dict["shard_type"] == SHARD_TYPE.DEDICATED_MSP else True,
-            cron=shard_dict["supports_cron"].lower() == "true",
-            shard_type=shard_dict["shard_type"],
-            shard_state=shard_dict["shard_state"],
-            binpacking_state="ENABLED" if shard_dict["supports_binpacking"] == "true" else "DISABLED",
-            preferred_availability_tiers=tiers,
+            account = shard_dict["account"],
+            shared_msp = False if shard_dict["shard_type"] == SHARD_TYPE.DEDICATED_MSP else True,
+            cron = shard_dict["supports_cron"].lower() == "true",
+            shard_type = shard_dict["shard_type"],
+            shard_state = shard_dict["shard_state"],
+            binpacking_state = binpacking_state,
+            binpacking_version = binpacking_version,
+            preferred_availability_tiers = tiers,
         ))
     return shards
 
@@ -53,11 +72,12 @@ def get_shards_from_context(ctx):
 MOCK_SHARDS_MAP = {
     "qa": {
         "northwest": [
-            shard("shard1", shared_msp=False, cron=True, shard_type=SHARD_TYPE.DEDICATED_MSP),
-            shard("shard2", binpacking_state=BINPACKING_STATE.ENABLED),
-            shard("shard3", cron=True, shard_type=SHARD_TYPE.CANARY, binpacking_state=BINPACKING_STATE.ENABLED),
-            shard("shard4", account="mainland2", shard_type=SHARD_TYPE.TEST),
-            shard("shard5", account="mainland3", shard_state=SHARD_STATE.PROVISIONING, binpacking_state=BINPACKING_STATE.ENABLED),
+            shard("shard1", shared_msp = False, cron = True, shard_type = SHARD_TYPE.DEDICATED_MSP),
+            shard("shard2", binpacking_state = BINPACKING_STATE.ENABLED, binpacking_version = BINPACKING_VERSION.V1),
+            shard("shard3", cron = True, shard_type = SHARD_TYPE.CANARY, binpacking_state = BINPACKING_STATE.ENABLED, binpacking_version = BINPACKING_VERSION.V1),
+            shard("shard4", account = "mainland2", shard_type = SHARD_TYPE.TEST),
+            shard("shard5", account = "mainland3", shard_state = SHARD_STATE.PROVISIONING, binpacking_state = BINPACKING_STATE.ENABLED, binpacking_version = BINPACKING_VERSION.V1),
+            shard("shard6", account = "mainland4", shard_state = SHARD_STATE.GA, binpacking_state = BINPACKING_STATE.ENABLED, binpacking_version = BINPACKING_VERSION.V2),
         ],
     },
 }

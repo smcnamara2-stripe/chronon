@@ -7,6 +7,9 @@ deploying a Henson service with Skycfg. It contains a dictionary of data that ca
 useful when defining a workload. These functions provide a consistent interface for
 accessing that data.
 """
+
+load("config/kubernetes/helpers/shards_list.sky", "BINPACKING_STATE", "BINPACKING_VERSION", "get_shards_from_context")
+
 HORIZON_MANIFEST_V1_PROTO_PKG = proto.package("com.stripe.horizon.manifest.v_1")
 CSC_PB = proto.package("com.stripe.gocode.service_config")
 COMPUTE_YAML_MISSING_ERROR = """
@@ -22,7 +25,6 @@ COMPUTE_YAML_MISSING_ERROR = """
 # * get_instance_type
 ########################################################################
 """
-load("config/kubernetes/helpers/shards_list.sky", "get_shards_from_context", "BINPACKING_STATE")
 
 def get_name(ctx):
     """
@@ -54,7 +56,7 @@ def has_availability_tier(ctx):
     Returns:
         a boolean indicating if the service's availability_tier is defined in the henson config.
     """
-    return get_availability_tier(ctx) != ''
+    return get_availability_tier(ctx) != ""
 
 def get_availability_tier(ctx):
     """
@@ -66,7 +68,7 @@ def get_availability_tier(ctx):
         string if the availability tier is undefined in henson.
     """
     availability_tier_name_from_csc = ctx.vars.get("service.config.availability_tier")
-    if availability_tier_name_from_csc != None and availability_tier_name_from_csc != '':
+    if availability_tier_name_from_csc != None and availability_tier_name_from_csc != "":
         return availability_tier_name_from_csc
 
     henson_config = get_henson_config(ctx)
@@ -179,8 +181,25 @@ def get_henson_repo(ctx):
 
     return get_henson_config(ctx).repo
 
+def get_container_versions(ctx):
+    """
+    Gets the service's mapping of container image build artifacts to version info
+
+    Args:
+        ctx: The context containing Henson and Centralized Service Configurations.
+
+    Returns:
+        A dictionary where the keys are build artifact names for container images and the values
+        are *common_pb.ContainerImageVersion protos containing:
+        a) cluster/environment-specific ECR URLs for that build artifact's image
+        b) revision info (git commit, monotonic revision id) describing how that container image was built
+    """
+    return ctx.vars.get("henson.container_versions", {})
+
 def get_container_images(ctx):
     """
+    DEPRECATED. Prefer get_container_versions.
+
     Gets the service's mapping of container image build artifacts to ECR repository URLs.
 
     Args:
@@ -192,8 +211,24 @@ def get_container_images(ctx):
     """
     return ctx.vars.get("henson.container_images", {})
 
+def get_sidecar_container_versions(ctx):
+    """
+    Gets the service's mapping of sidecar service names to container image version.
+
+    Args:
+        ctx: The context containing Henson and Centralized Service Configurations.
+
+    Returns:
+        A dictionary where the keys are names of sidecar services and the values
+        are *common_pb.ContainerImageVersion protos containing a URI, git commit,
+        and optionally a monotonic revision id
+    """
+    return ctx.vars.get("henson.sidecar_container_versions", {})
+
 def get_sidecar_container_images(ctx):
     """
+    DEPRECATED. Prefer get_sidecar_container_verisons.
+
     Gets the service's mapping of sidecar service names to container image URLs.
 
     Args:
@@ -298,7 +333,7 @@ def get_identity(ctx):
     """
     identity = ctx.vars.get("service.config.identity")
     if not identity or identity == "":
-      fail("Identity not set, please check your service_config file")
+        fail("Identity not set, please check your service_config file")
     return identity
 
 def get_other_identity(ctx, index):
@@ -314,13 +349,13 @@ def get_other_identity(ctx, index):
     other_identities = ctx.vars.get("service.config.other_identities")
 
     if not other_identities:
-      fail("ServiceConfig.other_identities is not set; please check the service_config/services.yaml file for this service")
+        fail("ServiceConfig.other_identities is not set; please check the service_config/services.yaml file for this service")
 
     other_identities_size = len(other_identities)
     if other_identities_size == 0:
-      fail("ServiceConfig.other_identities is empty; please check the service_config/services.yaml file for this service")
+        fail("ServiceConfig.other_identities is empty; please check the service_config/services.yaml file for this service")
     if index >= other_identities_size:
-      fail("ServiceConfig.other_identities has %d elements, but 0-based index %d was requested; please check the service_config/services.yaml file for this service" % (other_identities_size, index))
+        fail("ServiceConfig.other_identities has %d elements, but 0-based index %d was requested; please check the service_config/services.yaml file for this service" % (other_identities_size, index))
     return other_identities[index]
 
 # TODO (https://jira.corp.stripe.com/browse/SERVICEINFRA-861)
@@ -374,7 +409,7 @@ def get_legacy_compute_config(ctx):
 
     return compute_config
 
-def get_compute_config(ctx, role=None, priority_tier=None):
+def get_compute_config(ctx, role = None, priority_tier = None):
     """
     Gets the compute config with overrides applied according to the service role and/or cluster
 
@@ -385,6 +420,7 @@ def get_compute_config(ctx, role=None, priority_tier=None):
     Returns:
         The compute config of the service
     """
+
     # TODO (https://jira.corp.stripe.com/browse/SERVICEINFRA-861)
     # remove once per env service configs are fully supported
     if is_legacy_compute_config(ctx):
@@ -396,6 +432,7 @@ def get_compute_config(ctx, role=None, priority_tier=None):
         fail(COMPUTE_YAML_MISSING_ERROR)
 
     cluster = get_cluster(ctx)
+
     # TODO: persist role in kube vars, implement get_role(ctx)
     # role = get_role(ctx)
     overrides = compute_config.overrides
@@ -425,7 +462,7 @@ def _normalize_priority_tier(priority_tier):
         return None
 
     # normalizes the priority tier by putting everything into lower case and replace _ with -
-    return priority_tier.lower().replace('_', '-')
+    return priority_tier.lower().replace("_", "-")
 
 def merge_compute(a, b):
     """
@@ -437,7 +474,7 @@ def merge_compute(a, b):
 
     return proto.merge(a_config, b_config)
 
-def get_entrypoint_command(ctx, role=None):
+def get_entrypoint_command(ctx, role = None):
     """
     Gets the path to the entrypoint that boots the service
 
@@ -451,11 +488,11 @@ def get_entrypoint_command(ctx, role=None):
 
     # empty sequences are treated as False in Starlark (https://github.com/bazelbuild/starlark/blob/master/spec.md#booleans)
     if not entrypoint_command:
-      fail("Entrypoint not set, please check your service_config file")
+        fail("Entrypoint not set, please check your service_config file")
 
     return entrypoint_command.split(" ")
 
-def get_puma_port(ctx, role=None):
+def get_puma_port(ctx, role = None):
     """
     Gets the port on which Puma will listen to connections
 
@@ -467,7 +504,7 @@ def get_puma_port(ctx, role=None):
     """
     return get_compute_config(ctx, role).puma_cluster_config.port
 
-def get_puma_num_workers(ctx, role=None):
+def get_puma_num_workers(ctx, role = None):
     """
     Gets the number of Puma workers that the service should boot
 
@@ -479,7 +516,7 @@ def get_puma_num_workers(ctx, role=None):
     """
     return get_compute_config(ctx, role).puma_cluster_config.num_workers
 
-def get_puma_tags(ctx, role=None):
+def get_puma_tags(ctx, role = None):
     """
     Gets the tags to initialize Puma processes
 
@@ -491,7 +528,7 @@ def get_puma_tags(ctx, role=None):
     """
     return get_compute_config(ctx, role).puma_cluster_config.tags
 
-def get_puma_worker_shutdown_timeout_seconds(ctx, role=None):
+def get_puma_worker_shutdown_timeout_seconds(ctx, role = None):
     """
     Gets the timeout for gracefully shutting down Puma workers
 
@@ -503,7 +540,7 @@ def get_puma_worker_shutdown_timeout_seconds(ctx, role=None):
     """
     return get_compute_config(ctx, role).puma_cluster_config.worker_shutdown_timeout_seconds
 
-def get_num_replicas(ctx, role=None, priority_tier=None):
+def get_num_replicas(ctx, role = None, priority_tier = None):
     """
     Gets the number of replicas requested for the environment present in ctx
 
@@ -516,7 +553,7 @@ def get_num_replicas(ctx, role=None, priority_tier=None):
     """
     return get_compute_config(ctx, role, priority_tier).num_replicas
 
-def get_instance_type(ctx, role=None, priority_tier=None):
+def get_instance_type(ctx, role = None, priority_tier = None):
     """
     Gets the instance type requested for the environment present in ctx
 
@@ -527,6 +564,7 @@ def get_instance_type(ctx, role=None, priority_tier=None):
     Returns:
         The instance type requested in the given environment
     """
+
     # TODO(moe): convert this string to a struct defined in aws_instance_sizes.sky
     return get_compute_config(ctx, role, priority_tier).instance_type
 
@@ -568,9 +606,31 @@ def is_bin_packing_enabled(ctx):
     """
     return ctx.vars.get("msp.binpacking", False) and get_render_yaml(ctx) and is_shard_binpacking_enabled(ctx, get_target_shard(ctx))
 
-def is_shard_binpacking_enabled(ctx, shard, _override_shards_map=None):
+def is_bin_packing_v1_enabled(ctx):
     """
-    Returns True if the shard has binpacking enabled based on the current Henson context.
+    Gets whether binpacking v1 is set to true or not
+
+        Args:
+        ctx: The context containing Henson and the Centralized Service Configurations.
+    Returns:
+        Bin packing v1 enabled or not
+    """
+    return ctx.vars.get("msp.binpacking", False) and get_render_yaml(ctx) and is_shard_binpacking_v1_enabled(ctx, get_target_shard(ctx))
+
+def is_bin_packing_v2_enabled(ctx):
+    """
+    Gets whether binpacking v2 is set to true or not
+
+        Args:
+        ctx: The context containing Henson and the Centralized Service Configurations.
+    Returns:
+        Bin packing v2 enabled or not
+    """
+    return ctx.vars.get("msp.binpacking", False) and get_render_yaml(ctx) and is_shard_binpacking_v2_enabled(ctx, get_target_shard(ctx))
+
+def is_shard_binpacking_enabled(ctx, shard, _override_shards_map = None):
+    """
+    Returns True if the shard has binpacking v1 or v2 enabled based on the current Henson context.
 
     Args:
       ctx: The Henson context.
@@ -581,15 +641,91 @@ def is_shard_binpacking_enabled(ctx, shard, _override_shards_map=None):
         True if the shard has binpacking enabled, False otherwise.
     """
     shards = get_shards_from_context(ctx)
+
+    # Only used in tests to provide a custom list of shards
+    if _override_shards_map != None:
+        clusters = _override_shards_map.get(get_env(ctx), {})
+        shards = clusters.get(get_cluster(ctx), [])
+
+    for s in shards:
+        if s.name == shard:
+            return s.binpacking_state == BINPACKING_STATE.ENABLED
+
+    # Return False if the shard is not found
+    return False
+
+def is_shard_binpacking_v1_enabled(ctx, shard, _override_shards_map = None):
+    """
+    Returns True if the shard has binpacking v1 enabled based on the current Henson context.
+
+    Args:
+      ctx: The Henson context.
+      shard: The name of the MSP shard.
+      _override_shards_map: A map of shards to override the default shards map. Only used in tests.
+
+    Returns:
+        True if the shard has binpacking v1 enabled, False otherwise.
+    """
+    shards = get_shards_from_context(ctx)
+
     # Only used in tests to provide a custom list of shards
     if _override_shards_map != None:
         clusters = _override_shards_map.get(get_env(ctx), {})
         shards = clusters.get(get_cluster(ctx), [])
     for s in shards:
         if s.name == shard:
-            return s.binpacking_state == BINPACKING_STATE.ENABLED
+            return s.binpacking_state == BINPACKING_STATE.ENABLED and s.binpacking_version == BINPACKING_VERSION.V1
+
     # Return False if the shard is not found
     return False
+
+def is_shard_binpacking_v2_enabled(ctx, shard, _override_shards_map = None):
+    """
+    Returns True if the shard has binpacking v2 enabled based on the current Henson context.
+
+    Args:
+      ctx: The Henson context.
+      shard: The name of the MSP shard.
+      _override_shards_map: A map of shards to override the default shards map. Only used in tests.
+
+    Returns:
+        True if the shard has binpacking v2 enabled, False otherwise.
+    """
+    shards = get_shards_from_context(ctx)
+
+    # Only used in tests to provide a custom list of shards
+    if _override_shards_map != None:
+        clusters = _override_shards_map.get(get_env(ctx), {})
+        shards = clusters.get(get_cluster(ctx), [])
+    for s in shards:
+        if s.name == shard:
+            return s.binpacking_state == BINPACKING_STATE.ENABLED and s.binpacking_version == BINPACKING_VERSION.V2
+
+    # Return False if the shard is not found
+    return False
+
+def get_bin_packing_version(ctx, shard, _override_shards_map = None):
+    """
+    Returns the binpacking version for the given shard.
+
+    Args:
+      ctx: The Henson context.
+      shard: The name of the MSP shard.
+
+    Returns:
+        The binpacking version for the shard, None if the shard is not binpacking enabled.
+    """
+    shards = get_shards_from_context(ctx)
+
+    # Only used in tests to provide a custom list of shards
+    if _override_shards_map != None:
+        clusters = _override_shards_map.get(get_env(ctx), {})
+        shards = clusters.get(get_cluster(ctx), [])
+    for s in shards:
+        if s.name == shard:
+            return s.binpacking_version
+
+    return None
 
 def is_horizontal_pod_autoscaling_enabled(ctx):
     """
@@ -601,7 +737,7 @@ def is_horizontal_pod_autoscaling_enabled(ctx):
         True if horizontal pod autoscaling is enabled, otherwise False.
     """
     return bool(
-        (ctx.vars.get("msp.horizontal_pod_autoscaling", False) or ctx.vars.get("msp.horizonal_pod_autoscaling", False)) and not is_onebox(ctx)
+        (ctx.vars.get("msp.horizontal_pod_autoscaling", False) or ctx.vars.get("msp.horizonal_pod_autoscaling", False)) and not is_onebox(ctx),
     )
 
 def is_vertical_pod_autoscaling_enabled(ctx):
@@ -671,7 +807,6 @@ def get_sc_bundle_manifest_dict(ctx):
 
     return result
 
-
 def get_sc_bm_bundle(ctx):
     """
     Return the "bundle" from the bundle manifest within the service config
@@ -683,7 +818,7 @@ def get_sc_bm_secrets(ctx):
     bundle_manifest = get_sc_bundle_manifest(ctx)
 
     if bundle_manifest == None:
-      return []
+        return []
 
     return bundle_manifest.secrets
 
@@ -754,8 +889,9 @@ Args:
 Returns:
     True if faas managed
 """
+
 def is_faas_managed(ctx):
-  return ctx.vars.get("service.config.deploy_tenant") == "TENANT_FAAS"
+    return ctx.vars.get("service.config.deploy_tenant") == "TENANT_FAAS"
 
 def get_service_deploy_config(ctx):
     """
@@ -766,16 +902,6 @@ def get_service_deploy_config(ctx):
         The service deploy config
     """
     return ctx.vars.get("service.config.deploy")
-
-"""
-    Gets whether the service should use the sansshell sidecar gocode
-    Args:
-        ctx: The context containing Henson and the Centralized Service Configurations.
-    Returns:
-        The value injected by Henson based on the sansshell_sidecar_gocode feature flag. Defaults to False.
-    """
-def should_use_sansshell_sidecar_gocode(ctx):
-    return ctx.vars.get("henson.enable_gocode_sansshell_sidecar", False)
 
 def is_isolated_account_identity_enabled(ctx):
     return ctx.vars.get("cloudsec.isolated_account_identity_enabled", False)
@@ -791,3 +917,21 @@ def get_instance_generation_override(ctx):
         The instance generation override, if set. If unset, returns None.
     """
     return ctx.vars.get("henson.instance_generation_override", None)
+
+def get_cost_bearing_team(ctx):
+    """
+    Gets the team that the costs should be attributed to. This is only relevant if the attribution should be different than the responsible_team
+    that the get_owner function returns.
+
+    Setting `cost_bearing_team` is useful for platform teams that maintain the resources deployed for a task and need to attribute
+    the cost of running those resources to the tenant team. For instance, stream compute team might be running the infrastructure for a team
+    another team. Although they're the responsible team for that resource / service, `cost_bearing_team` could be set to another team.
+
+
+    Args:
+        ctx: The context containing Henson and the Centralized Service Configurations.
+    Returns:
+        The team the costs of running a resource should be attributed to. May be None.
+    """
+
+    return ctx.vars.get("service.config.cost_bearing_team", None)

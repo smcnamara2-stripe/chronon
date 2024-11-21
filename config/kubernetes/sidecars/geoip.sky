@@ -1,10 +1,11 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/core/volume.sky", "mount_host_volume", "volume_mount", "mount_pod_volume")
-load("config/kubernetes/helpers/security.sky", "use_credentials_proxy", "mount_credentials_proxy")
-load("config/kubernetes/sidecars/variables.sky", "GEOIP_CONTAINER_DIGEST", "GEOIP_CONTAINER_ENV")
-load("config/kubernetes/helpers/context.sky", "get_aws_region", "get_cluster", "is_bin_packing_enabled")
 load("config/kubernetes/core/container.sky", "sidecar_container")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "volume_mount")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/context.sky", "get_aws_region", "get_cluster", "is_bin_packing_enabled", "is_bin_packing_v1_enabled")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "use_credentials_proxy")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/sidecars/variables.sky", "GEOIP_CONTAINER_DIGEST", "GEOIP_CONTAINER_ENV")
 
 _out_path = "/usr/stripe/geoip_automatic"
 _share_path = "/usr/share/geoip"
@@ -46,7 +47,7 @@ def use_geoip_databases(ctx, use_legacy_host_mounts = False):
         get_cluster(ctx),
     ]
 
-    if is_bin_packing_enabled(ctx) == True:
+    if is_bin_packing_v1_enabled(ctx) == True:
         command.append("--vsocket-connection=true")
     if use_legacy_host_mounts:
         return compose_plugins(
@@ -81,5 +82,6 @@ def use_geoip_databases(ctx, use_legacy_host_mounts = False):
                     volume_mount(_out_path, read_only = False),
                     volume_mount(_share_path, read_only = False),
                 ],
-            )
+                programming_language = GO_PROGRAMMING_LANGUAGE,
+            ),
         )

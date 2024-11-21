@@ -7,6 +7,7 @@ deploying a Henson service with Skycfg. It contains a dictionary of data that ca
 useful when defining a workload. These functions provide a consistent interface for
 accessing that data.
 """
+
 load("config/kubernetes/helpers/dynamic.sky", "dynamic_replicas")
 
 def get_priority_tier_config(ctx):
@@ -21,13 +22,22 @@ def get_merged_compute_v2_role_config(ctx, role, priority_tier = None):
     get_merged_compute_config = ctx.vars.get("service.config.get_merged_compute_v2_merge_fn")
     return json.decode(
         get_merged_compute_config(
-            ctx.vars.get("stripe.environment"), ctx.vars.get("stripe.cluster"), role=role, priority_tier=priority_tier))
+            ctx.vars.get("stripe.environment"),
+            ctx.vars.get("stripe.cluster"),
+            role = role,
+            priority_tier = priority_tier,
+        ),
+    )
 
 def get_merged_compute_v2_config(ctx, priority_tier = None):
     get_merged_compute_config = ctx.vars.get("service.config.get_merged_compute_v2_merge_fn")
     return json.decode(
         get_merged_compute_config(
-            ctx.vars.get("stripe.environment"), ctx.vars.get("stripe.cluster"), priority_tier=priority_tier))
+            ctx.vars.get("stripe.environment"),
+            ctx.vars.get("stripe.cluster"),
+            priority_tier = priority_tier,
+        ),
+    )
 
 def get_dynamic_replicas(compute_config, use_canary = False):
     """ Helper function for reading dynamic replica configuration info from service config; will fail if args are nonsensical
@@ -44,14 +54,14 @@ def get_dynamic_replicas(compute_config, use_canary = False):
     min_count = None
 
     if (
-        compute_config.get("resources")
-        and compute_config["resources"].get("dynamic_replica_max_count")
+        compute_config.get("resources") and
+        compute_config["resources"].get("dynamic_replica_max_count")
     ):
         max_count = int(compute_config["resources"]["dynamic_replica_max_count"])
 
     if (
-        compute_config.get("resources")
-        and compute_config["resources"].get("dynamic_replica_min_count")
+        compute_config.get("resources") and
+        compute_config["resources"].get("dynamic_replica_min_count")
     ):
         min_count = int(compute_config["resources"]["dynamic_replica_min_count"])
 
@@ -67,7 +77,7 @@ def get_dynamic_replicas(compute_config, use_canary = False):
         return dynamic_replicas(
             desired_count = desired_count,
             max_count = max_count,
-            min_count = min_count
+            min_count = min_count,
         )
 
     return None
@@ -86,15 +96,15 @@ def get_num_replicas(compute_config, is_canary = False):
 
     if is_canary:
         if (
-            compute_config.get("ruby_process")
-            and compute_config["ruby_process"].get("canary_config")
-            and compute_config["ruby_process"]["canary_config"].get("num_replicas")
+            compute_config.get("ruby_process") and
+            compute_config["ruby_process"].get("canary_config") and
+            compute_config["ruby_process"]["canary_config"].get("num_replicas")
         ):
             num_replicas = int(compute_config["ruby_process"]["canary_config"]["num_replicas"])
     elif (
-            compute_config.get("resources")
-            and compute_config["resources"].get("num_replicas")
-        ):
-            num_replicas = int(compute_config["resources"]["num_replicas"])
+        compute_config.get("resources") and
+        compute_config["resources"].get("num_replicas")
+    ):
+        num_replicas = int(compute_config["resources"]["num_replicas"])
 
     return num_replicas

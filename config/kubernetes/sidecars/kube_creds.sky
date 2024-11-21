@@ -1,11 +1,12 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/core/volume.sky", "mount_pod_volume", "volume_mount")
-load("config/kubernetes/helpers/security.sky", "use_credentials_proxy", "mount_credentials_proxy", "mount_host_stripe_ca_certs")
-load("config/kubernetes/sidecars/variables.sky", "KUBE_CREDS_CONTAINER_DIGEST", "KUBE_CREDS_CONTAINER_ENV")
-load("config/kubernetes/helpers/quantities.sky", "mebibytes")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled")
 load("config/kubernetes/core/container.sky", "sidecar_container")
+load("config/kubernetes/core/volume.sky", "mount_pod_volume", "volume_mount")
+load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "is_bin_packing_v1_enabled")
+load("config/kubernetes/helpers/quantities.sky", "mebibytes")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "mount_host_stripe_ca_certs", "use_credentials_proxy")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/sidecars/variables.sky", "KUBE_CREDS_CONTAINER_DIGEST", "KUBE_CREDS_CONTAINER_ENV")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 # This sidecar is specifically for interop with third-party Kubernetes services. DO NOT use this with internal services. If you need certificates in your service,
 # use credentials-proxy.
@@ -13,30 +14,29 @@ load("config/kubernetes/core/container.sky", "sidecar_container")
 _kubeconfig_path = "/kubeconfig"
 
 def use_kube_creds(
-    ctx,
-    shard,
-    certs_path = "/certs",
-    ca_output_filename = "machine-cas.pem",
-    cert_output_filename = "service.crt",
-    private_key_output_filename = "service.key"
-):
+        ctx,
+        shard,
+        certs_path = "/certs",
+        ca_output_filename = "machine-cas.pem",
+        cert_output_filename = "service.crt",
+        private_key_output_filename = "service.key"):
     command = [
-            "/kube-creds",
-            "--shard",
-            shard,
-            "--ca-path",
-            "/etc/ssl/certs/stripe-cas/machine-cas.pem",
-            "--ca-output-path",
-            "%s/%s" % (certs_path, ca_output_filename),
-            "--cert-output-path",
-            "%s/%s" % (certs_path, cert_output_filename),
-            "--private-key-output-path",
-            "%s/%s" % (certs_path, private_key_output_filename),
-            "--kubeconfig-output-path",
-            "%s/kubeconfig" % _kubeconfig_path,
-        ]
+        "/kube-creds",
+        "--shard",
+        shard,
+        "--ca-path",
+        "/etc/ssl/certs/stripe-cas/machine-cas.pem",
+        "--ca-output-path",
+        "%s/%s" % (certs_path, ca_output_filename),
+        "--cert-output-path",
+        "%s/%s" % (certs_path, cert_output_filename),
+        "--private-key-output-path",
+        "%s/%s" % (certs_path, private_key_output_filename),
+        "--kubeconfig-output-path",
+        "%s/kubeconfig" % _kubeconfig_path,
+    ]
 
-    if is_bin_packing_enabled(ctx) == True:
+    if is_bin_packing_v1_enabled(ctx) == True:
         command.append("--vsocket-connection=true")
 
     return compose_plugins(
@@ -44,11 +44,11 @@ def use_kube_creds(
         mount_host_stripe_ca_certs(),
         mount_pod_volume(
             path = _kubeconfig_path,
-            volume_args = { "medium": "Memory", "sizeLimit": mebibytes(ctx, 50)},
+            volume_args = {"medium": "Memory", "sizeLimit": mebibytes(ctx, 50)},
         ),
         mount_pod_volume(
             path = certs_path,
-            volume_args = { "medium": "Memory", "sizeLimit": mebibytes(ctx, 50)},
+            volume_args = {"medium": "Memory", "sizeLimit": mebibytes(ctx, 50)},
         ),
         sidecar_container(
             "kube-creds-init",
@@ -58,11 +58,12 @@ def use_kube_creds(
             container_image = "stripe/orchestration/kube-creds",
             fallback_label = KUBE_CREDS_CONTAINER_DIGEST,
             fallback_env = KUBE_CREDS_CONTAINER_ENV,
+            programming_language = GO_PROGRAMMING_LANGUAGE,
             plugins = [
                 mount_credentials_proxy(read_only = is_bin_packing_enabled(ctx) == False),
                 volume_mount("/etc/ssl/certs/stripe-cas"),
                 volume_mount(_kubeconfig_path, read_only = False),
-                volume_mount(certs_path, read_only = False)
-            ]
-        )
+                volume_mount(certs_path, read_only = False),
+            ],
+        ),
     )

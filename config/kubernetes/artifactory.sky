@@ -13,14 +13,13 @@ load("config/kubernetes/helpers/security.sky", "run_as_unprivileged")
 load("config/kubernetes/stripe.sky", "stripe_pod")
 
 def artifactory_publish_job(
-    ctx,
-    service_name,
-    package_type,
-    package_image,
-    packages,
-    *extra_plugins,
-    **kwargs
-):
+        ctx,
+        service_name,
+        package_type,
+        package_image,
+        packages,
+        *extra_plugins,
+        **kwargs):
     """
     Constructs a job which will publish a collection of packages of the specified type to
     Artifactory.
@@ -44,12 +43,12 @@ def artifactory_publish_job(
     """
     job_name = "{}-{}".format(service_name, get_henson_git_commit(ctx))
     if len(job_name) > 63:
-      # Kubernetes rejects Job resources with names longer than 63 characters.
-      job_name = job_name[:63]
+        # Kubernetes rejects Job resources with names longer than 63 characters.
+        job_name = job_name[:63]
 
     if kwargs.get("ttlSecondsAfterFinished") == None:
-      # Delete completed job after 12 hours.
-      kwargs["ttlSecondsAfterFinished"] = 60 * 60 * 12
+        # Delete completed job after 12 hours.
+        kwargs["ttlSecondsAfterFinished"] = 60 * 60 * 12
 
     return job(
         ctx,
@@ -74,16 +73,14 @@ def artifactory_publish_job(
         mount_host_volume("/etc/ssl/certs", volume_args = {"type": "Directory"}),
         mount_host_volume("/etc/ssl/private", volume_args = {"type": "Directory"}),
         run_as_unprivileged(),
-
         *extra_plugins,
         **kwargs
     )
 
 def artifactory_npm_publish_job(
-    ctx,
-    service_name,
-    packages,
-):
+        ctx,
+        service_name,
+        packages):
     """
     Constructs a job which will publish a collection of npm packages to Artifactory.
 

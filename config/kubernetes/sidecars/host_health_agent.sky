@@ -36,9 +36,12 @@ def host_health_agent(ctx, registered_services, k8s_workload_name):
                 "cpu": Quantity(ctx, string = "0.05"),  # 50 millicores
                 "memory": Quantity(ctx, string = "50Mi"),
             },
-            requests = { # Set the requests to 0 manually, otherwise k8s will use the values from the limits
+            requests = {
+                # Set the requests to 0 manually, otherwise k8s will use the values from the limits
                 "cpu": Quantity(ctx, string = "0.0"),
                 "memory": Quantity(ctx, string = "0Mi"),
             },
+            programming_language = "go",
         ),
+
     )

@@ -1,0 +1,25 @@
+# DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/meta/metadata.sky", "labels")
+load("config/kubernetes/core/pod.sky", "pod_runtime_class")
+
+def enable_gpus(ctx):
+    """
+    Returns the plugins needed to support GPU workloads in a deployment.
+
+    NOTE: This helper function should only be called for workloads which run on
+    GPU enabled instance types. See https://go/msp-gpu for supported instance types.
+
+    Args:
+        ctx: The Henson context.
+
+    Returns:
+        A list of plugins to be composed that enables all features required for GPUs on Shared MSP
+    """
+    plugins = [
+        pod_runtime_class("nvidia-container-runtime"),
+        labels({
+            "msp.stripe.io/gpu": "enabled",
+        }),
+    ]
+    return compose_plugins(*plugins)

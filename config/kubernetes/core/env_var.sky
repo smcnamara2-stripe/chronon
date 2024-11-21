@@ -3,9 +3,9 @@
 Plugin for adding additional environment variables to a container.
 """
 
-load("config/kubernetes/helpers/context.sky", "get_env", "get_name", "get_cluster", "get_henson_git_commit", "get_availability_tier", "get_target_shard")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_cluster", "get_container_versions", "get_env", "get_henson_git_commit", "get_name", "get_sidecar_container_versions", "get_target_shard")
 load("config/kubernetes/helpers/msp_shard.sky", "get_account_for_shard", "get_account_id")
-load("config/kubernetes/plugins/types.sky", "container_plugin", "all_container_plugin")
+load("config/kubernetes/plugins/types.sky", "all_container_plugin", "container_plugin")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "EnvVar", "EnvVarSource", "ObjectFieldSelector")
 load("config/kubernetes/networking/internal/common.sky", "POD_NETWORKING_BASEDIR")
 
@@ -59,6 +59,7 @@ def render_env_vars(ctx, container):
     env_vars_from_fields.update(container.env_from_fields)
 
     env_var_list = []
+
     # The sequence in which these variables are declared is now significant.
     # Environment variables derived from fields must precede regular environment variables, as some regular environment variables rely on these 'from fields' environment variables for their values.
     for name, field in env_vars_from_fields.items():
@@ -140,17 +141,50 @@ def _default_env_vars(ctx, container):
     env_var_dict["STRIPE_DOMAIN"] = "stripe.io"
     env_var_dict["AWS_ACCOUNT_NAME"] = get_account_for_shard(ctx, get_target_shard(ctx))
     env_var_dict["AWS_ACCOUNT_ID"] = get_account_id(ctx, env_var_dict["AWS_ACCOUNT_NAME"])
-    env_var_dict["GIT_COMMIT"] = get_henson_git_commit(ctx)
     env_var_dict["NETWORK_LOG_DIR"] = POD_NETWORKING_BASEDIR
-    if hasattr(container, 'name'):
+    if hasattr(container, "name"):
         env_var_dict["STRIPE_CONTAINER_NAME"] = container.name
     env_var_dict["STRIPE_AVAILABILITY_TIER"] = get_availability_tier(ctx)
+
+    if hasattr(container, "sidecar_service"):
+        git_commit, mri = _get_git_commit_and_mri_for_sidecar(ctx, name = container.sidecar_service)
+    else:
+        git_commit, mri = _get_git_commit_and_mri_for_application(ctx, container)
+    env_var_dict["GIT_COMMIT"] = git_commit
+    if mri:
+        env_var_dict["MONOTONIC_REVISION_ID"] = mri
 
     # this ensures compatibility in tracing headers between various versions of opentelemetry
     # https://jira.corp.stripe.com/browse/OBSD-1092
     env_var_dict["OTEL_SEMCONV_STABILITY_OPT_IN"] = "http/dup"
 
     return env_var_dict
+
+def _get_git_commit_and_mri_for_sidecar(ctx, name):
+    version = get_sidecar_container_versions(ctx).get(name)
+    if version:
+        return version.git_commit, version.monotonic_revision_id
+    else:
+        # For backwards compatibility we will stub in the application container's git commit
+        # even though it is incorrect
+        return get_henson_git_commit(ctx), None
+
+def _get_git_commit_and_mri_for_application(ctx, container):
+    # The logic here is nasty. We're going to try to find which of the
+    # container images is actually being used for this specific container, but
+    # for various legacy reasons some callers do not specify which image they
+    # want, and rely on heuristics buried in layers of skycfg to determine a
+    # default for them. We are operating before those heuristics. If the caller
+    # has not specified their image, they don't get an MRI.
+    if hasattr(container, "image"):
+        for version in get_container_versions(ctx).values():
+            if version.uri == container.image:
+                return version.git_commit, version.monotonic_revision_id
+
+    # If for some reason we cannot find the version, e.g., because the caller
+    # is doing something tricky with their image URI, fall back to providing
+    # just a git commit
+    return get_henson_git_commit(ctx), None
 
 def _default_env_vars_from_fields(ctx):
     return {

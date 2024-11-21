@@ -1,11 +1,6 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/context.sky", "get_cluster", "get_env")
-load(
-    "config/kubernetes/helpers/aws_instance_sizes.sky",
-    "c5_2xlarge", "c5_4xlarge", "c5d_4xlarge", "m5_2xlarge", "m5d_xlarge", "r5_xlarge", "r5_large",
-    "aws_instance_size"
-)
-load("config/kubernetes/async-processing/monster/config.sky", "AVAILABILITY_TIER_A100", "AVAILABILITY_TIER_A200", "AVAILABILITY_TIER_A400", "AVAILABILITY_TIER_A400_AUTO")
+load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
+load("config/kubernetes/helpers/context.sky", "get_cluster")
 load("config/kubernetes/meta/metadata.sky", "labels")
 
 ALL_CLUSTERS = ["northwest", "bom", "east", "cmh"]
@@ -19,7 +14,7 @@ SIDECAR_OVERHEAD_MIB = 6 * 1024
 #
 # We do not allow replica counts < 2
 ROLLING_UPDATE_STRATEGIES = {
-    "canary": {"max_unavailable_percent": 75, "max_surge_percent": 100}, # canary can use main stage surge capacity
+    "canary": {"max_unavailable_percent": 75, "max_surge_percent": 100},  # canary can use main stage surge capacity
     "sigma": {"max_unavailable_percent": 25, "max_surge_percent": 50},
     "qa": {"max_unavailable_percent": 75, "max_surge_percent": 100},
     "default_low_replica": {"max_unavailable_percent": 0, "max_surge_percent": 100},
@@ -28,13 +23,14 @@ ROLLING_UPDATE_STRATEGIES = {
     "ha_low_replica": {"max_unavailable_percent": 0, "max_surge_percent": 100},
     "ha_high_replica": {"max_unavailable_percent": 5, "max_surge_percent": 100},
     # special case
-    "prod_general_consume": {"max_unavailable_percent": 5, "max_surge_percent": 50},
-    "qa_general": {"max_unavailable_percent": 20, "max_surge_percent": 100}
+    "prod_general_consume": {"max_unavailable_percent": 5, "max_surge_percent": 25},
+    "qa_general": {"max_unavailable_percent": 20, "max_surge_percent": 100},
 }
 
 def generate_consul_name(monster_isolation_group, monster_service):
     # Isolation group must not contain underscores for consul name:
     formatted_isolation_group = format_isolation_group(monster_isolation_group)
+
     # Matches our existing Consul names + Einhorn names
     return {
         "consume-workers": "monster-workers-http2-{}-msp".format(formatted_isolation_group),
@@ -44,58 +40,8 @@ def generate_consul_name(monster_isolation_group, monster_service):
         "express": "monster-express-{}".format(formatted_isolation_group),
         "fanout": "monster-fanout-{}".format(formatted_isolation_group),
         "fanout-retry": "monster-fanout-retry-{}".format(formatted_isolation_group),
-        "api": "monster-api-{}".format(formatted_isolation_group)
+        "api": "monster-api-{}".format(formatted_isolation_group),
     }[monster_service]
-
-def get_all_tier(instance):
-    return {
-        AVAILABILITY_TIER_A100: instance,
-        AVAILABILITY_TIER_A200: instance,
-        AVAILABILITY_TIER_A400: instance,
-        AVAILABILITY_TIER_A400_AUTO: instance,
-    }
-
-def get_all_cluster(mapping):
-    return {
-        "qa.cmh": mapping,
-        "qa.bom": mapping,
-        "qa.northwest": mapping,
-        "preprod.cmh": mapping,
-        "prod.bom": mapping,
-        "prod.cmh": mapping,
-        "prod.northwest": mapping
-    }
-
-# Maps an (env, availability_tier) to a concrete instance type for placement
-# Only used for control-plane services
-def get_instance_type(ctx, availability_tier, monster_service, host_set_name=None):
-    overrides_by_host_set_name = {
-        "feeder": {
-            "prod.northwest": {
-                "webhooks": c5_4xlarge,
-             },
-            "prod.cmh": {
-                "webhooks": c5_4xlarge,
-             },
-        },
-    }
-    mapping_by_availability_tier = {
-        "sweeper": get_all_cluster(get_all_tier(r5_xlarge if get_env(ctx) != "qa" else r5_large)),
-        "feeder": get_all_cluster({
-            AVAILABILITY_TIER_A100: c5_2xlarge,
-            AVAILABILITY_TIER_A200: c5_2xlarge,
-            AVAILABILITY_TIER_A400: c5d_4xlarge,
-            AVAILABILITY_TIER_A400_AUTO: c5_2xlarge,
-        }),
-        "fanout": get_all_cluster(get_all_tier(c5_2xlarge)),
-        "fanout-retry": get_all_cluster(get_all_tier(c5_2xlarge)),
-        "api": get_all_cluster(get_all_tier(m5d_xlarge)),
-        "express": get_all_cluster(get_all_tier(m5_2xlarge if get_env(ctx) != "qa" else r5_xlarge)),
-    }
-
-    key = "%s.%s" % (get_env(ctx), get_cluster(ctx))
-    override = overrides_by_host_set_name.get(monster_service, {}).get(key, {}).get(host_set_name)
-    return override or mapping_by_availability_tier[monster_service][key][availability_tier]
 
 def workers_per_pod(description, available_mib, mb_per_worker):
     if mb_per_worker == 0:
@@ -103,7 +49,10 @@ def workers_per_pod(description, available_mib, mb_per_worker):
 
     if available_mib < mb_per_worker:
         fail("on {}: usable memory of {} MiB less than mb_per_worker ({} MiB) -- cannot proceed!".format(
-            description, available_mib, mb_per_worker))
+            description,
+            available_mib,
+            mb_per_worker,
+        ))
 
     # if we can, reserve one "dead" worker as a fudge factor for copy-on-write
     # nonlinearity
@@ -111,7 +60,7 @@ def workers_per_pod(description, available_mib, mb_per_worker):
 
 # struct representing a pod-to-be-created
 # if mb_per_worker is None, workers will be None, for non-einhorn use cases
-def pod(description, instance, mb_per_worker=None):
+def pod(description, instance, mb_per_worker = None):
     instance_limits = aws_instance_size(instance.name)
     instance_usable_memory_mib = instance_limits.memory_mib - SIDECAR_OVERHEAD_MIB
 
@@ -140,17 +89,17 @@ def get_monster_env_cmd_arguments(ctx, unformatted_host_set, host_type):
         "--host-set",
         unformatted_host_set,
         "--host-type",
-        host_type
+        host_type,
     ]
 
 def dynamic_replicas(desired, max, min):
-    return struct(desired=desired, max=max, min=min)
+    return struct(desired = desired, max = max, min = min)
 
 def get_jmx_java_options(jmx_port):
     return [
         "-Dcom.sun.management.jmxremote.port={}".format(jmx_port),
         "-Dcom.sun.management.jmxremote.authenticate=false",
-        "-Dcom.sun.management.jmxremote.ssl=false"
+        "-Dcom.sun.management.jmxremote.ssl=false",
     ]
 
 # Create labels that allow queries like:
@@ -168,7 +117,7 @@ def replicas_from_factor(replicas, replica_factor_percentage, round_up = True):
     if not round_up:
         return int(replicas * replica_factor_percentage / 100)
 
-    return replicas - int(replicas * (100 - replica_factor_percentage) / 100)
+    return replicas - int(replicas * (100 - replica_factor_percentage) // 100)
 
 def worker_type(monster_service):
     # map workers, but fall-through/pass-through control plane service names
@@ -179,7 +128,6 @@ def worker_type(monster_service):
 
 def get_gc_args(ctx, runtime_jdk, is_in_jdk17_migration):
     return _get_shenandoah_args(runtime_jdk, is_in_jdk17_migration)
-
 
 def _get_shenandoah_args(runtime_jdk, is_in_jdk17_migration):
     """
@@ -192,6 +140,7 @@ def _get_shenandoah_args(runtime_jdk, is_in_jdk17_migration):
     Returns:
         list: The Shenandoah GC arguments.
     """
+
     # Include recommended options from https://wiki.openjdk.org/display/shenandoah/Main#Main-Basicconfiguration
     args = [
         "-XX:+AlwaysPreTouch",
@@ -199,12 +148,12 @@ def _get_shenandoah_args(runtime_jdk, is_in_jdk17_migration):
         "-XX:+UseShenandoahGC",
     ]
     if is_in_jdk17_migration:
-        args += [
+        args.append(
             "--jdk11-arg=-XX:-UseBiasedLocking",
-        ]
+        )
     elif runtime_jdk < 15:
         # JDK 15 removed biased locking anyway. https://openjdk.org/jeps/374
-        args += [
+        args.append(
             "-XX:-UseBiasedLocking",
-        ]
+        )
     return args

@@ -4,10 +4,9 @@ load("config/kubernetes/helpers/proto_or_yaml.sky", "LabelSelector")
 load("config/kubernetes/helpers/context.sky", "get_render_yaml")
 
 def webhook_object_selector(
-    ctx,
-    matchLabels = {},
-    matchExpressions = [],
-):
+        ctx,
+        matchLabels = {},
+        matchExpressions = []):
     """
     Allows you to define a new Object selector structure
 

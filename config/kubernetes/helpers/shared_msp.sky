@@ -12,3 +12,14 @@ def shared_msp_experimental_job_support():
 
 def _shared_msp_experimental_job_support(_ctx, _plugin, pod_def):
     pod_def["enable_shared_msp_experimental_job_support"] = True
+
+def native_sidecar_support():
+    """
+    Enables native sidecar support for a pod.
+    If enabled, all non-main containers will be run as native sidecars within the pod. Learn more about native sidecars [here](https://kubernetes.io/blog/2023/08/25/native-sidecar-containers/)
+    You most likely don't want to use this. Native sidecar support is currently experimental and should only be used for CronJob or Job workloads in Shared MSP. Please reach out to #msp before using.
+    """
+    return compose_plugins(pod_plugin(_native_sidecar_support))
+
+def _native_sidecar_support(_ctx, _plugin, pod_def):
+    pod_def["enable_native_sidecar_support"] = True

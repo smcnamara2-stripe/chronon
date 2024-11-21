@@ -109,7 +109,7 @@ def CronJobSpec(ctx, **kwargs):
 
 def Affinity(ctx, podAntiAffinity):
     return {
-        "podAntiAffinity": podAntiAffinity
+        "podAntiAffinity": podAntiAffinity,
     }
 
 def Capabilities(ctx, **kwargs):
@@ -125,7 +125,7 @@ def ContainerPort(ctx, containerPort, hostPort, name):
     return {
         "containerPort": containerPort,
         "hostPort": hostPort,
-        "name": name
+        "name": name,
     }
 
 def EmptyDirVolumeSource(ctx, **kwargs):
@@ -135,7 +135,6 @@ def EmptyDirVolumeSource(ctx, **kwargs):
         vol[key] = value
 
     return vol
-
 
 def EnvVar(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -147,7 +146,7 @@ def EnvVarSource(ctx, fieldRef):
 
 def ExecAction(ctx, command):
     return {
-        "command": command
+        "command": command,
     }
 
 def HTTPGetAction(ctx, **kwargs):
@@ -155,7 +154,6 @@ def HTTPGetAction(ctx, **kwargs):
 
 def HTTPHeader(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
-
 
 def Handler(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -179,7 +177,6 @@ def ObjectFieldSelector(ctx, fieldPath):
         "fieldPath": fieldPath,
     }
 
-
 def PodAffinityTerm(ctx, **kwargs):
     for key, value in kwargs.items():
         # Get rid of None values.
@@ -189,11 +186,10 @@ def PodAffinityTerm(ctx, **kwargs):
             kwargs.pop(key)
     return _generic_kubernetes_yaml(ctx, **kwargs)
 
-
 def PodAntiAffinity(ctx, preferredDuringSchedulingIgnoredDuringExecution = [], requiredDuringSchedulingIgnoredDuringExecution = []):
     return {
         "preferredDuringSchedulingIgnoredDuringExecution": preferredDuringSchedulingIgnoredDuringExecution,
-        "requiredDuringSchedulingIgnoredDuringExecution": requiredDuringSchedulingIgnoredDuringExecution
+        "requiredDuringSchedulingIgnoredDuringExecution": requiredDuringSchedulingIgnoredDuringExecution,
     }
 
 def PodSecurityContext(ctx, **kwargs):
@@ -235,7 +231,7 @@ def SELinuxOptions(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
 
 def Service(ctx, **kwargs):
-    return _generic_kubernetes_yaml(ctx, apiVersion="v1", kind="Service", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "v1", kind = "Service", **kwargs)
 
 def ServicePort(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -245,9 +241,8 @@ def ServiceSpec(ctx, **kwargs):
 
 def TCPSocketAction(ctx, port):
     return {
-        "port": port
+        "port": port,
     }
-
 
 def Toleration(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -317,7 +312,7 @@ def Rule(ctx, **kwargs):
 def Role(ctx, **kwargs):
     if "namespace" in kwargs and not kwargs["namespace"]:
         kwargs.pop("namespace")
-    return _generic_kubernetes_yaml(ctx, apiVersion="rbac.authorization.k8s.io/v1", kind="Role", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "rbac.authorization.k8s.io/v1", kind = "Role", **kwargs)
 
 def RoleRef(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -325,12 +320,12 @@ def RoleRef(ctx, **kwargs):
 def RoleBinding(ctx, **kwargs):
     if "namespace" in kwargs and not kwargs["namespace"]:
         kwargs.pop("namespace")
-    return _generic_kubernetes_yaml(ctx, apiVersion="rbac.authorization.k8s.io/v1", kind="RoleBinding", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "rbac.authorization.k8s.io/v1", kind = "RoleBinding", **kwargs)
 
 def ClusterRole(ctx, **kwargs):
     if "namespace" in kwargs and not kwargs["namespace"]:
         kwargs.pop("namespace")
-    return _generic_kubernetes_yaml(ctx, apiVersion="rbac.authorization.k8s.io/v1", kind="ClusterRole", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "rbac.authorization.k8s.io/v1", kind = "ClusterRole", **kwargs)
 
 def AggregationRule(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -338,7 +333,7 @@ def AggregationRule(ctx, **kwargs):
 def ClusterRoleBinding(ctx, **kwargs):
     if "namespace" in kwargs and not kwargs["namespace"]:
         kwargs.pop("namespace")
-    return _generic_kubernetes_yaml(ctx, apiVersion="rbac.authorization.k8s.io/v1", kind="ClusterRoleBinding", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "rbac.authorization.k8s.io/v1", kind = "ClusterRoleBinding", **kwargs)
 
 def PolicyRule(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -349,10 +344,10 @@ def Subject(ctx, **kwargs):
 ### Node v1
 
 def RuntimeClass(ctx, **kwargs):
-    return _generic_kubernetes_yaml(ctx, apiVersion="node.k8s.io/v1", kind="RuntimeClass", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "node.k8s.io/v1", kind = "RuntimeClass", **kwargs)
 
 def Overhead(ctx, **kwargs):
-    return _generic_kubernetes_yaml(ctx, apiVersion="node.k8s.io/v1", kind="Overhead", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "node.k8s.io/v1", kind = "Overhead", **kwargs)
 
 ### Policy v1beta1
 
@@ -360,7 +355,7 @@ def IDRange(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
 
 def PodSecurityPolicy(ctx, **kwargs):
-    return _generic_kubernetes_yaml(ctx, apiVersion="policy/v1beta1", kind="PodSecurityPolicy", **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "policy/v1beta1", kind = "PodSecurityPolicy", **kwargs)
 
 def PodSecurityPolicySpec(ctx, **kwargs):
     if kwargs.get("hostPorts") != None:
@@ -372,7 +367,6 @@ def RunAsUserStrategyOptions(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
 
 def RunAsGroupStrategyOptions(ctx, **kwargs):
-
     return _generic_kubernetes_yaml(ctx, **kwargs)
 
 def SupplementalGroupsStrategyOptions(ctx, **kwargs):
@@ -391,7 +385,7 @@ def HostPortRange(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
 
 def PodDisruptionBudget(ctx, **kwargs):
-    return _generic_kubernetes_yaml(ctx, apiVersion="policy/v1", kind="PodDisruptionBudget", marshal = True, **kwargs)
+    return _generic_kubernetes_yaml(ctx, apiVersion = "policy/v1", kind = "PodDisruptionBudget", marshal = True, **kwargs)
 
 def PodDisruptionBudgetSpec(ctx, **kwargs):
     return _generic_kubernetes_yaml(ctx, **kwargs)
@@ -405,7 +399,6 @@ def IntOrString(ctx, intVal = None, strVal = None):
 
 def Quantity(ctx, string):
     return string
-
 
 def _generic_kubernetes_yaml(ctx, apiVersion = None, kind = None, marshal = False, **kwargs):
     tmp = {}

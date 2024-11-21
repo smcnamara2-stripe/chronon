@@ -3,7 +3,7 @@
 Plugins for working with containers in pods.
 """
 
-load("config/kubernetes/core/env_var.sky", "render_env_vars")
+load("config/kubernetes/core/env_var.sky", "render_env_vars", "container_env_vars")
 load("config/kubernetes/core/lifecycle.sky", "render_lifecycle")
 load("config/kubernetes/core/volume.sky", "render_volume_mount")
 load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
@@ -11,8 +11,9 @@ load("config/kubernetes/helpers/quantities.sky", "cores", "mebibytes")
 load("config/kubernetes/helpers/security.sky", "render_security_context")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "container_plugin", "pod_plugin")
-load("config/kubernetes/helpers/context.sky", "get_env")
+load("config/kubernetes/helpers/context.sky", "get_cluster", "get_env", "get_target_shard")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Container", "ContainerPort", "ResourceRequirements")
+load("config/kubernetes/helpers/msp_shard.sky", "shard_supports_native_sidecars")
 
 def container(
         name,
@@ -26,6 +27,7 @@ def container(
         sidecar_service = None,
         plugins = [],
         command_required = True,
+        programming_language = None,
         **kwargs):
     """
     Add an additional container to the pod.
@@ -78,6 +80,7 @@ def container(
         sidecar_service = sidecar_service,
         plugins = plugins,
         command_required = command_required,
+        programming_language = programming_language,
         **kwargs
     )
 
@@ -92,6 +95,7 @@ def init_container(
         sidecar_service = None,
         plugins = [],
         command_required = True,
+        programming_language = None,
         **kwargs):
     """
     Add an init container to the pod.
@@ -137,6 +141,7 @@ def init_container(
         storage = storage,
         sidecar_service = sidecar_service,
         plugins = plugins,
+        programming_language = programming_language,
         **kwargs
     )
 
@@ -149,6 +154,7 @@ def sidecar_container(
         ports = {},
         is_init_container = False,
         plugins = (),
+        programming_language = None,
         **kwargs):
     """
     Add a sidecar container to the pod.
@@ -179,10 +185,11 @@ def sidecar_container(
     Returns:
         A plugin that adds the sidecar container to the pod.
     """
+    container_name = sidecar_service or name
     base_plugins = [
         container_plugin(
             _set_sidecar_image,
-            container_name = sidecar_service or name,
+            container_name = container_name,
             container_image = container_image,
             fallback_label = fallback_label,
             fallback_env = fallback_env,
@@ -195,7 +202,8 @@ def sidecar_container(
     builder = init_container if is_init_container else container
     return builder(
         name = name,
-        sidecar_service = sidecar_service or name,
+        sidecar_service = container_name,
+        programming_language = programming_language,
         plugins = plugins + base_plugins,
         **kwargs
     )
@@ -293,7 +301,8 @@ def _container_plugin(
         plugins,
         limits = None,
         requests = None,
-        command_required = True):
+        command_required = True,
+        programming_language = None):
     if command_required and command == None and args == None:
         fail("Container %s must specify either a command or args" % name)
 
@@ -325,6 +334,7 @@ def _container_plugin(
             requests = requests,
             storage = storage,
             sidecar_service = sidecar_service,
+            programming_language = programming_language,
         ),
         container_plugin(
             _update_container,
@@ -358,6 +368,8 @@ def _update_pod(ctx, plugin, pod_def):
         "image_pull_policy": "IfNotPresent",
         "working_dir": None,
         "shared_msp": pod_def.get("shared_msp", False),  # inherit from the parent resource
+        "restart_policy": None,
+        "programming_language": plugin.programming_language,
     }
 
     # Ensure the pod is annotated to indicate that this pod uses the given sidecar service.
@@ -373,7 +385,18 @@ def _update_pod(ctx, plugin, pod_def):
     elif plugin.is_init_container:
         pod_def["init_containers"].append(container)
     else:
-        pod_def["containers"].append(container)
+        # If native sidecar support has been enabled for this pod, we will add this non-main container
+        # as a native sidecar container (essentially an init container that runs until the main container exits) by specifying the restartPolicy to 'Always'.
+        # Learn more about native sidecars here: https://kubernetes.io/blog/2023/08/25/native-sidecar-containers/
+        if pod_def.get("enable_native_sidecar_support", False) and plugin.sidecar_service != None:
+            if not shard_supports_native_sidecars(ctx):
+                fail("Native sidecar support on shared MSP is not supported in shard: %s in environment: %s in region: %s" % (get_target_shard(ctx), get_env(ctx), get_cluster(ctx)))
+
+            container["restart_policy"] = "Always"
+
+            pod_def["init_containers"].append(container)
+        else:
+            pod_def["containers"].append(container)
 
     # ensure the correct default value for imagePullPolicy field
     # kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#container-v1-core
@@ -386,7 +409,6 @@ def _update_container(ctx, plugin, container_def):
 
 def _render_container(ctx, container_def, pod):
     container = struct(**container_def)
-
     env = render_env_vars(ctx, container)
 
     ports = [_render_container_port(ctx, port, host_network = pod.host_network) for port in container.ports.values()]
@@ -452,6 +474,9 @@ def _render_container(ctx, container_def, pod):
     if container.working_dir != None:
         rendered["workingDir"] = container.working_dir
 
+    if container.restart_policy != None:
+        rendered["restartPolicy"] = container.restart_policy
+
     return rendered
 
 def _get_volume_mount_path(ctx):
@@ -462,7 +487,6 @@ def _get_volume_mount_path(ctx):
         return volume_mount.mountPath
 
     return _get_volume_mount_path_yaml
-
 
 def _add_container_port(ctx, arguments, container_def):
     container_def["ports"][arguments.port] = arguments
@@ -519,7 +543,7 @@ def prepare_experimental_job_sidecar_shim(command):
             # This is a hacky singal if the string is JSON which we'll need to wrap in single quotes.
             # Unfortunately starlark doesn't support testing if a string is JSON or not and the entire
             # execution fails if you try to encode/decode a non-JSON string
-            if section[0] == '{' and section[-1] == '}':
+            if section[0] == "{" and section[-1] == "}":
                 sanitized_command += ("'%s'" % section)
                 sanitized_command += " "
                 continue
@@ -528,7 +552,7 @@ def prepare_experimental_job_sidecar_shim(command):
             # (e.g. --some-flag={"foo": "bar"}) also need to escape their values for them to be properly
             # parsed by their programs.
             split = section.split("=", 1)
-            if len(split) == 2 and (split[0] == "--patch-config" or (len(split[1]) >= 2 and split[1][0] == '{' and split[1][-1] == '}')):
+            if len(split) == 2 and (split[0] == "--patch-config" or (len(split[1]) >= 2 and split[1][0] == "{" and split[1][-1] == "}")):
                 sanitized_command += ("%s='%s'" % tuple(split))
                 sanitized_command += " "
                 continue

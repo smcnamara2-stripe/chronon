@@ -1,16 +1,18 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/apps/deployment.sky", "deployment_options")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/pay-server.sky", "pay_server_pod", "einhorn_service", "bapi_gc_config", "default_pay_server_image", "default_gem_override_policy")
+load("config/kubernetes/pay-server.sky", "bapi_gc_config", "default_gem_override_policy", "default_pay_server_image", "einhorn_service", "pay_server_pod")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/meta/metadata.sky", "labels")
+
 # ruleid: no-auto-secrets-usage
 load("config/kubernetes/sidecars/geoip.sky", "use_geoip_databases")
 load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
 load("config/kubernetes/helpers/availability_tiers.sky", "get_pod_availability_tier_by_name")
-load("config/kubernetes/helpers/context.sky", "get_env", "get_puma_port", "get_puma_worker_shutdown_timeout_seconds", "get_name", "get_identity", "get_entrypoint_command", "get_puma_tags", "get_availability_tier", "get_cluster")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_cluster", "get_entrypoint_command", "get_env", "get_identity", "get_name", "get_puma_port", "get_puma_tags", "get_puma_worker_shutdown_timeout_seconds")
 load("config/kubernetes/helpers/failure_threshold.sky", "failure_threshold")
 load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_metrics_tagging")
+
 # Choose your instance type. See go/shared-msp/skycfg-changes.
 load("config/kubernetes/helpers/healthcheck.sky", "healthchecked_service")
 load("config/kubernetes/helpers/images.sky", "image_defaults")
@@ -25,49 +27,49 @@ load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A110", "A120",
 load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
 
 P0 = struct(
-  name="p0",
-  mproxy_tier="bapi-p1-p0",
-  egress_proxy_tier="p0",
-  availability_tier=A100
+    name = "p0",
+    mproxy_tier = "bapi-p1-p0",
+    egress_proxy_tier = "p0",
+    availability_tier = A100,
 )
 P1 = struct(
-  name="p1",
-  mproxy_tier="bapi-p1-p0",
-  egress_proxy_tier="p0",
-  availability_tier=A110
+    name = "p1",
+    mproxy_tier = "bapi-p1-p0",
+    egress_proxy_tier = "p0",
+    availability_tier = A110,
 )
 P2 = struct(
-  name="p2",
-  mproxy_tier="bapi-p4-p2",
-  egress_proxy_tier="",
-  availability_tier=A120
+    name = "p2",
+    mproxy_tier = "bapi-p4-p2",
+    egress_proxy_tier = "",
+    availability_tier = A120,
 )
 P3 = struct(
-  name="p3",
-  mproxy_tier="bapi-p4-p2",
-  egress_proxy_tier="",
-  availability_tier=A130
+    name = "p3",
+    mproxy_tier = "bapi-p4-p2",
+    egress_proxy_tier = "",
+    availability_tier = A130,
 )
 P4 = struct(
-  name="p4",
-  mproxy_tier="bapi-p4-p2",
-  egress_proxy_tier="",
-  availability_tier=A140
+    name = "p4",
+    mproxy_tier = "bapi-p4-p2",
+    egress_proxy_tier = "",
+    availability_tier = A140,
 )
 P5 = struct(
-  name="p5",
-  mproxy_tier="bapi-p5",
-  egress_proxy_tier="",
-  availability_tier=A150
+    name = "p5",
+    mproxy_tier = "bapi-p5",
+    egress_proxy_tier = "",
+    availability_tier = A150,
 )
 
 PRIORITIES_BY_NAME = {
-  P0.name: P0,
-  P1.name: P1,
-  P2.name: P2,
-  P3.name: P3,
-  P4.name: P4,
-  P5.name: P5,
+    P0.name: P0,
+    P1.name: P1,
+    P2.name: P2,
+    P3.name: P3,
+    P4.name: P4,
+    P5.name: P5,
 }
 
 def priority_by_name(name):
@@ -90,7 +92,7 @@ def max_surge(ctx, replicas):
 
     return "0%"
 
-def build_failure_threshold(ctx, replicas, default_threshold_pct=95, min_replicas_unavailable=1):
+def build_failure_threshold(ctx, replicas, default_threshold_pct = 95, min_replicas_unavailable = 1):
     """
     Build the failure threshold value to allow for a certain number of replicas to be unavailable during a deploy.
 
@@ -102,6 +104,7 @@ def build_failure_threshold(ctx, replicas, default_threshold_pct=95, min_replica
     Returns:
         An int representing the failure threshold value
     """
+
     # in preprod we're okay with waiting for one replica to be available. We have some deployments of 2 hosts and
     # we don't need to wait for the other to finish provisioning if one is ready to go.
     if get_env(ctx) == "preprod" and replicas > 0 and replicas <= 3:
@@ -116,129 +119,127 @@ def build_failure_threshold(ctx, replicas, default_threshold_pct=95, min_replica
 
     return int((1 - min_replicas_unavailable / replicas) * 100)
 
-def bapi_service(ctx,
-  priority,
-  instance_type,
-  replicas,
-  workers,
-  meta,
-  image_artifact = None,
-  override_name = None,
-  name_suffix = None,
-  env_vars_override = None,
-  gem_override_policy = default_gem_override_policy,
-  hack_kick_interval = "90m",
-  hack_kick_start_delay = "30m",
-  hack_kick_start_jitter = None
-):
-  if image_artifact:
-    image = image_defaults(
-      name = None,
-      artifact = image_artifact
+def bapi_service(
+        ctx,
+        priority,
+        instance_type,
+        replicas,
+        workers,
+        meta,
+        image_artifact = None,
+        override_name = None,
+        name_suffix = None,
+        env_vars_override = None,
+        gem_override_policy = default_gem_override_policy,
+        hack_kick_interval = "90m",
+        hack_kick_start_delay = "30m",
+        hack_kick_start_jitter = None):
+    if image_artifact:
+        image = image_defaults(
+            name = None,
+            artifact = image_artifact,
+        )
+    else:
+        image = default_pay_server_image
+    env_vars = {
+        "STRIPE_BAPI_MSP_PRIORITY_TIER": priority.name,
+        # Used for the standard tiers system in some code, setting it lets us reuse some of the GRPC metrics/Canonical line code
+        # without having to sprinkle our overrides everywhere.
+        "SERVER_PRIORITY_TIER": priority.name,
+        "STRIPE_BUNDLE_USE_YJIT_PCT_ENABLED": "100",
+    }
+    env_vars.update(bapi_gc_config())
+
+    if env_vars_override:
+        env_vars.update(env_vars_override)
+
+    name = get_name(ctx) + "-" + priority.name
+    if override_name:
+        name = override_name
+    elif name_suffix and name_suffix != "default":
+        name = name + "-" + name_suffix
+
+    # envoy_concurrency should be scaled in proportion to the number of CPUs on the chosen instance size.
+    # On Intel hosts, this is 1/6 of the CPUs. For instance with 48 vCPUs this is 8, or with 16 vCPUs this is 3
+    cpus = aws_instance_size(instance_type.name).cpu_millicores // 1000
+    envoy_concurrency = cpus // 6
+
+    # round up if not a perfect multiple of 6
+    if cpus % 6 != 0:
+        envoy_concurrency += 1
+
+    return compose_plugins(
+        pay_server_pod(
+            ctx,
+            name = name,
+            namespace = get_identity(ctx),
+            command = get_entrypoint_command(ctx),
+            # Choose your instance type. See go/shared-msp/skycfg-changes.
+            instance_type = instance_type,
+            use_shared_msp_service_account = True,
+            availability_tier = priority.availability_tier,
+            image = image,
+            requires_consul = False,
+            gem_override_policy = gem_override_policy,
+        ),
+        labels({
+            "api-platform.stripe.io/einhorn-workers-on-startup": str(workers),
+        }),
+        container_env_vars(env_vars),
+        add_blue_green_metrics_tagging(),
+        use_offload_profiles(),
+        einhorn_service(
+            ctx,
+            port = get_puma_port(ctx),
+            name = get_name(ctx),
+            tags = get_puma_tags(ctx),
+            workers = workers,
+            max_unacked = 1,
+            max_upgrade_additional = 1,
+            gc_before_fork = True,
+            signal_timeout = get_puma_worker_shutdown_timeout_seconds(ctx),
+            meta = meta,
+            # slow startup generally means a bad host or bad code change,
+            # either way prefer crashing at deploy time instead of allowing the
+            # bad change to rollout so reduce startup time from 600s => 450s
+            startup_failure_threshold = 450,
+            hack_kick_interval = hack_kick_interval,
+            hack_kick_start_delay = hack_kick_start_delay,
+            hack_kick_restart_only = True,
+            hack_kick_start_jitter = hack_kick_start_jitter,
+        ),
+        networking_config(
+            enable_global_ratelimit = True,
+            mproxy_tier = priority.mproxy_tier,
+            egress_proxy_tier = priority.egress_proxy_tier,
+            envoy_concurrency = envoy_concurrency,
+        ),
+        autoset_shard(),
+        use_geoip_databases(ctx),
+        config_srv_sidecar(ctx),
+        add_security_groups(
+            "apibox",
+            "s3_us_cidrs",
+        ),
+
+        # Add scheduling delay to allow pods to terminate and allow nodes to be reused
+        # before provisioning a new node.
+        # Note: This does add a lag to kubernetes deployment scale ups - a tradeoff we're willing to make
+        # in favor of much faster deploy speed and better node reuse.
+        msp_fleet_manager_scheduling_delay("70s"),
+        # Allow deploys to advance when (replicas * failure threshold / 100) pods are available
+        failure_threshold(build_failure_threshold(ctx, replicas)),
+        deployment_options(
+            replicas = replicas,
+
+            # Require pods to not crashloop for at least 10 seconds
+            # before completing the MSP deploy stage
+            minReadySeconds = 10,
+            # Wait a maximum of 30 minutes with no progress before failing
+            # the MSP deploy stage
+            progressDeadlineSeconds = 1800,
+
+            # allow spinning down entire off-color at once
+            strategy = rolling_update_strategy(ctx, max_unavailable = "100%", max_surge = max_surge(ctx, replicas)),
+        ),
     )
-  else:
-    image = default_pay_server_image
-  env_vars = {
-      "STRIPE_BAPI_MSP_PRIORITY_TIER": priority.name,
-      # Used for the standard tiers system in some code, setting it lets us reuse some of the GRPC metrics/Canonical line code
-      # without having to sprinkle our overrides everywhere.
-      "SERVER_PRIORITY_TIER": priority.name,
-      "STRIPE_BUNDLE_USE_YJIT_PCT_ENABLED": "100"
-  }
-  env_vars.update(bapi_gc_config())
-
-  if env_vars_override:
-    env_vars.update(env_vars_override)
-
-  name = get_name(ctx) + "-" + priority.name
-  if override_name:
-    name = override_name
-  elif name_suffix and name_suffix != "default":
-    name = name + "-" + name_suffix
-
-  # envoy_concurrency should be scaled in proportion to the number of CPUs on the chosen instance size.
-  # On Intel hosts, this is 1/6 of the CPUs. For instance with 48 vCPUs this is 8, or with 16 vCPUs this is 3
-  cpus = aws_instance_size(instance_type.name).cpu_millicores // 1000
-  envoy_concurrency = cpus // 6
-  # round up if not a perfect multiple of 6
-  if cpus % 6 != 0:
-    envoy_concurrency += 1
-
-  return compose_plugins(
-    pay_server_pod(
-      ctx,
-      name = name,
-      namespace = get_identity(ctx),
-      command = get_entrypoint_command(ctx),
-      # Choose your instance type. See go/shared-msp/skycfg-changes.
-      instance_type = instance_type,
-      use_shared_msp_service_account = True,
-      availability_tier = priority.availability_tier,
-      image = image,
-      requires_consul = False,
-      gem_override_policy = gem_override_policy,
-    ),
-    labels({
-        "api-platform.stripe.io/einhorn-workers-on-startup": str(workers)
-    }),
-    container_env_vars(env_vars),
-    add_blue_green_metrics_tagging(),
-    use_offload_profiles(),
-
-    einhorn_service(
-      ctx,
-      port = get_puma_port(ctx),
-      name = get_name(ctx),
-      tags = get_puma_tags(ctx),
-      workers = workers,
-      max_unacked = 1,
-      max_upgrade_additional = 1,
-      gc_before_fork = True,
-      signal_timeout = get_puma_worker_shutdown_timeout_seconds(ctx),
-      meta = meta,
-      # slow startup generally means a bad host or bad code change,
-      # either way prefer crashing at deploy time instead of allowing the
-      # bad change to rollout so reduce startup time from 600s => 450s
-      startup_failure_threshold = 450,
-      hack_kick_interval = hack_kick_interval,
-      hack_kick_start_delay = hack_kick_start_delay,
-      hack_kick_restart_only = True,
-      hack_kick_start_jitter = hack_kick_start_jitter,
-    ),
-    networking_config(
-        enable_global_ratelimit = True,
-        mproxy_tier = priority.mproxy_tier,
-        egress_proxy_tier = priority.egress_proxy_tier,
-        envoy_concurrency = envoy_concurrency
-    ),
-
-    autoset_shard(),
-    use_geoip_databases(ctx),
-    config_srv_sidecar(ctx),
-    add_security_groups(
-        "apibox",
-        "s3_us_cidrs",
-    ),
-
-    # Add scheduling delay to allow pods to terminate and allow nodes to be reused
-    # before provisioning a new node.
-    # Note: This does add a lag to kubernetes deployment scale ups - a tradeoff we're willing to make
-    # in favor of much faster deploy speed and better node reuse.
-    msp_fleet_manager_scheduling_delay("70s"),
-    # Allow deploys to advance when (replicas * failure threshold / 100) pods are available
-    failure_threshold(build_failure_threshold(ctx, replicas)),
-
-    deployment_options(
-      replicas = replicas,
-
-      # Require pods to not crashloop for at least 10 seconds
-      # before completing the MSP deploy stage
-      minReadySeconds = 10,
-      # Wait a maximum of 30 minutes with no progress before failing
-      # the MSP deploy stage
-      progressDeadlineSeconds = 1800,
-
-      # allow spinning down entire off-color at once
-      strategy = rolling_update_strategy(ctx, max_unavailable="100%", max_surge=max_surge(ctx, replicas))
-    )
-  )

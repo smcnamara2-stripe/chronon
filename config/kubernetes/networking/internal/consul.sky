@@ -7,6 +7,7 @@ load("config/kubernetes/core/env_var.sky", "default_env_vars")
 load("config/kubernetes/core/lifecycle.sky", "render_lifecycle")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
 load("config/kubernetes/core/volume.sky", "host_volume", "render_volume_mount", "volume_mount")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
@@ -87,6 +88,7 @@ def _create_consul_container(ctx, pod_def, *, use_proxy, use_probes, write_henso
         "use_proxy": use_proxy,
         "use_probes": use_probes,
         "sidecar_service": "consul-sidecar",
+        "programming_language": GO_PROGRAMMING_LANGUAGE,
     }
 
     if write_henson_config_to_disk:

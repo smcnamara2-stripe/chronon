@@ -1,9 +1,9 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME")
-load("config/kubernetes/helpers/quantities.sky", "millicores", "gibibytes", "mebibytes", "mebibytes_to_int")
+load("config/kubernetes/helpers/quantities.sky", "gibibytes", "mebibytes", "mebibytes_to_int", "millicores")
 load("config/kubernetes/helpers/warning.sky", "warn")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled")
+load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "is_bin_packing_v1_enabled")
 load("config/kubernetes/helpers/math.sky", "round_float_up")
 
 def adjust_resources_for_sidecar():
@@ -154,48 +154,46 @@ def _maybe_clear_sidecar_resources(ctx, _, pod_def):
             container["limits"] = None
 
 def _maybe_add_overhead_for_kata(ctx, _, pod_def):
-        if pod_def.get("shared_msp") != True:
-            return
+    if pod_def.get("shared_msp") != True:
+        return
 
-        if not is_bin_packing_enabled(ctx):
-            return
+    if not is_bin_packing_v1_enabled(ctx):
+        return
 
-        # Only clear the resources if the pod is right-sized.
-        if pod_def.get("resource", {}).get("metadata", {}).get("labels", {}).get("stripe.io/right-sized", "false") == "false":
-            return
+    # Only clear the resources if the pod is right-sized.
+    if pod_def.get("resource", {}).get("metadata", {}).get("labels", {}).get("stripe.io/right-sized", "false") == "false":
+        return
 
-        main_container = pod_def.get("main_container")
+    main_container = pod_def.get("main_container")
 
-        envoy_cpu_requests = None
-        for container in pod_def.get("containers"):
-            if container.get("name") == main_container["name"]:
-                continue
+    envoy_cpu_requests = None
+    for container in pod_def.get("containers"):
+        if container.get("name") == main_container["name"]:
+            continue
 
-            if container.get("name") == ENVOY_CONFIG_SRV_SIDECAR_NAME:
-                envoy_cpu_requests = container.get("requests", {}).get("cpu", None)
-                break
+        if container.get("name") == ENVOY_CONFIG_SRV_SIDECAR_NAME:
+            envoy_cpu_requests = container.get("requests", {}).get("cpu", None)
+            break
 
+    # extract the existing cpu setting or container_resource_spec from the main container
+    container_resources = main_container.get("container_resource_spec")
 
-        # extract the existing cpu setting or container_resource_spec from the main container
-        container_resources = main_container.get("container_resource_spec")
+    if container_resources != None and container_resources["limits"].get("cpu") != None:
+        # Round the CPU limit up to the nearest whole core and then subtract the envoy requests from the main container
+        # requests, so we can maintain the requests on that sidecar, but still ensure that we enforce requests = limits
+        _add_kata_cpu_overhead(container_resources, envoy_cpu_requests)
 
-        if container_resources != None and container_resources["limits"].get("cpu") != None:
+        # Add 450MiB overhead to the main container limit, to account for the Kata MicroVM overhead.
+        if "memory" in container_resources["limits"]:
+            container_resources["requests"]["memory"] = container_resources["limits"]["memory"]
+    else:
+        # Round the CPU limit up to the nearest whole core and then subtract the envoy requests from the main container
+        # requests, so we can maintain the requests on that sidecar, but still ensure that we enforce requests = limits
+        _add_kata_cpu_overhead(main_container, envoy_cpu_requests)
 
-            # Round the CPU limit up to the nearest whole core and then subtract the envoy requests from the main container
-            # requests, so we can maintain the requests on that sidecar, but still ensure that we enforce requests = limits
-            _add_kata_cpu_overhead(container_resources, envoy_cpu_requests)
-
-            # Add 450MiB overhead to the main container limit, to account for the Kata MicroVM overhead.
-            if "memory" in container_resources["limits"]:
-                container_resources["requests"]["memory"] = container_resources["limits"]["memory"]
-        else:
-            # Round the CPU limit up to the nearest whole core and then subtract the envoy requests from the main container
-            # requests, so we can maintain the requests on that sidecar, but still ensure that we enforce requests = limits
-            _add_kata_cpu_overhead(main_container, envoy_cpu_requests)
-
-            # Add 450MiB overhead to the main container limit, to account for the Kata MicroVM overhead.
-            if "memory" in main_container["limits"]:
-                main_container["requests"]["memory"] = main_container["limits"]["memory"]
+        # Add 450MiB overhead to the main container limit, to account for the Kata MicroVM overhead.
+        if "memory" in main_container["limits"]:
+            main_container["requests"]["memory"] = main_container["limits"]["memory"]
 
 def _add_kata_cpu_overhead(container_val, envoy_cpu_requests):
     if "cpu" not in container_val["limits"]:
@@ -214,5 +212,6 @@ def _parse_millicores_from_cores(cores):
         cores_str = cores.string
     else:
         cores_str = cores
+
     # cores quantity is 1/1000 of a millicore
     return int(float(cores_str) * 1000)

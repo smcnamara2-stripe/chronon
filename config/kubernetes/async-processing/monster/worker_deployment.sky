@@ -6,7 +6,7 @@ load("config/kubernetes/async-processing/monster/util.sky", "format_isolation_gr
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/entrypoints.sky", "deployment")
 load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A200", "A300", "A400")
-load("config/kubernetes/helpers/context.sky", "get_cluster", "get_env", "get_availability_tier")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_cluster", "get_env")
 load("config/kubernetes/helpers/dynamic.sky", "dynamic_replicas")
 load("config/kubernetes/helpers/failure_threshold.sky", "failure_threshold")
 load("config/kubernetes/helpers/images.sky", "image")
@@ -15,17 +15,18 @@ load("config/kubernetes/helpers/msp_shard.sky", "autoset_shard")
 load("config/kubernetes/helpers/node_selectors.sky", "host_set")
 load("config/kubernetes/helpers/security.sky", "add_security_groups")
 load("config/kubernetes/meta/metadata.sky", "labels")
-load("config/kubernetes/networking/public/config.sky", "networking_config", "global_ratelimit")
-load("config/kubernetes/pay-server.sky", "default_pay_server_image", "pay_server_pod", "einhorn_service")
+load("config/kubernetes/networking/public/config.sky", "global_ratelimit", "networking_config")
+load("config/kubernetes/pay-server.sky", "default_pay_server_image", "einhorn_service", "pay_server_pod")
 load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
 load("config/kubernetes/sidecars/envoy_ratelimit.sky", "ratelimit_sidecar")
 load("config/kubernetes/sidecars/geoip.sky", "use_geoip_databases")
 load("config/kubernetes/sidecars/offload_profiles.sky", "use_offload_profiles")
+load("config/kubernetes/sidecars/memcontainer.sky", "memento_sidecar")
 load("config/kubernetes/sidecars/metrics.sky", "metrics_config")
 
 def enable_vnext_metrics(_ctx, config):
     ig = format_isolation_group(config.monster_isolation_group)
-    enabled_hostset = ig in ["webhooks","high-priority-webhooks"]
+    enabled_hostset = ig in ["webhooks", "high-priority-webhooks"]
     return enabled_hostset
 
 def generate_pod_name(prefix, monster_service, monster_isolation_group, suffix):
@@ -36,21 +37,21 @@ def generate_pod_name(prefix, monster_service, monster_isolation_group, suffix):
     return name
 
 def monster_deployment(ctx, config, port, suffix = ""):
-    return monster_deployment_shared_msp(ctx, config, port, suffix=suffix)
+    return monster_deployment_shared_msp(ctx, config, port, suffix = suffix)
 
 # Checks if the value is a struct, If it is a struct return the desried_count value, else simply returns the value
 def extract_replica_count(replicas):
     # if the replicas are specified as a structure that means we are using dynamic configuration need to extract the desired count and return that.
-    if type(replicas) == 'struct':
+    if type(replicas) == "struct":
         return replicas.desired
     return replicas
 
 def make_deployment_options_plugins(config):
     # If replicas are defined using dynamic configurations we will set those up using dynamic configs.
-    if type(config.replicas) == 'struct':
+    if type(config.replicas) == "struct":
         return [
             deployment_options(replicas = config.replicas.desired),
-            dynamic_replicas(config.replicas.desired, config.replicas.max, config.replicas.min)
+            dynamic_replicas(config.replicas.desired, config.replicas.max, config.replicas.min),
         ]
 
     # We limit how many previous revisions of ReplicaSet's we keep around to limit
@@ -77,7 +78,7 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
     formatted_isolation_group = config.monster_isolation_group.replace("_", "-")
     name = generate_pod_name("smsp", config.monster_service, formatted_isolation_group, suffix)
     env_vars = {
-        "MONSTER_IS_MSP": "1", # TODO(tonyyang): remove this and other pay-server usage
+        "MONSTER_IS_MSP": "1",  # TODO(tonyyang): remove this and other pay-server usage
         "MONSTER_SERVICE": config.monster_service,
         "MONSTER_ISOLATION_GROUP": config.monster_isolation_group,
         "MONSTER_DEPLOYMENT": name,
@@ -157,23 +158,23 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
         #
         # I personally find that these days 50% of applications run just fine with the default settings, and
         # another 50% benefit from a two times increase of minimum and maximum limits.
-        "RUBY_GC_MALLOC_LIMIT": "32000000", # 32MB
-        "RUBY_GC_MALLOC_LIMIT_MAX": "64000000", # 64 MB
+        "RUBY_GC_MALLOC_LIMIT": "32000000",  # 32MB
+        "RUBY_GC_MALLOC_LIMIT_MAX": "64000000",  # 64 MB
         # RUBY_GC_OLDMALLOC_LIMIT, RUBY_GC_OLDMALLOC_LIMIT_MAX, RUBY_GC_OLDMALLOC_LIMIT_GROWTH_FACTOR
         # Minimum and maximum malloc limits for the old generation, and the limit’s growth factor. The default
         # values are 16 MB minimum, 128 MB maximum, 1.2 growth factor.
         #
         # These are also candidates for tweaking. It’s a good idea to change them together with the limits for
         # new generation, and in the same manner.
-        "RUBY_GC_OLDMALLOC_LIMIT": "32000000", # 32MB
-        "RUBY_GC_OLDMALLOC_LIMIT_MAX": "256000000", # 256MB
+        "RUBY_GC_OLDMALLOC_LIMIT": "32000000",  # 32MB
+        "RUBY_GC_OLDMALLOC_LIMIT_MAX": "256000000",  # 256MB
     }
 
     groups_with_experimental_gc = [
         "general",
         "sigma",
         "model-ingestion",
-        "clearing"
+        "clearing",
     ]
     if config.monster_isolation_group in groups_with_experimental_gc:
         env_vars.update({
@@ -189,26 +190,23 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
             "RUBY_GC_HEAP_2_INIT_SLOTS": "4000000",
             "RUBY_GC_HEAP_3_INIT_SLOTS": "1000000",
             "RUBY_GC_HEAP_4_INIT_SLOTS": "100000",
-
         })
-
 
     env_vars.update(yjit_rollout_env_var(ctx, config.monster_isolation_group))
 
     env_vars.update(config.extra_env or [])
     if config.rate_limiter_namespace_override:
-        global_ratelimiter_config = global_ratelimit(enable=True, namespace_override=config.rate_limiter_namespace_override)
+        global_ratelimiter_config = global_ratelimit(enable = True, namespace_override = config.rate_limiter_namespace_override)
     else:
-        global_ratelimiter_config = global_ratelimit(enable=True)
+        global_ratelimiter_config = global_ratelimit(enable = True)
 
     return deployment(
         ctx,
-
         pay_server_pod(
             ctx,
             # Example for consuming workers: monster-smsp-workers-radar, maybe with "-canary"
             name = name,
-            image = image(ctx, artifact=config.image_artifact),
+            image = image(ctx, artifact = config.image_artifact),
             # Namespaces replace host types for service identity in Shared MSP
             namespace = "monsterworkersbox",
             command = ["/deploy/pay-server/current/{}".format(config.script)],
@@ -216,7 +214,6 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
             availability_tier = get_msp_availability_tier(config.monster_availability_tier),
             requires_consul = False,
         ),
-
         einhorn_service(
             ctx,
             name = generate_consul_name(formatted_isolation_group, config.monster_service),
@@ -252,13 +249,11 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
             # be ready before routing traffic to the container. This is an
             # attempt to avoid processing events on a container that is
             # experiencing very high CPU load during boot-up.
-            worker_availability_threshold = "0.95", # skycfg doesn't support floats
-
+            worker_availability_threshold = "0.95",  # skycfg doesn't support floats
             hack_kick_interval = config.hack_kick_interval,
             hack_kick_start_delay = config.hack_kick_start_delay,
             hack_kick_restart_only = config.hack_kick_restart_only,
         ),
-
         container_env_vars(env_vars),
 
         # Identify the deployment
@@ -269,29 +264,27 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
 
         # Required for Authz usage in monster consumers
         mount_ldap_host_volumes(),
-
         monster_secrets(),
-
         add_security_groups(
-          "monsterworkersbox",
-          "pay-server",
-          "s3_ap_cidrs",
-          "s3_us_cidrs",
+            "monsterworkersbox",
+            "pay-server",
+            "s3_ap_cidrs",
+            "s3_us_cidrs",
         ),
-
         failure_threshold(config.failure_threshold),
-
         networking_config(
             envoy_concurrency = 5,
-            global_ratelimit = global_ratelimiter_config
+            global_ratelimit = global_ratelimiter_config,
         ),
-
         use_offload_profiles(),
         autoset_shard(),
 
         # https://confluence.corp.stripe.com/display/DEPLOY/Config-srv+sidecar
         config_srv_sidecar(ctx),
-        metrics_config(enable_vnext_metrics=enable_vnext_metrics(ctx, config)),
+        metrics_config(enable_vnext_metrics = enable_vnext_metrics(ctx, config)),
+
+        # Make memcontainer available in monster
+        memento_sidecar(ctx),
 
         # add autoscaling if configured
         config.autoscaling_plugin,
@@ -299,12 +292,11 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
         # Wait 5 seconds after service starts before we begin health checks
         # This configuration catches failures when the service appears healthy briefly but begins crashlooping
         minReadySeconds = 5,
-
         shared_msp = True,
         strategy = config.strategy,
-        graviton_migration_enabled=config.graviton_migration_enabled,
-        graviton_migration_size=config.graviton_migration_size,
-        graviton_migration_target_6g=config.graviton_migration_target_6g,
-        replicas=extract_replica_count(config.replicas),
-        *make_deployment_options_plugins(config),
+        graviton_migration_enabled = config.graviton_migration_enabled,
+        graviton_migration_size = config.graviton_migration_size,
+        graviton_migration_target_6g = config.graviton_migration_target_6g,
+        replicas = extract_replica_count(config.replicas),
+        *make_deployment_options_plugins(config)
     )

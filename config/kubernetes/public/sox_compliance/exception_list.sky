@@ -18,7 +18,7 @@ _CRONS = [
     {
         # Job computes internal data, only to be used in internal contexts
         "name": "data-quality--generate-product-ops-review-slide",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # "cronjob-disabling-test-job" is a MSP cron which does not handle any financial data
@@ -67,705 +67,705 @@ _CRONS = [
     },
     {
         "name": "ae-detection-reliability-metric-exfiltration",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ae-detection-reliability-metric-osx",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ae-detection-reliability-metric-servers",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ae-generate-detection-reliability-metric-hubble",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ae-misp-intel-production",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ae-misp-sync",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ae-simulation-technique-metrics",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ae-util-prune-aiq-assessment",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-abnormal-s3-get-object-volume",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-anon-access-s3-bucket-mgmt-event",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-anonymous-access-non-public-s3-bucket",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-auth-failure-console",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-brute-force-errors",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-cli-non-bastion-ec2",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-cloudtrail-disabled",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-iam-creation-non-bastion",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-instance-cred-non-host",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-network-discovery",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-open-security-group",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-permissions-discovery",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-public-stripe-ami",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-root-account-mfa-changed",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-root-login",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-s3-acl-bucket-mod",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-s3-bucket-policy-deletion",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-s3-bucket-policy-mod",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-s3-exfil-copy-object",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-s3-exfil-upload-copy-object",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-s3-public-access-block-mod",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-shared-snapshot-ext",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "aws-valid-accounts",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "censys-query-engine",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "con-mon-v2",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "correlation-rule-model-user-level",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "correlation-rule-model-user-level-retraining",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "crowdstrike-query-engine-iocs",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "crowdstrike-query-engine-pdfs",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "curl-to-interpreter",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "disable-gatekeeper-cmdline",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "disable-sip",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "dns-punycode-phishing",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "dropbox-http-upload",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "er-relaxed-anxious-material-analysis",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "external-drive-sharing",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "external-email-forwarding-rule",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "historic-threat-intel-feed-dns-high",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "historic-threat-intel-feed-dns-medium",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "hubble-anomalous-csv-download",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "itd-daily-access-risk-score-v001",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "itd-daily-access-risk-score-v002",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "itd-threatsignal-daily-report-v2",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "itd-weekly-access-risk-score-training-v001",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "itd-weekly-access-risk-score-training-v002",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "jupiterone-daily-pull",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "ofac-vpn-usage",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "osquery-osx-cpu-daily-report",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "osquery-osx-denylist-daily-report",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "qatesting-threatclients",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "salesforce-ingest-hourly-run",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "servers-uptycs-vt",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "shadow-infra-material-conf-email",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "shared-msp-login",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "shodan-route53-sync",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "stripe-specific-dns-threat-intel",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "suspicious-mounts",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "suspicious-scp",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "telegram-desktop-repeat-usage",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "telegram-desktop-usage",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "thehive-cases-weekly-report",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "thehive-es-dump-srv",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "thehive-four-dump",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "threatsignal-daily-report",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "threatsignal-daily-report-v2",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "uptycs-alert-delay-metrics",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "uptycs-disabled",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "vt-query-engine",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "yoyo-offboard-failures",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     {
         "name": "threat-intel-snapshot",
-        "namespace": "threatpapermillbox"
+        "namespace": "threatpapermillbox",
     },
     # hadoop-*-decom-hosts-fetcher does not interact with any financial data. It only grabs the status of Hadoop datanodes.
     {
-		"name": "hadoop-apricot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-blueberry-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-concord-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-indigo-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-plum-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-pluot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-qos-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-sapphire-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-bomsnapshot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-snapshot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-spot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-strawberry-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-test-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-foley-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-currant-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodepri"
-	},
-	{
-		"name": "hadoop-apricot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-blueberry-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-concord-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-indigo-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-plum-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-pluot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-qos-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-sapphire-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-bomsnapshot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-snapshot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-spot-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-strawberry-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-test-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-foley-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-currant-decom-hosts-fetcher",
-		"namespace": "hadoopnamenodesec"
-	},
-	{
-		"name": "hadoop-apricot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-blueberry-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-concord-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-indigo-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-plum-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-pluot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-qos-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-sapphire-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-bomsnapshot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-snapshot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-spot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-strawberry-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-test-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-foley-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-currant-decom-hosts-fetcher",
-		"namespace": "hadoopresourcepri"
-	},
-	{
-		"name": "hadoop-apricot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-blueberry-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-concord-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-indigo-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-plum-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-pluot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-qos-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-sapphire-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-bomsnapshot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-snapshot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-spot-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-strawberry-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-test-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-foley-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
-	{
-		"name": "hadoop-currant-decom-hosts-fetcher",
-		"namespace": "hadoopresourcesec"
-	},
+        "name": "hadoop-apricot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-blueberry-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-concord-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-indigo-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-plum-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-pluot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-qos-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-sapphire-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-bomsnapshot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-snapshot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-spot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-strawberry-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-test-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-foley-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-currant-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodepri",
+    },
+    {
+        "name": "hadoop-apricot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-blueberry-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-concord-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-indigo-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-plum-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-pluot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-qos-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-sapphire-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-bomsnapshot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-snapshot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-spot-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-strawberry-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-test-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-foley-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-currant-decom-hosts-fetcher",
+        "namespace": "hadoopnamenodesec",
+    },
+    {
+        "name": "hadoop-apricot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-blueberry-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-concord-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-indigo-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-plum-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-pluot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-qos-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-sapphire-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-bomsnapshot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-snapshot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-spot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-strawberry-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-test-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-foley-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-currant-decom-hosts-fetcher",
+        "namespace": "hadoopresourcepri",
+    },
+    {
+        "name": "hadoop-apricot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-blueberry-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-concord-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-indigo-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-plum-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-pluot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-qos-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-sapphire-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-bomsnapshot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-snapshot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-spot-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-strawberry-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-test-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-foley-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
+    {
+        "name": "hadoop-currant-decom-hosts-fetcher",
+        "namespace": "hadoopresourcesec",
+    },
     # hadoop*-capacity-agent does not interact with financial data. It fetches hadoop cluster scheduler config.
     {
-    "name": "hadoopresourcepri-apricot-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-apricot-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-apricot-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-apricot-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-blueberry-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-blueberry-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-blueberry-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-blueberry-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-blueberryarm64-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-blueberryarm64-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-blueberryarm64-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-blueberryarm64-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-concord-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-concord-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-concord-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-concord-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-currant-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-currant-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-currant-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-currant-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-foley-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-foley-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-foley-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-foley-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-indigo-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-indigo-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-indigo-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-indigo-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-mdmsnapshot-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-mdmsnapshot-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-mdmsnapshot-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-mdmsnapshot-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-plum-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-plum-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-plum-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-plum-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-qosarm64-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-qosarm64-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-qosarm64-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-qosarm64-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-snapshot-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-snapshot-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-snapshot-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-snapshot-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-strawberry-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-strawberry-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-strawberry-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-strawberry-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-strawberryarm64-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-strawberryarm64-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-strawberryarm64-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-strawberryarm64-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-test-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-test-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-test-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-test-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
-    "name": "hadoopresourcepri-testarm64-capacity-agent",
-    "namespace": "hadoopresourcepri"
+        "name": "hadoopresourcepri-testarm64-capacity-agent",
+        "namespace": "hadoopresourcepri",
     },
     {
-    "name": "hadoopresourcesec-testarm64-capacity-agent",
-    "namespace": "hadoopresourcesec"
+        "name": "hadoopresourcesec-testarm64-capacity-agent",
+        "namespace": "hadoopresourcesec",
     },
     {
         #dbricks-infra-monitor is an MSP cron which does not handle any financial data
         "name": "dbricks-infra-monitor",
-        "namespace": "dbrickscronbox"
+        "namespace": "dbrickscronbox",
     },
     # The following cronjobs only send emails to remind
     # users to update their KYC data on their accounts.
-	{
-		"name": "send-email-t42--asyncflow--in-orr--onboarding--opus",
-		"namespace": "kubeacronnoegress"
-	},
-	{
-		"name": "send-email-t35--asyncflow--in-orr--onboarding--opus",
-		"namespace": "kubeacronnoegress"
-	},
-	{
-		"name": "send-email-t21--asyncflow--in-orr--onboarding--opus",
-		"namespace": "kubeacronnoegress"
-	},
-	{
-		"name": "send-email-t14--asyncflow--in-orr--onboarding--opus",
-		"namespace": "kubeacronnoegress"
-	},
-	{
-		"name": "send-email-t7--asyncflow--in-orr--onboarding--opus",
-		"namespace": "kubeacronnoegress"
-	},
+    {
+        "name": "send-email-t42--asyncflow--in-orr--onboarding--opus",
+        "namespace": "kubeacronnoegress",
+    },
+    {
+        "name": "send-email-t35--asyncflow--in-orr--onboarding--opus",
+        "namespace": "kubeacronnoegress",
+    },
+    {
+        "name": "send-email-t21--asyncflow--in-orr--onboarding--opus",
+        "namespace": "kubeacronnoegress",
+    },
+    {
+        "name": "send-email-t14--asyncflow--in-orr--onboarding--opus",
+        "namespace": "kubeacronnoegress",
+    },
+    {
+        "name": "send-email-t7--asyncflow--in-orr--onboarding--opus",
+        "namespace": "kubeacronnoegress",
+    },
     {
         # this job creates snapshots of emails with sample data and send it to a vendor for translation
         # it does not handle any financial data
@@ -790,96 +790,96 @@ _CRONS = [
     },
     {
         "name": "gtm-ui-automation-p2-opportunity-sales",
-        "namespace": "gtmspeuibox"
+        "namespace": "gtmspeuibox",
     },
     {
         "name": "gtm-ui-automation-p1-opportunity",
-        "namespace": "gtmspeuibox"
+        "namespace": "gtmspeuibox",
     },
-        # creates Jira RUN tickets linking to new Confluence Questions and does not handle any financial data
+    # creates Jira RUN tickets linking to new Confluence Questions and does not handle any financial data
     {
         "name": "batcom--create-confluence-question-run-tickets",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         "name": "dataorch--create-confluence-question-run-tickets",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # bcp-kick-off-subscription-deletion-migration Kicks off another migration to delete testmode subscriptions
         # it does not handle financial data
         "name": "bcp-kick-off-subscription-deletion-migration",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # sync-ghe-trailhead-docs-to-mongo syncs internal documentation content from GitHub and
         # does not handle financial data
         "name": "sync-ghe-trailhead-docs-to-mongo",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-trailhead-docs indexes Trailhead docs for Home search and does not
         # handle financial data
         "name": "home-search-reindex-trailhead-docs",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # trailhead-notifier sends Slack notifications and makes Jira tickets
         # for Trailhead purposes; it does not handle financial data
         "name": "trailhead-notifier",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # send-light-notifications is a cron job to send emails to Express users about account requirements
         "name": "connect-account-experience--send-light-notifications",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # Cron job owned by Search team. Updates Elasticsearch mappings (database schema), does not handle financial data
         "name": "update-dashboard-mappings",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # cron job to verify merchant logo is updated in s3, does not touch financial data
         "name": "verify-merchant-logo-update",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # cron job that is used to manage stale deployments in MSP, does not touch financial or customer data
         "name": "msp-deployment-checker-finder",
-        "namespace": "kubemonitoring"
+        "namespace": "kubemonitoring",
     },
     {
         # cron job that is used to manage stale deployments in MSP, does not touch financial or customer data
         "name": "msp-deployment-checker-creator",
-        "namespace": "kubemonitoring"
+        "namespace": "kubemonitoring",
     },
     {
         # cron job to analyze pay-server source code and update modularity metrics. It does not touch financial or customer data.
         "name": "v1-platform--modularization-metrics",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # cron job to analyze pay-server source code and update sail usage metrics. It does not touch financial or customer data.
         "name": "webapp-platform--sail-metrics",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # cron job that automatically detaches a payment instrument from a payment intent when it is stuck in processing
         # It does not touch financial or customer data.
         "name": "card-payment-intents-stuck-in-processing",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # cron job that initiates revshare transfers to partners
         # It does not touch financial or customer data.
         "name": "onramp-calculate-and-initiate-revshare--monthly",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # internal MSP cronjob which does not touch financial or customer data
         "name": "msp-dataland-aurora-prune",
-        "namespace": "mspdatalandcronbox"
+        "namespace": "mspdatalandcronbox",
     },
     {
         # cronjob that monitors website uptime. Cronjob does not touch financial or customer data.
@@ -889,436 +889,435 @@ _CRONS = [
     {
         # archive-stale-golinks does not handle any financial data
         "name": "archive-stale-golinks",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # askbot-sync-canned-responses-from-sheet does not handle any financial data
         "name": "askbot-sync-canned-responses-from-sheet",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # askbot-sync-doc-requests-from-sheet does not handle any financial data
         "name": "askbot-sync-doc-requests-from-sheet",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # askbot-sync-reacji-from-sheet does not handle any financial data
         "name": "askbot-sync-reacji-from-sheet",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # askbot-sync-slack-channels does not handle any financial data
         "name": "askbot-sync-slack-channels",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # askbot-sync-slack-emoji does not handle any financial data
         "name": "askbot-sync-slack-emoji",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # askbot-sync-slack-users does not handle any financial data
         "name": "askbot-sync-slack-users",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # askbot-sync-welcome-messages-from-sheet does not handle any financial data
         "name": "askbot-sync-welcome-messages-from-sheet",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # collaboration-pagerduty-slack-sync does not handle any financial data
         "name": "collaboration-pagerduty-slack-sync",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # compass-projects-pageviews-aggregate does not handle any financial data
         "name": "compass-projects-pageviews-aggregate",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
 
     # Cron jobs from collaboration.sky
     {
         # home-check-ownership-references does not handle any financial data
         "name": "home-check-ownership-references",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-compute-stripe-employee-count does not handle any financial data
         "name": "home-compute-stripe-employee-count",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-deprecate-old-teams does not handle any financial data
         "name": "home-deprecate-old-teams",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-notify-teams-about-team-username does not handle any financial data
         "name": "home-notify-teams-about-team-username",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-nudge-teams-to-edit-org-info does not handle any financial data
         "name": "home-nudge-teams-to-edit-org-info",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-pageviews-aggregate-1day does not handle any financial data
         "name": "home-pageviews-aggregate-1day",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-pageviews-aggregate-28day does not handle any financial data
         "name": "home-pageviews-aggregate-28day",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-pageviews-aggregate-7days does not handle any financial data
         "name": "home-pageviews-aggregate-7days",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-reassign-stale-ownership-issues does not handle any financial data
         "name": "home-reassign-stale-ownership-issues",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-reindex-email-lists does not handle any financial data
         "name": "home-reindex-email-lists",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-save-daily-reference-search-scores does not handle any financial data
         "name": "home-save-daily-reference-search-scores",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-build-search-session-logs does not handle any financial data
         "name": "home-search-build-search-session-logs",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-clean-up-unused-indices does not handle any financial data
         "name": "home-search-clean-up-unused-indices",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-collect-daily-click-counts does not handle any financial data
         "name": "home-search-collect-daily-click-counts",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-collect-link-counts does not handle any financial data
         "name": "home-search-collect-link-counts",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-index-latest-confluence-pages does not handle any financial data
         "name": "home-search-index-latest-confluence-pages",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-admin-apps does not handle any financial data
         "name": "home-search-reindex-admin-apps",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-api-methods does not handle any financial data
         "name": "home-search-reindex-api-methods",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-chalk-models does not handle any financial data
         "name": "home-search-reindex-chalk-models",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-communities does not handle any financial data
         "name": "home-search-reindex-communities",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-compass does not handle any financial data
         "name": "home-search-reindex-compass",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-confluence-blogs does not handle any financial data
         "name": "home-search-reindex-confluence-blogs",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-confluence-pages does not handle any financial data
         "name": "home-search-reindex-confluence-pages",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-confluence-questions does not handle any financial data
         "name": "home-search-reindex-confluence-questions",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-decision does not handle any financial data
         "name": "home-search-reindex-decision",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-definitions does not handle any financial data
         "name": "home-search-reindex-definitions",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-golinks does not handle any financial data
         "name": "home-search-reindex-golinks",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-google-drive does not handle any financial data
         "name": "home-search-reindex-google-drive",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-home-shipped-emails does not handle any financial data
         "name": "home-search-reindex-home-shipped-emails",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-host-types does not handle any financial data
         "name": "home-search-reindex-host-types",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-incidents does not handle any financial data
         "name": "home-search-reindex-incidents",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-job-post does not handle any financial data
         "name": "home-search-reindex-job-post",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-launch-cal-project does not handle any financial data
         "name": "home-search-reindex-launch-cal-project",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-legacy-home-projects does not handle any financial data
         "name": "home-search-reindex-legacy-home-projects",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-legos does not handle any financial data
         "name": "home-search-reindex-legos",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-network does not handle any financial data
         "name": "home-search-reindex-network",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-offices does not handle any financial data
         "name": "home-search-reindex-offices",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-people-support-docs does not handle any financial data
         "name": "home-search-reindex-people-support-docs",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-people does not handle any financial data
         "name": "home-search-reindex-people",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-product-feedback-jira does not handle any financial data
         "name": "home-search-reindex-product-feedback-jira",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-sail does not handle any financial data
         "name": "home-search-reindex-sail",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-saved-scenario does not handle any financial data
         "name": "home-search-reindex-saved-scenario",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-services does not handle any financial data
         "name": "home-search-reindex-services",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-slack-channels does not handle any financial data
         "name": "home-search-reindex-slack-channels",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-slack-emoji does not handle any financial data
         "name": "home-search-reindex-slack-emoji",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-sokrs does not handle any financial data
         "name": "home-search-reindex-sokrs",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-sorbet does not handle any financial data
         "name": "home-search-reindex-sorbet",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-stripe-docs does not handle any financial data
         "name": "home-search-reindex-stripe-docs",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-stripe-rewards does not handle any financial data
         "name": "home-search-reindex-stripe-rewards",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-support-articles does not handle any financial data
         "name": "home-search-reindex-support-articles",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-search-reindex-teams does not handle any financial data
         "name": "home-search-reindex-teams",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-send-matchmaker-notifications does not handle any financial data
         "name": "home-send-matchmaker-notifications",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-send-new-email-list-notifications does not handle any financial data
         "name": "home-send-new-email-list-notifications",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-automated-google-lists does not handle any financial data
         "name": "home-sync-automated-google-lists",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-automated-slack-channels does not handle any financial data
         "name": "home-sync-automated-slack-channels",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-email-lists-activity does not handle any financial data
         "name": "home-sync-email-lists-activity",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-email-lists-all does not handle any financial data
         "name": "home-sync-email-lists-all",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-google-calendar-events does not handle any financial data
         "name": "home-sync-google-calendar-events",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-jira-components does not handle any financial data
         "name": "home-sync-jira-components",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-workday-calendar--qa does not handle any financial data
         "name": "home-sync-workday-calendar--qa",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-workday-calendar does not handle any financial data
         "name": "home-sync-workday-calendar",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-workday-new-hires does not handle any financial data
         "name": "home-sync-workday-new-hires",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-workday-people--qa does not handle any financial data
         "name": "home-sync-workday-people--qa",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-workday-self-review-status--qa does not handle any financial data
         "name": "home-sync-workday-self-review-status--qa",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-sync-workday-self-review-status does not handle any financial data
         "name": "home-sync-workday-self-review-status",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-update-email-list-orders does not handle any financial data
         "name": "home-update-email-list-orders",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # home-update-team-pr-counts does not handle any financial data
         "name": "home-update-team-pr-counts",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     # End of cron jobs from collaboration.sky
     {
         # Job does not handle any financial data. It helps the Devbox Data pipeline replication from NW to CMH
         "name": "test-data-infra--devbox-data-cmh-replication-updater",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         "name": "idps--verification-intent-abandoned-redaction",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         "name": "idps--verification-intent-expiration-redaction",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         "name": "idps--verification-intent-biometrics-redaction",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         "name": "idps--identity-data-retention-reminder-email",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         "name": "idps--identity-bio-retention-reminder-email",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         "name": "idps--lexisnexis-phonefinder-retention",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     # Job that deletes old profiles from mongo, and does not handle any financial data
     {
         "name": "production-profiler-delete-old-profiles",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # growth--modules-i18n-push does not handle any financial data
         "name": "growth--modules-i18n-push",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
     {
         # growth--modules-i18n-pull does not handle any financial data
         "name": "growth--modules-i18n-pull",
-        "namespace": "kubeacronnoegress"
+        "namespace": "kubeacronnoegress",
     },
-
 ]
 
 #########################################################
@@ -1328,787 +1327,867 @@ _CRONS = [
 #########################################################
 _LEGACY_YAML_ENTRIES = [
     {
-      "name": "archive-slack-messages",
-      "sox_control": "disabled"
+        "name": "archive-slack-messages",
+        "sox_control": "disabled",
     },
     # atlas--query-registered-agent-status does not handle any financial data
     {
-      "name": "atlas--query-registered-agent-status",
-      "sox_control": "disabled"
+        "name": "atlas--query-registered-agent-status",
+        "sox_control": "disabled",
     },
     {
-      "name": "atlas--unsubscribe-registered-agents",
-      "sox_control": "disabled"
+        "name": "atlas--unsubscribe-registered-agents",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-evolve-ach-closed-loop",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-evolve-ach-closed-loop",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-financial-account",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-financial-account",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-iccl-evolve-payout",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-iccl-evolve-payout",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-iccl-evolve-spend",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-iccl-evolve-spend",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-iccl-gs-spend",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-iccl-gs-spend",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-instant-transfers",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-instant-transfers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-orig-transfers",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-orig-transfers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-rec-transfer-achs",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-rec-transfer-achs",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--create-rec-transfer-wires",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--create-rec-transfer-wires",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--verify-evolve-gs-ach-closed-loop",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--verify-evolve-gs-ach-closed-loop",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--verify-financial-account",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--verify-financial-account",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--verify-instant-transfers",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--verify-instant-transfers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--verify-issuing-card-closed-loop",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--verify-issuing-card-closed-loop",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--verify-orig-transfers",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--verify-orig-transfers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--canary-tests--verify-rec-transfers",
-      "sox_control": "disabled"
+        "name": "banking--canary-tests--verify-rec-transfers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--check-deposit-clearing",
-      "sox_control": "disabled"
+        "name": "banking--check-deposit-clearing",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--confirm-book-transfers",
-      "sox_control": "disabled"
+        "name": "banking--confirm-book-transfers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--evolve-reverse-top-up-negative-balances",
-      "sox_control": "disabled"
+        "name": "banking--evolve-reverse-top-up-negative-balances",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--evolve-top-up-negative-balances",
-      "sox_control": "disabled"
+        "name": "banking--evolve-top-up-negative-balances",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--evolve-verify-last-business-day-eod-balances-are-nonnegative",
-      "sox_control": "disabled"
+        "name": "banking--evolve-verify-last-business-day-eod-balances-are-nonnegative",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-account-closure-request-processor",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-account-closure-request-processor",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-cover-negative-balances",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-cover-negative-balances",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-entity-onboarding-request-processor",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-entity-onboarding-request-processor",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-entity-update-request-processor",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-entity-update-request-processor",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-send-updates",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-send-updates",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-virtual-account-onboarding-request-processor",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-virtual-account-onboarding-request-processor",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-virtual-account-update-request-processor",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-virtual-account-update-request-processor",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--partner-account-bank-migration-processor",
-      "sox_control": "disabled"
+        "name": "banking--partner-account-bank-migration-processor",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--post-inbound-ach-returns",
-      "sox_control": "disabled"
+        "name": "banking--post-inbound-ach-returns",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--seed-goldman-account-numbers",
-      "sox_control": "disabled"
+        "name": "banking--seed-goldman-account-numbers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--evolve-aggregate-negative-balance-by-time",
-      "sox_control": "disabled"
+        "name": "banking--evolve-aggregate-negative-balance-by-time",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--evolve-verify-last-business-day-eod-balances-are-nonnegative",
-      "sox_control": "disabled"
+        "name": "banking--evolve-verify-last-business-day-eod-balances-are-nonnegative",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--goldman-sachs-get-notifications",
-      "sox_control": "disabled"
+        "name": "banking--goldman-sachs-get-notifications",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--preprod-seed-goldman-fake-account-numbers",
-      "sox_control": "disabled"
+        "name": "banking--preprod-seed-goldman-fake-account-numbers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--seed-goldman-fake-account-numbers",
-      "sox_control": "disabled"
+        "name": "banking--seed-goldman-fake-account-numbers",
+        "sox_control": "disabled",
     },
     {
-      "name": "banking--upload-w9-forms",
-      "sox_control": "disabled"
-    },
-    # Connections is an out of scope product for SOX
-    {
-      "name": "connections--run-ping-finicity",
-      "sox_control": "disabled"
+        "name": "banking--upload-w9-forms",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-ping-mx",
-      "sox_control": "disabled"
+        "name": "connections--run-ping-finicity",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-ping-wells-fargo",
-      "sox_control": "disabled"
+        "name": "connections--run-ping-mx",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--prune-http-requests",
-      "sox_control": "disabled"
+        "name": "connections--run-ping-wells-fargo",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--prune-http-responses",
-      "sox_control": "disabled"
+        "name": "connections--prune-http-requests",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--purge-finicity-testing-customers",
-      "sox_control": "disabled"
+        "name": "connections--prune-http-responses",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--refresh-all-finicity-institutions",
-      "sox_control": "disabled"
+        "name": "connections--purge-finicity-testing-customers",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--refresh-all-mx-institutions",
-      "sox_control": "disabled"
+        "name": "connections--refresh-all-finicity-institutions",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--refresh-direct-auth-tokens",
-      "sox_control": "disabled"
+        "name": "connections--refresh-all-mx-institutions",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-compute-availability-snapshots",
-      "sox_control": "disabled"
+        "name": "connections--refresh-direct-auth-tokens",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-recover-degraded-features",
-      "sox_control": "disabled"
+        "name": "connections--run-compute-availability-snapshots",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-recover-unavailable-features",
-      "sox_control": "disabled"
+        "name": "connections--run-recover-degraded-features",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-update-partner-maintenance",
-      "sox_control": "disabled"
+        "name": "connections--run-recover-unavailable-features",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--map-or-promote-partner-institutions",
-      "sox_control": "disabled"
+        "name": "connections--run-update-partner-maintenance",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--mx-bulk-set-background-aggregation",
-      "sox_control": "disabled"
+        "name": "connections--map-or-promote-partner-institutions",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--refresh-institutions-for-search-cache",
-      "sox_control": "disabled"
+        "name": "connections--mx-bulk-set-background-aggregation",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-prune-old-availability-snapshots",
-      "sox_control": "disabled"
+        "name": "connections--refresh-institutions-for-search-cache",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-prune-old-stats-snapshots",
-      "sox_control": "disabled"
+        "name": "connections--run-prune-old-availability-snapshots",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-refresh-all-finicity-institution-certifications",
-      "sox_control": "disabled"
+        "name": "connections--run-prune-old-stats-snapshots",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-refresh-all-finicity-registration-statuses",
-      "sox_control": "disabled"
+        "name": "connections--run-refresh-all-finicity-institution-certifications",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-refresh-all-mx-registration-statuses",
-      "sox_control": "disabled"
+        "name": "connections--run-refresh-all-finicity-registration-statuses",
+        "sox_control": "disabled",
     },
     # Connections is an out of scope product for SOX
     {
-      "name": "connections--run-refresh-auth-party-name-cache",
-      "sox_control": "disabled"
+        "name": "connections--run-refresh-all-mx-registration-statuses",
+        "sox_control": "disabled",
+    },
+    # Connections is an out of scope product for SOX
+    {
+        "name": "connections--run-refresh-auth-party-name-cache",
+        "sox_control": "disabled",
     },
     {
-      "name": "con-mon-v2",
-      "sox_control": "disabled"
+        "name": "con-mon-v2",
+        "sox_control": "disabled",
     },
     # create-jira-tickets-from-csp-violations does not handle any financial data, just files tickets
     # based on CSP reports coming from browsers
     {
-      "name": "create-jira-tickets-from-csp-violations",
-      "sox_control": "disabled"
+        "name": "create-jira-tickets-from-csp-violations",
+        "sox_control": "disabled",
     },
     # devbox-data does not handle any financial data
     {
-      "name": "devbox-data-input",
-      "sox_control": "disabled"
+        "name": "devbox-data-input",
+        "sox_control": "disabled",
     },
     # docs open graph images are not in scope for SOX controls
     {
-      "name": "docs-product--ogimage",
-      "sox_control": "disabled"
+        "name": "docs-product--ogimage",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "global-apac--india-check-daily-settlements",
-      "sox_control": "disabled"
+        "name": "global-apac--india-check-daily-settlements",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "global-apac--india-sihub-bin-list-update",
-      "sox_control": "disabled"
+        "name": "global-apac--india-sihub-bin-list-update",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "global-apac--india-sihub-process-validations",
-      "sox_control": "disabled"
+        "name": "global-apac--india-sihub-process-validations",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "global-apac--india-update-routing-list",
-      "sox_control": "disabled"
+        "name": "global-apac--india-update-routing-list",
+        "sox_control": "disabled",
     },
     # guru-analytics-sync does not handle any financial data
     {
-      "name": "guru-analytics-sync",
-      "sox_control": "disabled"
+        "name": "guru-analytics-sync",
+        "sox_control": "disabled",
     },
     # guru-sync does not handle any financial data
     {
-      "name": "guru-sync",
-      "sox_control": "disabled"
+        "name": "guru-sync",
+        "sox_control": "disabled",
     },
     # i18n--automated-create-task does not handle any financial data
     {
-      "name": "i18n--automated-create-task",
-      "sox_control": "disabled"
+        "name": "i18n--automated-create-task",
+        "sox_control": "disabled",
     },
     # i18n--lokalise-pull-to-s3 does not handle any financial data
     {
-      "name": "i18n--lokalise-pull-to-s3",
-      "sox_control": "disabled"
+        "name": "i18n--lokalise-pull-to-s3",
+        "sox_control": "disabled",
     },
     # i18n--incremental-push.yaml does not handle any financial data
     {
-      "name": "i18n--incremental-push.yaml",
-      "sox_control": "disabled"
+        "name": "i18n--incremental-push.yaml",
+        "sox_control": "disabled",
     },
     # i18n--locale-config-check does not handle any financial data
     {
-      "name": "i18n--locale-config-check",
-      "sox_control": "disabled"
+        "name": "i18n--locale-config-check",
+        "sox_control": "disabled",
     },
     # i18n--email-lqa-runner does not handle any financial data
     {
-      "name": "i18n--email-lqa-runner",
-      "sox_control": "disabled"
+        "name": "i18n--email-lqa-runner",
+        "sox_control": "disabled",
     },
     # liquidate-zero-amount-urs does not handle any financial data
     {
-      "name": "liquidate-zero-amount-urs",
-      "sox_control": "disabled"
+        "name": "liquidate-zero-amount-urs",
+        "sox_control": "disabled",
     },
     # https://jira.corp.stripe.com/browse/RUN_BAASBANKS-4105
     {
-      "name": "ops--creator--evolve-encrypted-updated-accounts-ledger-report",
-      "sox_control": "disabled"
+        "name": "ops--creator--evolve-encrypted-updated-accounts-ledger-report",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--creator--meta-apac-bin-list",
-      "sox_control": "disabled"
+        "name": "ops--creator--meta-apac-bin-list",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--creator--rbl--clearing-transaction-detail-report",
-      "sox_control": "disabled"
+        "name": "ops--creator--rbl--clearing-transaction-detail-report",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--creator--rbl--dispute-event-report",
-      "sox_control": "disabled"
+        "name": "ops--creator--rbl--dispute-event-report",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--creator--rbl-export--clearing-transaction-detail-report",
-      "sox_control": "disabled"
+        "name": "ops--creator--rbl-export--clearing-transaction-detail-report",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--creator--rbl-export--dispute-event-report",
-      "sox_control": "disabled"
+        "name": "ops--creator--rbl-export--dispute-event-report",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--creator--standard-chartered-domestic--daily-transaction-summary-report",
-      "sox_control": "disabled"
-    },
-      # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
-    {
-      "name": "ops--creator--standard-chartered-exports--debits-breakdown-purpose-code-report",
-      "sox_control": "disabled"
+        "name": "ops--creator--standard-chartered-domestic--daily-transaction-summary-report",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--creator--standard-chartered-exports--merchant-onboarding-report",
-      "sox_control": "disabled"
+        "name": "ops--creator--standard-chartered-exports--debits-breakdown-purpose-code-report",
+        "sox_control": "disabled",
     },
     # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
     {
-      "name": "ops--poster--rbl-india-submission",
-      "sox_control": "disabled"
+        "name": "ops--creator--standard-chartered-exports--merchant-onboarding-report",
+        "sox_control": "disabled",
+    },
+    # all cron jobs owned by APAC India are out of scope for SOX control: https://jira.corp.stripe.com/browse/RUN_APAC_MOMO-2611
+    {
+        "name": "ops--poster--rbl-india-submission",
+        "sox_control": "disabled",
     },
     # this cron downloads model annotations to make them available in privacy-srv. It does not touch financial data, just model metadata
     {
-      "name": "privacy-eng--update-annotations",
-      "sox_control": "disabled"
+        "name": "privacy-eng--update-annotations",
+        "sox_control": "disabled",
     },
     # qa-enabled-financial-data-false cron does not exist and is used for UTs.
     {
-      "name": "qa-enabled-financial-data-false",
-      "sox_control": "disabled"
+        "name": "qa-enabled-financial-data-false",
+        "sox_control": "disabled",
     },
     # reindex-support-site does not handle any financial data
     {
-      "name": "reindex-support-site",
-      "sox_control": "disabled"
+        "name": "reindex-support-site",
+        "sox_control": "disabled",
     },
     # amex chargeback rating generator is a 7 year old cron that is not part of any reporting and out of scope for SOX control
     {
-      "name": "risk--cron-amex-chargeback-rating-generator",
-      "sox_control": "disabled"
+        "name": "risk--cron-amex-chargeback-rating-generator",
+        "sox_control": "disabled",
     },
     # this job only backs data in the RDP user-facing dataset, which is not used for Stripe's financial reporting and has no precedent of being within ICP scope.
     {
-      "name": "sigma--hydrate-oversized-invoices",
-      "sox_control": "disabled"
+        "name": "sigma--hydrate-oversized-invoices",
+        "sox_control": "disabled",
     },
     {
-      "name": "ofac-vpn-usage",
-      "sox_control": "disabled"
+        "name": "ofac-vpn-usage",
+        "sox_control": "disabled",
     },
     # this job fetches a holiday calendar, and does not handle any financial data
     {
-      "name": "ops--explorer--copp-clark",
-      "sox_control": "disabled"
+        "name": "ops--explorer--copp-clark",
+        "sox_control": "disabled",
     },
     # this job fetches Canadian routing information for validation and does not handle any financial data
     {
-      "name": "ops--explorer--routing--ca",
-      "sox_control": "disabled"
+        "name": "ops--explorer--routing--ca",
+        "sox_control": "disabled",
     },
     # orchestration-cluster-test cron is a MSP cron used for testing only and does not hold any financial data.
     {
-      "name": "orchestration-cluster-test",
-      "sox_control": "disabled"
+        "name": "orchestration-cluster-test",
+        "sox_control": "disabled",
     },
     # orchestration-cronops-placeholder cron is a MSP cron used as a placeholder and does not hold any financial data.
     {
-      "name": "orchestration-cronops-placeholder",
-      "sox_control": "disabled"
+        "name": "orchestration-cronops-placeholder",
+        "sox_control": "disabled",
     },
     # orchestration-test-kube-heartbeat cron is a MSP cron used as a heartbeat cron and does not hold any financial data.
     {
-      "name": "orchestration-test-kube-heartbeat",
-      "sox_control": "disabled"
+        "name": "orchestration-test-kube-heartbeat",
+        "sox_control": "disabled",
     },
     # ruby infra cronjobs for updating metadata about source code and code quality. Does not interact with financial data
     {
-      "name": "ruby-infra--pkg-dependencies-graph",
-      "sox_control": "disabled"
+        "name": "ruby-infra--pkg-dependencies-graph",
+        "sox_control": "disabled",
     },
     {
-      "name": "ruby-infra--pkg-dependencies-sync-all-packages-dr-depper",
-      "sox_control": "disabled"
+        "name": "ruby-infra--pkg-dependencies-sync-all-packages-dr-depper",
+        "sox_control": "disabled",
     },
     {
-      "name": "ruby-infra--pkg-dependencies-sync",
-      "sox_control": "disabled"
+        "name": "ruby-infra--pkg-dependencies-sync",
+        "sox_control": "disabled",
     },
     {
-      "name": "ruby-infra--regenerate-todos",
-      "sox_control": "disabled"
+        "name": "ruby-infra--regenerate-todos",
+        "sox_control": "disabled",
     },
     {
-      "name": "ruby-infra--save-badges-season",
-      "sox_control": "disabled"
+        "name": "ruby-infra--save-badges-season",
+        "sox_control": "disabled",
     },
     {
-      "name": "ruby-infra--update-leaderboard",
-      "sox_control": "disabled"
+        "name": "ruby-infra--update-leaderboard",
+        "sox_control": "disabled",
     },
     # Scheduled load test cron jobs
     {
-      "name": "run-accounts-ambient-cmh",
-      "sox_control": "disabled"
+        "name": "run-accounts-ambient-cmh",
+        "sox_control": "disabled",
     },
     {
-      "name": "run-forwarding-load-test",
-      "sox_control": "disabled"
+        "name": "run-forwarding-load-test",
+        "sox_control": "disabled",
     },
     {
-      "name": "run-regression-api-shard-split",
-      "sox_control": "disabled"
+        "name": "run-regression-api-shard-split",
+        "sox_control": "disabled",
     },
     {
-      "name": "run-regression-pi-shard-split",
-      "sox_control": "disabled"
+        "name": "run-regression-pi-shard-split",
+        "sox_control": "disabled",
     },
     {
-      "name": "run-regression-pi-shard-test",
-      "sox_control": "disabled"
+        "name": "run-regression-pi-shard-test",
+        "sox_control": "disabled",
     },
     # qa-enabled-financial-data-false cron does not exist and is used for UTs.
     {
-      "name": "qa-enabled-financial-data-false",
-      "sox_control": "disabled"
+        "name": "qa-enabled-financial-data-false",
+        "sox_control": "disabled",
     },
     # this job only backs data in the RDP user-facing dataset, which is not used for Stripe's financial reporting and has no precedent of being within ICP scope.
     {
-      "name": "sigma--hydrate-oversized-invoices",
-      "sox_control": "disabled"
+        "name": "sigma--hydrate-oversized-invoices",
+        "sox_control": "disabled",
     },
     # This enforces permissions in a google drive, it is not used for SOX control
     {
-      "name": "solbooks--validate-gsheet-permissions",
-      "sox_control": "disabled"
+        "name": "solbooks--validate-gsheet-permissions",
+        "sox_control": "disabled",
     },
     {
-      "name": "storage--generate-shard-map",
-      "sox_control": "disabled"
+        "name": "storage--generate-shard-map",
+        "sox_control": "disabled",
     },
     # this job only handles rate limits for user 2FA, it is not concerned with financial data
     {
-      "name": "user-auth-code-rate-limit-loader",
-      "sox_control": "disabled"
+        "name": "user-auth-code-rate-limit-loader",
+        "sox_control": "disabled",
     },
     # user-calendar-cache-* are used for pre-emptively caching stripe calendars on CIBot.
     # They hold no financial data and are simply used as a performance boost.
     {
-      "name": "user-calendar-cache-bom",
-      "sox_control": "disabled"
+        "name": "user-calendar-cache-bom",
+        "sox_control": "disabled",
     },
     {
-      "name": "user-calendar-cache-cmh",
-      "sox_control": "disabled"
+        "name": "user-calendar-cache-cmh",
+        "sox_control": "disabled",
     },
     {
-      "name": "user-calendar-cache-northwest",
-      "sox_control": "disabled"
+        "name": "user-calendar-cache-northwest",
+        "sox_control": "disabled",
     },
     # Is just a reminder for reviewer trainees, but is not in SOX scope
     {
-      "name": "reviewer-trainees-reminder",
-      "sox_control": "disabled"
+        "name": "reviewer-trainees-reminder",
+        "sox_control": "disabled",
     },
     # revprod-rev-rec-outreach-email is a cron job to send an outreach email to ask for feedback
     {
-      "name": "revprod-rev-rec-outreach-email",
-      "sox_control": "disabled"
+        "name": "revprod-rev-rec-outreach-email",
+        "sox_control": "disabled",
     },
     # Internal cron-jobs for search team affecting clusters outside of SOX scope
     {
-      "name": "search-infra--dashboard-search-drowzee-slow-tasks",
-      "sox_control": "disabled"
+        "name": "search-infra--dashboard-search-drowzee-slow-tasks",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--dashboard-search-restore-qa",
-      "sox_control": "disabled"
+        "name": "search-infra--dashboard-search-restore-qa",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--datahub-search-prod-slow-tasks",
-      "sox_control": "disabled"
+        "name": "search-infra--datahub-search-prod-slow-tasks",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--export-canonical-shard-sizes",
-      "sox_control": "disabled"
+        "name": "search-infra--export-canonical-shard-sizes",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--export-dashboard-shard-sizes",
-      "sox_control": "disabled"
+        "name": "search-infra--export-dashboard-shard-sizes",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--export-internal-shard-sizes",
-      "sox_control": "disabled"
+        "name": "search-infra--export-internal-shard-sizes",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--export-merchant-object-attribution",
-      "sox_control": "disabled"
+        "name": "search-infra--export-merchant-object-attribution",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--export-public-shard-sizes",
-      "sox_control": "disabled"
+        "name": "search-infra--export-public-shard-sizes",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--export-requestlog-shard-sizes",
-      "sox_control": "disabled"
+        "name": "search-infra--export-requestlog-shard-sizes",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--expunge-deletes-prod",
-      "sox_control": "disabled"
+        "name": "search-infra--expunge-deletes-prod",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--internal-search-slow-tasks-prod",
-      "sox_control": "disabled"
+        "name": "search-infra--internal-search-slow-tasks-prod",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--request-log-migrate-indices",
-      "sox_control": "disabled"
+        "name": "search-infra--request-log-migrate-indices",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--request-log-slow-tasks",
-      "sox_control": "disabled"
+        "name": "search-infra--request-log-slow-tasks",
+        "sox_control": "disabled",
     },
     {
-      "name": "search-infra--sweep-indices",
-      "sox_control": "disabled"
+        "name": "search-infra--sweep-indices",
+        "sox_control": "disabled",
     },
     {
-      "name": "update-search-ingest-sidecar",
-      "sox_control": "disabled"
+        "name": "update-search-ingest-sidecar",
+        "sox_control": "disabled",
     },
     # internal tool to sync translations with db
     {
-      "name": "i18n--upsert-db-from-tms",
-      "sox_control": "disabled"
+        "name": "i18n--upsert-db-from-tms",
+        "sox_control": "disabled",
     },
     {
-      "name": "security--safbot",
-      "sox_control": "disabled"
+        "name": "security--safbot",
+        "sox_control": "disabled",
     },
     {
-      "name": "security--saf-acquisition-sync",
-      "sox_control": "disabled"
+        "name": "security--saf-acquisition-sync",
+        "sox_control": "disabled",
     },
     {
-      "name": "security--send-saf-nudge-emails",
-      "sox_control": "disabled"
+        "name": "security--send-saf-nudge-emails",
+        "sox_control": "disabled",
     },
     {
-      "name": "security--send-saf-sponsor-reports",
-      "sox_control": "disabled"
+        "name": "security--send-saf-sponsor-reports",
+        "sox_control": "disabled",
     },
     # internal job to alert Support Systems if any Salesforce limits are predicted to expire based on current usage
     {
-      "name": "salesforce-limits",
-      "sox_control": "disabled"
+        "name": "salesforce-limits",
+        "sox_control": "disabled",
     },
     # https://jira.corp.stripe.com/browse/RUN_BAAS_ISSUING-5708
     {
-      "name": "issuing-bank-integration-refresh-crb-customer-profile",
-      "sox_control": "disabled"
+        "name": "issuing-bank-integration-refresh-crb-customer-profile",
+        "sox_control": "disabled",
     },
     # https://jira.corp.stripe.com/browse/RUN_LATAM-7182 Annual financial report for Brazilian merchants
     {
-      "name": "global-latam--brazil-regulatory-reports--all-brazil-merchants-annual-report",
-      "sox_control": "disabled"
+        "name": "global-latam--brazil-regulatory-reports--all-brazil-merchants-annual-report",
+        "sox_control": "disabled",
     },
     # Internal job that adds the owning team members to the Monster project on Home
     {
-      "name": "sync-monster-project-to-team-members",
-      "sox_control": "disabled"
+        "name": "sync-monster-project-to-team-members",
+        "sox_control": "disabled",
     },
     # Internal job that adds the owning team members to the SQS project on Home
     {
-      "name": "sync-sqs-project-to-team-members",
-      "sox_control": "disabled"
+        "name": "sync-sqs-project-to-team-members",
+        "sox_control": "disabled",
     },
     # Internal job used to move Android build artifacts to S3
     {
-      "name": "terminal--android-daily",
-      "sox_control": "disabled"
+        "name": "terminal--android-daily",
+        "sox_control": "disabled",
     },
     # Internal job that runs device tests for Tap to Pay on Android
     {
-      "name": "terminal-device-payments-browserstack-android-daily",
-      "sox_control": "disabled"
+        "name": "terminal-device-payments-browserstack-android-daily",
+        "sox_control": "disabled",
     },
     # Job that sends daily summary push notification to users. If this fails it restarts every hour
     # and has no impact on sending incorrect information to users. Push notifications are inherintly
     # flaky on Apple's end
     {
-      "name": "product--push-notifications--daily-summary-0",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-0",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-1",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-1",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-2",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-2",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-3",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-3",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-4",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-4",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-5",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-5",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-6",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-6",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-7",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-7",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-8",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-8",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-9",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-9",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-10",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-10",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-11",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-11",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-12",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-12",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-13",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-13",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-14",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-14",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-15",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-15",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-16",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-16",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-17",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-17",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-18",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-18",
+        "sox_control": "disabled",
     },
     {
-      "name": "product--push-notifications--daily-summary-19",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-19",
+        "sox_control": "disabled",
     },
     {
-      "name": "update-stripe-employees",
-      "sox_control": "disabled"
+        "name": "product--push-notifications--daily-summary-20",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-21",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-22",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-23",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-24",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-25",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-26",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-27",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-28",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-29",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-30",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-31",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-32",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-33",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-34",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-35",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-36",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-37",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-38",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "product--push-notifications--daily-summary-39",
+        "sox_control": "disabled",
+    },
+    {
+        "name": "update-stripe-employees",
+        "sox_control": "disabled",
     },
     # Job that pulls translations of text content from Lokalize into the CMS for stripe.com
     {
-      "name": "wpp--cms-pull-all-translations",
-      "sox_control": "disabled"
+        "name": "wpp--cms-pull-all-translations",
+        "sox_control": "disabled",
     },
     # Job that publishes translations of text content from Lokalize into the CMS for stripe.com
     {
-      "name": "wpp--cms-autopublish-translations",
-      "sox_control": "disabled"
+        "name": "wpp--cms-autopublish-translations",
+        "sox_control": "disabled",
     },
     {
-      "name": "secret-metadata-scanner",
-      "sox_control": "disabled"
+        "name": "secret-metadata-scanner",
+        "sox_control": "disabled",
     },
     {
-      "name": "secret-monitor",
-      "sox_control": "disabled"
+        "name": "secret-monitor",
+        "sox_control": "disabled",
     },
     # Job that makes RBA surcharge reports available to users
     {
-      "name": "api-platform--au-fee-file-for-user-generator",
-      "namespace": "kubeacronnoegress"
+        "name": "api-platform--au-fee-file-for-user-generator",
+        "namespace": "kubeacronnoegress",
     },
     # Job that makes custom legacy reports available to users
     {
-      "name": "api-platform--file-for-user-generator",
-      "namespace": "kubeacronnoegress"
+        "name": "api-platform--file-for-user-generator",
+        "namespace": "kubeacronnoegress",
     },
     # this cron deletes old profiles from mongo, and does not handle any financial data
     {
         "name": "production-profiler-delete-old-profiles",
-        "sox_control": "disabled"
-    }
+        "sox_control": "disabled",
+    },
 ]
 
 def cron_in_exceptions(namespace, name):

@@ -1,5 +1,5 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/aws_instance_sizes.sky", "get_instance_type_by_name", INSTANCE_MAPPING="export_for_graviton_helper")
+load("config/kubernetes/helpers/aws_instance_sizes.sky", "get_instance_type_by_name", INSTANCE_MAPPING = "export_for_graviton_helper")
 load("config/kubernetes/helpers/context.sky", "get_cluster")
 
 def smart_graviton_instance(ctx, instance):
@@ -28,7 +28,6 @@ def smart_graviton_instance(ctx, instance):
 
     return get_instance_type_by_name(smart_instance)
 
-
 def is_graviton_instance(instance):
     """
     Returns whether the given instance is a Graviton instance
@@ -40,7 +39,7 @@ def is_graviton_instance(instance):
         True if Graviton, False otherwise
     """
 
-    if instance.name[1:3]  in ["6g", "7g"]:
+    if instance.name[1:3] in ["6g", "7g"]:
         return True
 
     return False

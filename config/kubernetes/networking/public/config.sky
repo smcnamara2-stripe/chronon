@@ -9,8 +9,9 @@ for the `networking` plugin.
 """
 
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "deployment_plugin", "statefulset_plugin", "job_plugin")
-load("config/kubernetes/networking/internal/config/envoy-config-srv-config.sky",
+load("config/kubernetes/plugins/types.sky", "deployment_plugin", "job_plugin", "statefulset_plugin")
+load(
+    "config/kubernetes/networking/internal/config/envoy-config-srv-config.sky",
     "local_rate_limit",
     "mproxy_local_rate_limit",
 )
@@ -58,9 +59,9 @@ def _override_matching_keys(args):
         overrides[field] = value
     return overrides
 
-def breakglass_settings(*,
-        envoy_config_srv_version = NOT_PROVIDED,
-    ):
+def breakglass_settings(
+        *,
+        envoy_config_srv_version = NOT_PROVIDED):
     """
     [SN-only] Breakglass networking customizations for use by the Service Networking Team.
     While service owners are generally not expected to need to set these
@@ -172,7 +173,6 @@ def networking_config(
             enable = _is_global_ratelimit_enabled(enable_global_ratelimit, global_ratelimit),
         ),
         global_ratelimit = global_ratelimit,
-
         enable_cross_domain_services = network_config_updater(
             _update_envoy_config_srv_config = _envoy_config_srv_set_cross_domain_services,
             services = enable_cross_domain_services,
@@ -334,16 +334,15 @@ def _set_global_ratelimit(args):
         "enable": args.enable,
         "namespace_override": args.namespace_override,
         "force_update_interval": args.force_update_interval,
-        "log_updater_canonical_lines": args.log_updater_canonical_lines
-
+        "log_updater_canonical_lines": args.log_updater_canonical_lines,
     }
 
 def global_ratelimit(
-    *,
-    enable = False,
-    namespace_override = "",
-    force_update_interval = None,
-    log_updater_canonical_lines = None):
+        *,
+        enable = False,
+        namespace_override = "",
+        force_update_interval = None,
+        log_updater_canonical_lines = None):
     """
     Construct the Global (outbound) rate limiter configuration.
     Notice `enable_global_ratelimit` is being deprecated in favor of this struct.

@@ -5,7 +5,7 @@ Low-level plugin for defining a pod for a Kubernetes workload.
 
 load("config/kubernetes/core/affinity.sky", "empty_affinity", "render_affinity")
 load("config/kubernetes/core/ha.sky", "render_topology_spreading")
-load("config/kubernetes/core/lifecycle.sky", "MAX_GRACE_PERIOD_SECONDS", "MAX_ENFORCED_GRACE_PERIOD_SECONDS")
+load("config/kubernetes/core/lifecycle.sky", "MAX_ENFORCED_GRACE_PERIOD_SECONDS", "MAX_ENFORCED_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS", "MAX_GRACE_PERIOD_SECONDS")
 load("config/kubernetes/core/volume.sky", "render_volume", "volume_reason_annotations")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "PodSpec", "PodTemplateSpec")
 load("config/kubernetes/helpers/security.sky", "render_pod_security_context")
@@ -80,16 +80,23 @@ def _update_resource(ctx, plugin, resource_def):
         "security": None,
         "affinity": empty_affinity(),
         "node_selectors": plugin.node_selectors,
-        "shared_msp": resource_def.get("shared_msp", False), # inherit from the parent resource
+        "shared_msp": resource_def.get("shared_msp", False),  # inherit from the parent resource
         "host_aliases": None,
         "tolerations": None,
         "enable_shared_msp_experimental_job_support": None,
+        "parent_resource_type": resource_def.get("type", None),
     }
 
 def _validate_pod_grace_period_seconds(ctx, pod):
     if pod.shared_msp and pod.grace_period != None:
         pod_name = pod.resource["metadata"].name
-        if pod.grace_period > MAX_ENFORCED_GRACE_PERIOD_SECONDS: # 7 minutes
+
+        if pod.parent_resource_type.lower() == "job" or pod.parent_resource_type.lower() == "cronjob":
+            # This is a Shared MSP job/cronjob which uses a different grace period
+            if pod.grace_period > MAX_ENFORCED_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS:
+                fail("The grace period could not be set for Shared MSP job/cronjob %s: %s seconds. This is greater than the max of %s seconds" % (pod_name, pod.grace_period, MAX_ENFORCED_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS))
+
+        elif pod.grace_period > MAX_ENFORCED_GRACE_PERIOD_SECONDS:  # 7 minutes
             fail("The grace period could not be set for Shared MSP deployment %s: %s seconds. This is in violation of the Shared MSP drain contract, wherein pods must drain within a max of 5 minutes and 20 seconds (see http://go/msp/draining)" % (pod_name, pod.grace_period))
         elif pod.grace_period > MAX_GRACE_PERIOD_SECONDS:
             for excluded_service in GRACE_PERIOD_EXCLUSION_LIST:
@@ -141,7 +148,6 @@ def _render_pod(ctx, pod_def):
     affinity = render_affinity(ctx, pod.affinity)
     if affinity != None:
         pod_template["spec"]["affinity"] = affinity
-
 
     topology_spreading = render_topology_spreading(ctx, pod)
     if topology_spreading != None:

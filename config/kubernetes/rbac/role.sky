@@ -43,15 +43,14 @@ def _render_role(ctx, role_mapping):
     kargs = struct(**role_mapping.kwargs)
     obj_rule_list = []
     if hasattr(kargs, "rules"):
-            if type(kargs.rules) == type([]):
-                for rule in kargs.rules:
-                    obj_rule = policy_rule(ctx, rule)
-                    obj_rule_list.append(obj_rule)
-            else:
-                fail("Role rules field called with non list value")
+        if type(kargs.rules) == type([]):
+            for rule in kargs.rules:
+                obj_rule = policy_rule(ctx, rule)
+                obj_rule_list.append(obj_rule)
+        else:
+            fail("Role rules field called with non list value")
     obj_role = Role(ctx)
     obj_role["metadata"] = render_metadata(ctx, role_mapping.metadata)
     if len(obj_rule_list) > 0:
         obj_role["rules"] = obj_rule_list
     return yaml.marshal(obj_role)
-

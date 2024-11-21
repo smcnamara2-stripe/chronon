@@ -2,11 +2,15 @@
 """
 Common functions shared between Ruby services and Ruby workflow workers
 """
+
 load("config/kubernetes/networking/internal/config/override.sky", "NOT_PROVIDED")
-load("config/kubernetes/networking/public/config.sky", "networking_config", "global_ratelimit")
+load("config/kubernetes/networking/public/config.sky", "global_ratelimit", "networking_config")
 load("config/kubernetes/service-config/compute.sky", "get_merged_compute_v2_config")
 
-def ruby_canary_suffix(ctx, default="-canary"):
+_DEFAULT_MAX_SURGE = 1
+_DEFAULT_MAX_UNAVAILABLE = 1
+
+def ruby_canary_suffix(ctx, default = "-canary"):
     """ Get the suffix to be used for canaries
 
     Args:
@@ -48,6 +52,7 @@ def get_networking_config(_, platform_options):
     global_ratelimit_val = NOT_PROVIDED
     egress_proxy_tier = NOT_PROVIDED
     enable_cross_domain_services = NOT_PROVIDED
+    enable_local_reachability = NOT_PROVIDED
 
     # handle enable_envoy_global_ratelimit
     # The trick here is that if not present, as a protobuf bool
@@ -56,7 +61,13 @@ def get_networking_config(_, platform_options):
     has_global_ratelimit = "enable_envoy_global_ratelimit" in platform_options and platform_options["enable_envoy_global_ratelimit"]
 
     if has_global_ratelimit:
-        global_ratelimit_val = global_ratelimit(enable=True)
+        global_ratelimit_val = global_ratelimit(enable = True)
+
+    # handle enable_local_reachability
+    # The same logic as enable_envoy_global_ratelimit applies here - if the field is not present, we should keep enable_local_reachability
+    # as NOT_PROVIDED. We do not want to set the field to the default protobuf value of False.
+    if "enable_local_reachability" in platform_options and platform_options["enable_local_reachability"] != None:
+        enable_local_reachability = platform_options["enable_local_reachability"]
 
     # handle egress_proxy_tier
     if "egress_proxy_tier" in platform_options and platform_options["egress_proxy_tier"] != None:
@@ -67,13 +78,96 @@ def get_networking_config(_, platform_options):
         enable_cross_domain_services = platform_options["enable_cross_domain_services"]
 
     plugins = []
-    if global_ratelimit_val != NOT_PROVIDED or egress_proxy_tier != NOT_PROVIDED or enable_cross_domain_services != NOT_PROVIDED:
+    if global_ratelimit_val != NOT_PROVIDED or egress_proxy_tier != NOT_PROVIDED or enable_cross_domain_services != NOT_PROVIDED or enable_local_reachability != NOT_PROVIDED:
         plugins.append(
             networking_config(
                 global_ratelimit = global_ratelimit_val,
                 egress_proxy_tier = egress_proxy_tier,
                 enable_cross_domain_services = enable_cross_domain_services,
-            )
+                enable_local_reachability = enable_local_reachability,
+            ),
         )
 
     return plugins
+
+def get_max_surge(deploy_config, platform_options, default = _DEFAULT_MAX_SURGE):
+    """ Get the max_surge value from the deploy config or platform options.
+
+    Initially, max_surge was put as an integer in the deploy config. Later, it was
+    moved to the PlatformOptions protobuf message.\
+
+    Args:
+        deploy_config: a com.stripe.gocode.service_config.Deploy protobuf message.
+        platform_options: a com.stripe.gocode.service_config.PlatformOptions protobuf message
+        default: The default max_surge value to use if not overridden.
+    Returns:
+        The max_surge value, or `default` if not overridden.
+    """
+    max_surge = default
+
+    if deploy_config.max_surge and deploy_config.max_surge.value != None:
+        max_surge = deploy_config.max_surge.value
+    elif platform_options and "max_surge" in platform_options and platform_options["max_surge"] != None:
+        max_surge = platform_options["max_surge"]
+    max_surge_percentage = None
+    if deploy_config.max_surge_percentage and deploy_config.max_surge_percentage.value != None:
+        max_surge_percentage = deploy_config.max_surge_percentage.value
+    elif platform_options and "max_surge_percentage" in platform_options and platform_options["max_surge_percentage"] != None:
+        max_surge_percentage = str(platform_options["max_surge_percentage"])
+    if max_surge_percentage != None:
+        max_surge = "{}%".format(max_surge_percentage)
+    return max_surge
+
+def get_max_unavailable(deploy_config, platform_options, default = _DEFAULT_MAX_UNAVAILABLE):
+    """ Get the max_unavailable value from the deploy config or platform options.
+
+    Initially, max_unavailable was put as an integer in the deploy config. Later, it was
+    moved to the PlatformOptions protobuf message.
+
+    Args:
+        deploy_config: a com.stripe.gocode.service_config.Deploy protobuf message.
+        platform_options: a com.stripe.gocode.service_config.PlatformOptions protobuf message
+        default: The default max_unavailable value to use if not overridden.
+    Returns:
+        The max_unavailable value, or `default` if not overridden.
+    """
+    max_unavailable = default
+
+    if deploy_config.max_unavailable and deploy_config.max_unavailable.value != None:
+        max_unavailable = deploy_config.max_unavailable.value
+    elif platform_options and "max_unavailable" in platform_options and platform_options["max_unavailable"] != None:
+        max_unavailable = platform_options["max_unavailable"]
+    max_unavailable_percentage = None
+    if deploy_config.max_unavailable_percentage and deploy_config.max_unavailable_percentage.value != None:
+        max_unavailable_percentage = deploy_config.max_unavailable_percentage.value
+    elif platform_options and "max_unavailable_percentage" in platform_options and platform_options["max_unavailable_percentage"] != None:
+        max_unavailable_percentage = str(platform_options["max_unavailable_percentage"])
+    if max_unavailable_percentage != None:
+        max_unavailable = "{}%".format(max_unavailable_percentage)
+
+    return max_unavailable
+
+def get_manage_workers(compute_config):
+    manage_workers = True
+    if (
+        compute_config["ruby_process"] and
+        compute_config["ruby_process"]["puma_cluster"] and
+        "manage_workers" in compute_config["ruby_process"]["puma_cluster"] and
+        compute_config["ruby_process"]["puma_cluster"]["manage_workers"] != None
+    ):
+        manage_workers = compute_config["ruby_process"]["puma_cluster"]["manage_workers"]
+
+    return manage_workers
+
+def requires_consul_in_computev2_config(compute_config):
+    if (
+        compute_config != None and
+        "platform_options" in compute_config and
+        compute_config["platform_options"] != None and
+        "disable_consul" in compute_config["platform_options"] and
+        compute_config["platform_options"]["disable_consul"] != None
+    ):
+        if not bool(compute_config["platform_options"]["disable_consul"]):
+            fail("Consul is no longer supported on Shared MSP services.")
+
+    return False  # As of April 17th, 2024 Consul is Deprecated by default.

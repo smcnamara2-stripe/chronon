@@ -3,24 +3,23 @@
 Plugins and helpers to specifically support running pay-server workloads.
 """
 
-load("config/kubernetes/core/generic.sky", "is_shared_msp", "is_dedicated_msp")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/stripe.sky", "stripe_pod")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
-load("config/kubernetes/core/probe.sky", "probes", "command_probe", "http_probe")
-load("config/kubernetes/core/volume.sky", "mount_pod_volume", "mount_host_volume", "volume_mount")
-load("config/kubernetes/helpers/availability_tiers.sky", "get_pod_availability_tier_by_name", "A100", "A200", "A300", "A400")
+load("config/kubernetes/core/probe.sky", "command_probe", "http_probe", "probes")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "volume_mount")
+load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A200", "A300", "A400", "get_pod_availability_tier_by_name")
 load("config/kubernetes/meta/metadata.sky", "labels")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/types.sky", "container_plugin", "pod_plugin")
-load("config/kubernetes/sidecars/consul.sky", "consul_container_name", "consul_check", "consul_service", "envoy_consul_tag")
+load("config/kubernetes/sidecars/consul.sky", "consul_check", "consul_container_name", "consul_service", "envoy_consul_tag")
 load("config/kubernetes/sidecars/health.sky", "safely_deployed_service")
 load("config/kubernetes/sidecars/mongo_caches.sky", "use_mongo_caches")
 load("config/kubernetes/sidecars/worker.sky", "add_worker_sidecar")
-load("config/kubernetes/helpers/context.sky", "get_env", "get_availability_tier", "has_availability_tier")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_env", "has_availability_tier")
 load("config/kubernetes/helpers/images.sky", "image_defaults")
 load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
-
 
 default_pay_server_image = image_defaults(
     # if they try to use defaults, their service yaml should have the artifact specified.
@@ -36,23 +35,7 @@ def default_gem_override_policy(ctx, **kwargs):
     """
     The default policy for whether services should opt in to the current gem upgrade experiment
     """
-    # TODO(WOFLO-2341): Update this override policy throughout the course of the rollout.
-    #
-    # See the following links for more information:
-    # - https://go.corp.stripe.com/einhorn-10-2-0-rollout
-    # - https://go/j/WOFLO-2341
-    # - https://go/j/RUN_RUBYINFRA-4566
-
-    availability_tier = get_availability_tier(ctx)
-    env = get_env(ctx)
-
-    # Current stage: enabled for all services in QA, and A400 services in Prod/Preprod:
-    if env == "qa":
-        return True
-    elif availability_tier in ["A400"]:
-        return True
-    else:
-        return False
+    return False
 
 def _gem_override_plugin(ctx, value):
     # Circuit breaker to disable Gem overrides regardless of the gem policy
@@ -69,7 +52,7 @@ def _gem_override_plugin(ctx, value):
     else:
         fail("_gem_override_plugin invalid return value, must be integer representing percentage enabled or boolean. (Got %s)" % value)
 
-def pay_server_pod(ctx, gem_override_policy=default_gem_override_policy, **kwargs):
+def pay_server_pod(ctx, gem_override_policy = default_gem_override_policy, **kwargs):
     """
     Create a standard pay-server job or service with a main container.
 
@@ -118,7 +101,7 @@ def pay_server_pod(ctx, gem_override_policy=default_gem_override_policy, **kwarg
     standard_plugins = compose_plugins(
         stripe_pod(
             ctx,
-            image=image,
+            image = image,
             **kwargs
         ),
         container_env_vars(default_env_vars),
@@ -128,7 +111,7 @@ def pay_server_pod(ctx, gem_override_policy=default_gem_override_policy, **kwarg
             "reason": "Provides host-level information about the environment.",
         }),
         labels({
-          "stripe.io/platform": "pay-server",
+            "stripe.io/platform": "pay-server",
         }),
         _gem_override_plugin(ctx, gem_override_policy(ctx, **kwargs)),
     )
@@ -161,35 +144,34 @@ def pay_server_pod(ctx, gem_override_policy=default_gem_override_policy, **kwarg
     return compose_plugins(
         standard_plugins,
         conditional_plugin(
-            condition=is_shared_msp,
-            plugin=shared_plugins,
+            condition = is_shared_msp,
+            plugin = shared_plugins,
         ),
         conditional_plugin(
-            condition=is_dedicated_msp,
-            plugin=dedicated_plugins,
+            condition = is_dedicated_msp,
+            plugin = dedicated_plugins,
         ),
     )
 
 def einhorn_service(
-    ctx,
-    port,
-    name,
-    daemoncommon_svcname = None,
-    healthcheck = "/healthcheck",
-    reuse_addr = True,
-    nonblocking = False,
-    tags = [],
-    meta = {},
-    container_name = None,
-    manage_workers = True,
-    worker_availability_threshold = "0.7", # skycfg doesn't support floats
-    startup_failure_threshold = 600,
-    hack_kick_interval = None,
-    hack_kick_start_delay = None,
-    hack_kick_restart_only = None,
-    hack_kick_start_jitter = None,
-    **kwargs
-):
+        ctx,
+        port,
+        name,
+        daemoncommon_svcname = None,
+        healthcheck = "/healthcheck",
+        reuse_addr = True,
+        nonblocking = False,
+        tags = [],
+        meta = {},
+        container_name = None,
+        manage_workers = True,
+        worker_availability_threshold = "0.7",  # skycfg doesn't support floats
+        startup_failure_threshold = 600,
+        hack_kick_interval = None,
+        hack_kick_start_delay = None,
+        hack_kick_restart_only = None,
+        hack_kick_start_jitter = None,
+        **kwargs):
     """
     Sets up a container to run a service using Einhorn and register it with Consul.
 
@@ -279,9 +261,9 @@ def einhorn_service(
         consul_tags.append(envoy_consul_tag(healthcheck))
 
     consul_meta = {
-        'einhorn_workers': str(kwargs.get("workers", 2)),
+        "einhorn_workers": str(kwargs.get("workers", 2)),
         # queueing happens inside the pod, so by default route traffic to pods with fewest current requests
-        'lb_policy': 'LEAST_REQUEST',
+        "lb_policy": "LEAST_REQUEST",
     }
     consul_meta.update(meta)
 
@@ -317,29 +299,28 @@ def einhorn_service(
         ),
         einhorn_plugin,
         conditional_plugin(
-            condition=is_dedicated_msp,
-            plugin=deploy_safety_plugin,
+            condition = is_dedicated_msp,
+            plugin = deploy_safety_plugin,
         ),
         worker_plugin,
         config_srv_sidecar_plugin,
     )
 
 def einhorn(
-    entrypoint,
-    workers = 2,
-    bind = None,
-    ack_mode = "manual",
-    command_name = None,
-    signal_timeout = None,
-    max_upgrade_additional = None,
-    max_unacked = None,
-    preload = True,
-    preload_or_fail = True,
-    nice = None,
-    gc_before_fork = False,
-    seconds = None,
-    kill_children_on_exit = False,
-):
+        entrypoint,
+        workers = 2,
+        bind = None,
+        ack_mode = "manual",
+        command_name = None,
+        signal_timeout = None,
+        max_upgrade_additional = None,
+        max_unacked = None,
+        preload = True,
+        preload_or_fail = True,
+        nice = None,
+        gc_before_fork = False,
+        seconds = None,
+        kill_children_on_exit = False):
     """
     Create a `command` array for a container that uses Einhorn to run a server.
 
@@ -404,11 +385,10 @@ def einhorn(
     return argv
 
 def einhorn_bind_address(
-    port,
-    host = "0.0.0.0",
-    reuse_addr = True,
-    nonblocking = False,
-):
+        port,
+        host = "0.0.0.0",
+        reuse_addr = True,
+        nonblocking = False):
     opts = []
     if reuse_addr:
         opts.append("r")
@@ -460,23 +440,22 @@ def _einhorn_service(ctx, port, healthcheck, container_name, failure_threshold):
     )
 
 def puma_cluster_service(
-    ctx,
-    port,
-    name,
-    daemoncommon_svcname = None,
-    healthcheck = "/healthcheck",
-    tags = [],
-    meta = {},
-    container_name = None,
-    manage_workers = True,
-    worker_availability_threshold = "0.7", # skycfg doesn't support floats
-    startup_failure_threshold = 600,
-    include_config_srv_sidecar = True,
-    hack_kick_interval = None,
-    hack_kick_start_delay = None,
-    hack_kick_restart_only = None,
-    **kwargs
-):
+        ctx,
+        port,
+        name,
+        daemoncommon_svcname = None,
+        healthcheck = "/healthcheck",
+        tags = [],
+        meta = {},
+        container_name = None,
+        manage_workers = True,
+        worker_availability_threshold = "0.7",  # skycfg doesn't support floats
+        startup_failure_threshold = 600,
+        include_config_srv_sidecar = True,
+        hack_kick_interval = None,
+        hack_kick_start_delay = None,
+        hack_kick_restart_only = None,
+        **kwargs):
     """
     Sets up a container to run a service using Puma cluster mode and register it with Consul.
 
@@ -555,7 +534,7 @@ def puma_cluster_service(
             puma_statefile_name = "puma_state_{}.yaml".format(name),
             hack_kick_interval = hack_kick_interval,
             hack_kick_start_delay = hack_kick_start_delay,
-            hack_kick_restart_only = hack_kick_restart_only
+            hack_kick_restart_only = hack_kick_restart_only,
         )
 
     consul_tags = []
@@ -564,9 +543,9 @@ def puma_cluster_service(
         consul_tags.append(envoy_consul_tag(healthcheck))
 
     consul_meta = {
-        'einhorn_workers': str(kwargs.get("workers", 2)), # TODO: can we rename this to `puma_cluster_workers`?
+        "einhorn_workers": str(kwargs.get("workers", 2)),  # TODO: can we rename this to `puma_cluster_workers`?
         # queueing happens inside the pod, so by default route traffic to pods with fewest current requests
-        'lb_policy': 'LEAST_REQUEST',
+        "lb_policy": "LEAST_REQUEST",
     }
     consul_meta.update(meta)
 
@@ -604,21 +583,20 @@ def puma_cluster_service(
         ),
         puma_cluster_plugin,
         conditional_plugin(
-            condition=is_dedicated_msp,
-            plugin=deploy_safety_plugin,
+            condition = is_dedicated_msp,
+            plugin = deploy_safety_plugin,
         ),
         worker_plugin,
         config_srv_sidecar_plugin,
     )
 
 def puma_cluster(
-    entrypoint,
-    workers = 2,
-    bind = None,
-    max_additional_workers = None,
-    manage_workers = True,
-    worker_shutdown_timeout = None,
-):
+        entrypoint,
+        workers = 2,
+        bind = None,
+        max_additional_workers = None,
+        manage_workers = True,
+        worker_shutdown_timeout = None):
     """
     Create a `command` array for a container that uses Puma cluster to run a server.
 
@@ -670,9 +648,8 @@ def puma_cluster(
     return argv
 
 def puma_cluster_bind_address(
-    port,
-    host = "0.0.0.0",
-):
+        port,
+        host = "0.0.0.0"):
     return "tcp://{}:{}".format(host, port)
 
 def _puma_clusterify_container(ctx, plugin, container_def):

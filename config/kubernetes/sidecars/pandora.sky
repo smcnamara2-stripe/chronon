@@ -11,18 +11,17 @@ load("config/kubernetes/core/volume.sky", "host_volume", "pod_volume", "render_v
 load("config/kubernetes/helpers/images.sky", "image")
 load("config/kubernetes/helpers/quantities.sky", "mebibytes")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
-load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/helpers/security.sky", use_credentials_proxy_plugin = "use_credentials_proxy", "mount_credentials_proxy")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Container")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "get_env")
 load("config/kubernetes/core/container.sky", "resource_requirements")
+load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "is_bin_packing_v1_enabled")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Container")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", use_credentials_proxy_plugin = "use_credentials_proxy")
+load("config/kubernetes/plugins/types.sky", "pod_plugin")
 
 _ConfidantSecret = struct
 
 pandora_container_name = "pandora-init-image"
 
-def pandora_options(use_credentials_proxy=None):
+def pandora_options(use_credentials_proxy = None):
     """
     Set options for Pandora secrets. This is only needed in exceptional cases.
 
@@ -37,7 +36,7 @@ def pandora_options(use_credentials_proxy=None):
         use_credentials_proxy = use_credentials_proxy,
     )
 
-def yaml_secret(*, prefix, filename = None, key_type = "symbol", key_types = {}, mode = 0o640, container_names = [None], allow_missing = False, secrets_dir='/pay/keys'):
+def yaml_secret(*, prefix, filename = None, key_type = "symbol", key_types = {}, mode = 0o640, container_names = [None], allow_missing = False, secrets_dir = "/pay/keys"):
     """
     Add a secret to a pod in YAML format.
 
@@ -221,7 +220,7 @@ def pgpass_secret(
         container_names = container_names,
     )
 
-def _pandora_make_secret(type, template_spec, container_names, secrets_dir='/pay/keys'):
+def _pandora_make_secret(type, template_spec, container_names, secrets_dir = "/pay/keys"):
     if template_spec["path"].startswith("{}/{}".format(secrets_dir, secrets_dir)) or template_spec["path"].startswith("{}//{}".format(secrets_dir, secrets_dir)):
         fail("don't specify {} in secret file paths, they're already relative to {} (instead of '{}/blah.txt', use 'blah.txt')".format(secrets_dir, secrets_dir, secrets_dir))
     keys_mounts = [volume_mount(secrets_dir, container_name = name) for name in container_names]
@@ -241,7 +240,7 @@ def _pandora_update_pod(ctx, plugin, pod_def):
 def _update_pod_options(ctx, plugin, pod_def):
     _setup_pandora(ctx, pod_def, use_credentials_proxy = plugin.use_credentials_proxy)
 
-def _setup_pandora(ctx, pod_def, secrets_dir='/pay/keys', use_credentials_proxy=None):
+def _setup_pandora(ctx, pod_def, secrets_dir = "/pay/keys", use_credentials_proxy = None):
     if "confidant_config" in pod_def:
         if use_credentials_proxy != None:
             fail("Choosing whether to enable the credentials proxy for secrets must be done before adding any secrets.")
@@ -342,7 +341,7 @@ def _render_pandora_container(ctx, container_def, pod):
             "--stripe.service-credentials.retry-interval=5s",
         ])
 
-    if is_bin_packing_enabled(ctx) == True:
+    if is_bin_packing_v1_enabled(ctx) == True:
         command.append("--vsocket-connection=true")
 
     return Container(
@@ -356,10 +355,10 @@ def _render_pandora_container(ctx, container_def, pod):
     )
 
 def _pandora_image(ctx):
-    return image(ctx, artifact=pandora_container_name)
+    return image(ctx, artifact = pandora_container_name)
 
 def contains(lst, value):
-        for v in lst:
-            if v == value:
-                return True
-        return False
+    for v in lst:
+        if v == value:
+            return True
+    return False

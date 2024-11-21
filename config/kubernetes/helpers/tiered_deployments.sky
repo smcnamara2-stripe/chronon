@@ -86,9 +86,9 @@ def tiered_deployments(ctx, deployment_supplier, **kwargs):
         )
 
         deployment_or_deployment_list = deployment_supplier(ctx, priority_name, meta, **kwargs)
-        if hasattr(deployment_or_deployment_list, '__iter__'):
-          deployments.extend(deployment_or_deployment_list)
+        if hasattr(deployment_or_deployment_list, "__iter__"):
+            deployments.extend(deployment_or_deployment_list)
         else:
-          deployments.append(deployment_or_deployment_list)
+            deployments.append(deployment_or_deployment_list)
 
     return deployments

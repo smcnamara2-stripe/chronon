@@ -10,62 +10,62 @@ load("config/kubernetes/core/container.sky", "container")
 load("config/kubernetes/helpers/images.sky", "image")
 
 def add_jmxfetch_sidecar(
-    ctx,
-    service_name,
-    jmx_port,
-    conf_directory="/datadog_compat_config",
-    conf_file_name="mongo_java_client.yaml",
-    config_file_yaml=None):
+        ctx,
+        service_name,
+        jmx_port,
+        conf_directory = "/datadog_compat_config",
+        conf_file_name = "mongo_java_client.yaml",
+        config_file_yaml = None):
     if config_file_yaml == None:
-      config_file_yaml = get_jmx_mongo_java_client_yaml_content(service_name, jmx_port)
+        config_file_yaml = get_jmx_mongo_java_client_yaml_content(service_name, jmx_port)
     return compose_plugins(
-      container(
-        name = "jmxfetch",
-        # TODO: switch to zoolander image where we don't rely on prebuilt jar binary
-        # blocked by https://jira.corp.stripe.com/browse/RUN_ZOOLANDER-3843
-        image = image(
-            ctx,
-            "third-party/jmxfetch",
-            label = "latest",
-        ),
-        command = [
-            "java",
-            "-classpath",
-            "/jmxfetch-0.14.0-jar-with-dependencies.jar",
-            "org.datadog.jmxfetch.App",
-            "--check",
-            conf_file_name,
-            "--check_period",
-            "15000",
-            "--conf_directory",
-            conf_directory,
-            "--log_level",
-            "ERROR",
-            "--log_location",
-            "System.out",
-            "--reporter",
-            "statsd:127.0.0.1:8200",
-            "--status_location",
-            "status-" + conf_file_name,
-            "collect",
-        ],
-        plugins = [
-            container_env_vars(
-                vars = {
-                    "JAVA_OPTS": " ".join([
-                        "-Xms50m",
-                        "-Xmx200m",
-                    ]),
-                },
+        container(
+            name = "jmxfetch",
+            # TODO: switch to zoolander image where we don't rely on prebuilt jar binary
+            # blocked by https://jira.corp.stripe.com/browse/RUN_ZOOLANDER-3843
+            image = image(
+                ctx,
+                "third-party/jmxfetch",
+                label = "latest",
             ),
-        ],
-      ),
-      config_file(
-        conf_directory + "/" + conf_file_name,
-        config_file_yaml,
-        conf_directory,
-      ),
-      mount_pod_volume(conf_directory, container_name = "jmxfetch"),
+            command = [
+                "java",
+                "-classpath",
+                "/jmxfetch-0.14.0-jar-with-dependencies.jar",
+                "org.datadog.jmxfetch.App",
+                "--check",
+                conf_file_name,
+                "--check_period",
+                "15000",
+                "--conf_directory",
+                conf_directory,
+                "--log_level",
+                "ERROR",
+                "--log_location",
+                "System.out",
+                "--reporter",
+                "statsd:127.0.0.1:8200",
+                "--status_location",
+                "status-" + conf_file_name,
+                "collect",
+            ],
+            plugins = [
+                container_env_vars(
+                    vars = {
+                        "JAVA_OPTS": " ".join([
+                            "-Xms50m",
+                            "-Xmx200m",
+                        ]),
+                    },
+                ),
+            ],
+        ),
+        config_file(
+            conf_directory + "/" + conf_file_name,
+            config_file_yaml,
+            conf_directory,
+        ),
+        mount_pod_volume(conf_directory, container_name = "jmxfetch"),
     )
 
 def get_jmx_mongo_java_client_yaml_content(service_name, port):

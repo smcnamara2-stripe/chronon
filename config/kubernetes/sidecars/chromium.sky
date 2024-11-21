@@ -10,17 +10,22 @@ def chromium_sidecar(ctx):
             command = [
                 "/usr/local/bin/chromium-wrapper.sh",
                 "--headless",
-                "--disable-gpu",
-                "--disable-software-rasterizer",
                 "--disable-dev-shm-usage",
+                # Enable Chrome's fallback software renderer to allow websites to construct required request headers
+                # using webgl/canvas elements. These elements require a GPU to function.
+                "--use-gl=angle",
+                "--use-angle=swiftshader-webgl",
                 # setup CDP websocket listener
                 "--remote-debugging-address=0.0.0.0",
                 "--remote-debugging-port=9222",
                 # disable IP leak via webRTC
                 "--webrtc-ip-handling-policy=disable_non_proxied_udp",
                 "--force-webrtc-ip-handling-policy",
+                # disable blink's (open source rendering engine) tags that tell the browser that this chromium instance is being
+                # automatically controlled. The corrects browser properties such as window.navigator.webdriver
+                "--disable-blink-features=AutomationControlled",
             ],
             image = image(ctx, artifact = "connections-talon-chromium-container-image"),
         ),
-        container_port(9222, container_name = "chromium")
+        container_port(9222, container_name = "chromium"),
     )

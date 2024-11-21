@@ -11,7 +11,6 @@ Composing plugins makes it easy to build high-level abstractions from simple
 pieces.
 """
 
-
 # A list of functions which a plugin can implement.
 # If an argument passed as a plugin does not implement any of these functions,
 # then we will fail() inside _check_plugin when composing the plugins.
@@ -26,7 +25,7 @@ PLUGIN_FUNCS = [
     "update_container",
     "update_rbac",
     "update_crd",
-    "update_webhook"
+    "update_webhook",
 ]
 
 def compose_plugins(*plugins):
@@ -118,7 +117,7 @@ def _flatten_plugins(plugins):
     for plugin in plugins:
         if hasattr(plugin, "is_compose"):
             new_plugins.extend(plugin.plugins)
-        elif type(plugin) != "NoneType": # ignore plugins passed as None
+        elif type(plugin) != "NoneType":  # ignore plugins passed as None
             _check_plugin(plugin)
             new_plugins.append(plugin)
 

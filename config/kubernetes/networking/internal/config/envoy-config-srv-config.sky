@@ -56,7 +56,7 @@ def _fallback_sidecar_version(target):
     fallback_digest = "5e00c9bded192677209746bfbee39001bc63554a990635d3c1e6be8f13246719"
 
     return {
-        "version": fallback_digest
+        "version": fallback_digest,
     }
 
 def _default_sidecar_cli_args(target):
@@ -125,15 +125,15 @@ def _default_sidecar_config(target):
         "enable_latency_checkpoints": match(
             target,
             False,
-            when(env="qa", role="envoy-shape", value = True)
+            when(env = "qa", role = "envoy-shape", value = True),
         ),
         "egress_proxy": match(
             target,
-            egress_proxy(tier="", enable_unix_socket=True),
-            when(role="monobapibox", availability_tier="A100", value=egress_proxy(tier="p0", enable_unix_socket=True)),
-            when(role="monobapibox", availability_tier="A110", value=egress_proxy(tier="p0", enable_unix_socket=True)),
-            when(role="workflow-work-banking-platform", value=egress_proxy(tier="p0", enable_unix_socket=True)),
-            when(role="issuingauth", value=egress_proxy(tier="p0", enable_unix_socket=True)),
+            egress_proxy(tier = "", enable_unix_socket = True),
+            when(role = "monobapibox", availability_tier = "A100", value = egress_proxy(tier = "p0", enable_unix_socket = True)),
+            when(role = "monobapibox", availability_tier = "A110", value = egress_proxy(tier = "p0", enable_unix_socket = True)),
+            when(role = "workflow-work-banking-platform", value = egress_proxy(tier = "p0", enable_unix_socket = True)),
+            when(role = "issuingauth", value = egress_proxy(tier = "p0", enable_unix_socket = True)),
             # TODO(jakewang): configure egress-proxy-prober-ruby.sky p0 workloads to use p0 egress-proxy.
         ),
         # NOTE(mattkipps): please add new configuration options to gocode in envoy-config-srv.yaml
@@ -204,9 +204,10 @@ def access_log_filter(
 def generate_sidecar_version(target, user_overrides):
     cfg = _fallback_sidecar_version(target)
     fallback_version = cfg["version"]
+
     # update version if it was overriden by break_glass
     cfg = populate_config(cfg, user_overrides, "_update_envoy_config_srv_version")
-    cfg["is_version_overriden"] = cfg["version"]!=fallback_version # set bool to indicate if version was overriden
+    cfg["is_version_overriden"] = cfg["version"] != fallback_version  # set bool to indicate if version was overriden
     return cfg
 
 def _default_sidecar_container_config():
@@ -244,4 +245,3 @@ def _designated_envoy_control_srv_addr(tier, env):
         return "envoy-control-srv-a300.service.consul:8083"
 
     fail("Unexpected availability tier %s. Unable to determine corresponding envoy-control-srv host set" % tier)
-

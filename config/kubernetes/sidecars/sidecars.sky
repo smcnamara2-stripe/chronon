@@ -4,6 +4,7 @@ load("config/kubernetes/sidecars/envoy_ratelimit.sky", "ratelimit_sidecar")
 load("config/kubernetes/sidecars/geoip.sky", "use_geoip_databases")
 load("config/kubernetes/sidecars/offload_profiles.sky", "use_offload_profiles")
 load("config/kubernetes/sidecars/memcontainer.sky", "memento_sidecar")
+load("config/kubernetes/sidecars/workflow_queue_worker.sky", "workflow_queue_worker_sidecar")
 
 def sidecars(ctx, sidecars_map):
     """
@@ -16,14 +17,15 @@ def sidecars(ctx, sidecars_map):
         an array of sidecar configurations
     """
     args = []
+
     # Sort the keys so the order is deterministic
     for sidecar_name in sorted(sidecars_map.keys()):
         if sidecar_name == "config_srv":
-            args = [ config_srv_sidecar(ctx) ] + args
+            args = [config_srv_sidecar(ctx)] + args
         elif sidecar_name == "offload_profiles":
-            args = [ use_offload_profiles() ] + args
+            args = [use_offload_profiles()] + args
         elif sidecar_name == "geoip_databases":
-            args = [ use_geoip_databases(ctx) ] + args
+            args = [use_geoip_databases(ctx)] + args
         elif sidecar_name == "ratelimit":
             sidecar_spec = sidecars_map[sidecar_name].args
             for key in sidecar_spec.keys():
@@ -33,9 +35,11 @@ def sidecars(ctx, sidecars_map):
                     host_type = sidecar_spec[key]
 
             # Ugh, need to handle positional args and key/value args
-            args = [ ratelimit_sidecar(ctx, label, host_type) ] + args
+            args = [ratelimit_sidecar(ctx, label, host_type)] + args
         elif sidecar_name == "memcontainer":
-            args = [ memento_sidecar(ctx) ] + args
+            args = [memento_sidecar(ctx)] + args
+        elif sidecar_name == "workflow_queue_worker":
+            args = [workflow_queue_worker_sidecar(ctx)] + args
         else:
             fail("Unknown sidecar name: " + sidecar_name)
 

@@ -11,6 +11,7 @@ use information from the Henson deploy context. For instance, if you deploy to m
 clusters in different regions, and you need a config file with different values for each
 cluster, you can generate that in Skycfg using `config_file`.
 """
+
 load("config/kubernetes/core/volume.sky", "render_volume_mount", "volume_mount")
 load("config/kubernetes/helpers/images.sky", "image")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
@@ -78,6 +79,7 @@ def _render_container(ctx, container_def, pod):
             commands.append("echo \"$%s\" > %s" % (idx + 1, file.path))
 
         content = file.content
+
         # trim white space from beginning of file so it can be embedded correctly
         content = content.lstrip()
 

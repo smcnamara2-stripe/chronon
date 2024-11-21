@@ -13,7 +13,7 @@ load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/core/env_var.sky", "default_env_vars")
 load("config/kubernetes/core/lifecycle.sky", "render_lifecycle")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
-load("config/kubernetes/core/volume.sky", "host_volume", "volume_mount", "render_volume_mount")
+load("config/kubernetes/core/volume.sky", "host_volume", "render_volume_mount", "volume_mount")
 load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
@@ -23,20 +23,19 @@ load("config/kubernetes/sidecars/config_file.sky", "config_file")
 load("config/kubernetes/networking/public/consul.sky", "register_service")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Container")
 
-
 # Name of the sidecar container that registers Consul services for a pod.
 #
 # Use to reference the consul container when adding volume mounts.
 consul_container_name = "consul-sidecar"
 UNPRIVILEGED_ENVOY_PORT = 1643
 UNPRIVILEGED_ENVOY_SERVICE_META = {
- "envoy_inbound_port": str(UNPRIVILEGED_ENVOY_PORT),
+    "envoy_inbound_port": str(UNPRIVILEGED_ENVOY_PORT),
 }
 BUILTIN_TAGS = ["namespace:$(STRIPE_POD_NAMESPACE)"]
 BUILTIN_SERVICE_META = {
-  "k8s_namespace": "$(STRIPE_POD_NAMESPACE)",
-  "k8s_pod_id": "$(STRIPE_POD_NAME)",
-  "k8s_node": "$(STRIPE_NODE_NAME)",
+    "k8s_namespace": "$(STRIPE_POD_NAMESPACE)",
+    "k8s_pod_id": "$(STRIPE_POD_NAME)",
+    "k8s_node": "$(STRIPE_NODE_NAME)",
 }
 
 def consul_service(
@@ -77,12 +76,12 @@ def consul_service(
     """
     return compose_plugins(
         conditional_plugin(
-            condition=is_shared_msp,
-            plugin=register_service(port, name, tags, checks, meta, container_name, port_name),
+            condition = is_shared_msp,
+            plugin = register_service(port, name, tags, checks, meta, container_name, port_name),
         ),
         conditional_plugin(
-            condition=is_dedicated_msp,
-            plugin=_legacy_consul_service(port, name, tags, checks, meta, container_name, port_name, **kwargs),
+            condition = is_dedicated_msp,
+            plugin = _legacy_consul_service(port, name, tags, checks, meta, container_name, port_name, **kwargs),
         ),
     )
 
@@ -178,7 +177,6 @@ def consul_http_check(path, port, interval = "10s", timeout = "5s", notes = None
 
     return check
 
-
 def consul_grpc_check(
         *,
         port,
@@ -187,8 +185,7 @@ def consul_grpc_check(
         notes = None,
         use_tls = None,
         tls_skip_verify = None,
-        timeout = None,
-):
+        timeout = None):
     """
     Creates a Consul check to perform gRPC healthchecking on the service.
 
@@ -228,7 +225,6 @@ def consul_grpc_check(
 
     return check
 
-
 def consul_tcp_check(*, port, interval = "10s", timeout = "5s", notes = None):
     """
     Creates a Consul check to perform TCP healthchecking on the service.
@@ -254,7 +250,6 @@ def consul_tcp_check(*, port, interval = "10s", timeout = "5s", notes = None):
         check["notes"] = notes
 
     return check
-
 
 # Backwards compatibility
 consul_check = consul_http_check
@@ -334,11 +329,11 @@ def _render_consul_sidecar(ctx, container_def, pod):
     lifecycle = render_lifecycle(ctx, container.lifecycle) if "lifecycle" in container_def else None
 
     if container.use_proxy:
-      for srv in container.services:
-        service_meta = {}
-        service_meta.update(**srv['meta'])
-        service_meta.update(**UNPRIVILEGED_ENVOY_SERVICE_META)
-        srv['meta'] = service_meta
+        for srv in container.services:
+            service_meta = {}
+            service_meta.update(**srv["meta"])
+            service_meta.update(**UNPRIVILEGED_ENVOY_SERVICE_META)
+            srv["meta"] = service_meta
 
     command = [
         "/bin/consul-sidecar",
@@ -376,7 +371,8 @@ def _render_consul_sidecar(ctx, container_def, pod):
     )
 
 def _consul_image(ctx):
-    return sidecar_image(ctx,
+    return sidecar_image(
+        ctx,
         name = "consul-sidecar",
         fallback = image(
             ctx,

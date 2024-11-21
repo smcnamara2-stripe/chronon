@@ -26,14 +26,13 @@ def msp_fleet_manager_scheduling_delay(delay):
     """
     return pod_plugin(
         _add_msp_fleet_manager_scheduling_delay,
-        delay = delay
+        delay = delay,
     )
 
 def _add_msp_fleet_manager_scheduling_delay(ctx, plugin, pod_def):
-    meta = pod_def['resource'].get("metadata")
+    meta = pod_def["resource"].get("metadata")
     if "annotations" in meta:
         meta["annotations"][MSP_FLEET_MANAGER_SCHEDULING_DELAY_KEY] = plugin.delay
-
 
 def msp_fleet_manager_preferred_availability_zone(availability_zone):
     """
@@ -59,11 +58,11 @@ def msp_fleet_manager_preferred_availability_zone(availability_zone):
     """
     return pod_plugin(
         _add_msp_fleet_manager_preferred_availability_zone,
-        availability_zone = availability_zone
+        availability_zone = availability_zone,
     )
 
 def _add_msp_fleet_manager_preferred_availability_zone(ctx, plugin, pod_def):
-    meta = pod_def['resource'].get("metadata")
+    meta = pod_def["resource"].get("metadata")
     if "annotations" in meta:
         meta["annotations"][MSP_FLEET_MANAGER_PREFERRED_AZ_KEY] = plugin.availability_zone
     if "labels" in meta:

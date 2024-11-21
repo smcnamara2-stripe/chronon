@@ -5,44 +5,43 @@ we run long-running service workloads on Kubernetes.
 
 [deployment]: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
 """
+
 load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
+load("config/kubernetes/autoscaling/horizontalpodautoscaler.sky", "horizontal_pod_autoscaler")
+load("config/kubernetes/core/container.sky", "container", "container_resources")
+load("config/kubernetes/core/env_var.sky", "all_containers_env_vars", "container_env_vars")
+load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
+load("config/kubernetes/core/lifecycle.sky", "DEFAULT_ENVOY_HEALTHCHECK_PROPAGATION_TIME", "DEFAULT_GRACE_PERIOD_SECONDS", "generate_prestop_sleep_action", "grace_period", "prestop_all_containers", "prestop_all_infra_sidecars")
 load("config/kubernetes/core/pod.sky", "all_containers", "main_container")
-load("config/kubernetes/helpers/bluegreen.sky", "with_blue_green_traffic_shifting", "add_blue_green_strategy")
-load("config/kubernetes/helpers/warning.sky", "warn")
-load("config/kubernetes/core/lifecycle.sky", "prestop_all_containers", "prestop_all_infra_sidecars", "DEFAULT_GRACE_PERIOD_SECONDS", "grace_period", "generate_prestop_sleep_action", "DEFAULT_ENVOY_HEALTHCHECK_PROPAGATION_TIME")
+load("config/kubernetes/core/volume.sky", "volume_mount_all_containers")
+load("config/kubernetes/helpers/aws_availability_zones.sky", "aws_az_valid")
+load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size", "get_graviton_eq_instance_type")
+load("config/kubernetes/helpers/binpacking.sky", "bin_packing")
+load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_strategy", "with_blue_green_traffic_shifting")
+load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME", "HOST_HEALTH_AGENT_SIDECAR_NAME")
+load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_cluster", "get_env", "get_name", "get_repo", "is_bin_packing_enabled", "is_horizontal_pod_autoscaling_enabled", "is_isolated_account_identity_enabled", "is_isolated_deploy", "is_onebox")
+load("config/kubernetes/helpers/ldap.sky", "LDAP_MOUNT_NAME", "mount_ldap_host_volumes")
+load("config/kubernetes/helpers/multi_arch_deployment_transition.sky", "add_arch_suffix", "calculate_multi_arch_replica_split", "graviton_deployment_0_replicas", "multi_arch_dynamic_replicas_desired_size", "multi_arch_override_node_selector")
 load("config/kubernetes/helpers/onebox.sky", "add_onebox_original_max_replicas_label")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Deployment", "DeploymentSpec")
+load("config/kubernetes/helpers/quantities.sky", "mebibytes", "millicores")
+load("config/kubernetes/helpers/resource_sharing.sky", "adjust_resources_for_sidecar", "maybe_add_overhead_for_kata", "maybe_clear_sidecar_resources", "share_resources_with_envoy")
 load("config/kubernetes/helpers/rolling.sky", "add_rolling_speed_override")
 load("config/kubernetes/helpers/service_consul_services.sky", "add_service_consul_services")
-load("config/kubernetes/meta/metadata.sky", "render_metadata", "render_selector", "get_availability_tier_from_metadata", "labels")
+load("config/kubernetes/helpers/tags.sky", "priority_tier_label")
+load("config/kubernetes/helpers/warning.sky", "warn")
+load("config/kubernetes/meta/metadata.sky", "get_availability_tier_from_metadata", "labels", "render_metadata", "render_selector")
 load("config/kubernetes/networking/public/networking.sky", "networking")
+load("config/kubernetes/pay-server.sky", "pay_server_per_priority_tier_env_vars")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "deployment_plugin")
+load("config/kubernetes/priority-tiers/host_isolation_allowlist.sky", "HOST_ISOLATION_ALLOWLIST")
+load("config/kubernetes/sidecars/host_health_agent.sky", "host_health_agent")
 load("config/kubernetes/sidecars/metrics.sky", "metrics")
 load("config/kubernetes/sidecars/sansshell.sky", "sansshell_sidecar")
-load("config/kubernetes/sidecars/host_health_agent.sky", "host_health_agent")
-load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_env", "is_bin_packing_enabled", "is_horizontal_pod_autoscaling_enabled", "is_isolated_deploy", "is_onebox", "is_vertical_pod_autoscaling_enabled", "get_name", "get_repo", "is_isolated_account_identity_enabled")
-load("config/kubernetes/core/volume.sky", "volume_mount_all_containers")
-load("config/kubernetes/helpers/ldap.sky", "mount_ldap_host_volumes", "LDAP_MOUNT_NAME")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Deployment", "DeploymentSpec")
-load("config/kubernetes/helpers/context.sky", "get_cluster")
-load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
-load("config/kubernetes/autoscaling/horizontalpodautoscaler.sky", "horizontal_pod_autoscaler")
-load("config/kubernetes/autoscaling/verticalpodautoscaler.sky", "vertical_pod_autoscaler")
-load("config/kubernetes/helpers/resource_sharing.sky", "share_resources_with_envoy", "maybe_clear_sidecar_resources", "maybe_add_overhead_for_kata", "adjust_resources_for_sidecar")
-load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME", "HOST_HEALTH_AGENT_SIDECAR_NAME")
 load("config/kubernetes/stripe.sky", "CONSUL_AGENT_ENABLED_LABEL", "CONSUL_AGENT_ENABLED_LABEL_DISABLED")
-load("config/kubernetes/core/container.sky", "container", "container_resources")
-load("config/kubernetes/helpers/quantities.sky", "millicores", "mebibytes")
-load("config/kubernetes/helpers/multi_arch_deployment_transition.sky", "calculate_multi_arch_replica_split", "multi_arch_dynamic_replicas_desired_size","multi_arch_override_node_selector","add_arch_suffix","graviton_deployment_0_replicas")
-load("config/kubernetes/helpers/aws_instance_sizes.sky","get_graviton_eq_instance_type","aws_instance_size")
-load("config/kubernetes/helpers/aws_availability_zones.sky","aws_az_valid")
-load("config/kubernetes/helpers/tags.sky", "priority_tier_label")
-load("config/kubernetes/core/env_var.sky", "container_env_vars", "all_containers_env_vars")
-load("config/kubernetes/helpers/binpacking.sky", "bin_packing")
-load("config/kubernetes/priority-tiers/host_isolation_allowlist.sky", "HOST_ISOLATION_ALLOWLIST")
-load("config/kubernetes/pay-server.sky", "pay_server_per_priority_tier_env_vars")
 
-def deployment(ctx, *plugins, shared_msp=False, mount_ldap_volumes=True, disable_default_metrics_sidecar=False, graviton_migration_enabled=False, graviton_migration_size=0, graviton_migration_target_6g=False, set_require_zone_balance_with_skew=1, set_require_node_balance_with_skew=-1,**kwargs):
+def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, disable_default_metrics_sidecar = False, graviton_migration_enabled = False, graviton_migration_size = 0, graviton_migration_target_6g = False, set_require_zone_balance_with_skew = 1, set_require_node_balance_with_skew = -1, **kwargs):
     """
     Schedule one or more instances of a stateless service.
 
@@ -80,39 +79,45 @@ def deployment(ctx, *plugins, shared_msp=False, mount_ldap_volumes=True, disable
         "kwargs": {},
         "networking_config": None,
         "metrics_config": None,
-        "plugin_overrides":[],
+        "plugin_overrides": [],
     }
 
-    # If we're performing an isolated deployment or onebox deployment, hard-code the replica count to 1
     onebox_original_replicas = None
+
+    # For isolated deploys, we want to reduce the # of replicas in the deployment. If there are <= 1
+    # replicas specified, we do not need to change this value.
     if is_isolated_deploy(ctx):
-        kwargs["replicas"] = 1
+        if kwargs.get("replicas", 0) > 1:
+            # Isolated deploys forces multi-replica deployments down to 1-pod
+            kwargs["replicas"] = 1
+
+        # If we're performing a onebox deployment, hard-code the replica count to 1
     elif is_onebox(ctx):
         onebox_original_replicas = kwargs.get("replicas")
         kwargs["replicas"] = 1
 
     # Let's recompute the desired count for the non-graviton deployment
     if graviton_migration_enabled:
-        replicas, graviton_replicas =  calculate_multi_arch_replica_split(
+        replicas, graviton_replicas = calculate_multi_arch_replica_split(
             kwargs["replicas"],
-            graviton_migration_size
-            )
+            graviton_migration_size,
+        )
 
-        deployment["plugin_overrides"] = [multi_arch_dynamic_replicas_desired_size(desired_count=replicas)]
+        deployment["plugin_overrides"] = [multi_arch_dynamic_replicas_desired_size(desired_count = replicas)]
         kwargs["replicas"] = replicas
 
     amd_64_deployment = _deployment_impl(
-        ctx=ctx,
-        deployment=deployment,
-        plugins=plugins,
+        ctx = ctx,
+        deployment = deployment,
+        plugins = plugins,
         kwargs = kwargs,
-        shared_msp=shared_msp,
-        mount_ldap_volumes=mount_ldap_volumes,
-        disable_default_metrics_sidecar=disable_default_metrics_sidecar,
-        set_require_node_balance_with_skew=set_require_node_balance_with_skew,
-        set_require_zone_balance_with_skew=set_require_zone_balance_with_skew,
-        onebox_original_replicas=onebox_original_replicas
-        )
+        shared_msp = shared_msp,
+        mount_ldap_volumes = mount_ldap_volumes,
+        disable_default_metrics_sidecar = disable_default_metrics_sidecar,
+        set_require_node_balance_with_skew = set_require_node_balance_with_skew,
+        set_require_zone_balance_with_skew = set_require_zone_balance_with_skew,
+        onebox_original_replicas = onebox_original_replicas,
+    )
 
     if graviton_migration_enabled:
         original_instance_type = deployment.get("pod").get("node_selectors").get("stripe.io/aws-instance-type")
@@ -121,26 +126,35 @@ def deployment(ctx, *plugins, shared_msp=False, mount_ldap_volumes=True, disable
             if metadata != None and metadata.annotations != None:
                 original_instance_type = metadata.annotations.get("stripe.io/requested-instance-type")
 
-        graviton_deployment =_graviton_deployment(
+        graviton_deployment = _graviton_deployment(
             ctx = ctx,
-            plugins=plugins,
+            plugins = plugins,
             original_instance_type = original_instance_type,
-            shared_msp=shared_msp,
-            mount_ldap_volumes=mount_ldap_volumes,
-            disable_default_metrics_sidecar=disable_default_metrics_sidecar,
+            shared_msp = shared_msp,
+            mount_ldap_volumes = mount_ldap_volumes,
+            disable_default_metrics_sidecar = disable_default_metrics_sidecar,
             graviton_replicas = graviton_replicas,
             graviton_migration_target_6g = graviton_migration_target_6g,
-            set_require_node_balance_with_skew=set_require_node_balance_with_skew,
-            set_require_zone_balance_with_skew=set_require_zone_balance_with_skew,
+            set_require_node_balance_with_skew = set_require_node_balance_with_skew,
+            set_require_zone_balance_with_skew = set_require_zone_balance_with_skew,
             kwargs = kwargs,
-            onebox_original_replicas=onebox_original_replicas
-            )
+            onebox_original_replicas = onebox_original_replicas,
+        )
 
-        return [amd_64_deployment, graviton_deployment ]
+        return [amd_64_deployment, graviton_deployment]
     return amd_64_deployment
 
-def _deployment_impl(ctx, deployment, plugins, kwargs, shared_msp=False, mount_ldap_volumes=True, disable_default_metrics_sidecar=False, set_require_zone_balance_with_skew=-1, set_require_node_balance_with_skew=-1,
-    onebox_original_replicas=None):
+def _deployment_impl(
+        ctx,
+        deployment,
+        plugins,
+        kwargs,
+        shared_msp = False,
+        mount_ldap_volumes = True,
+        disable_default_metrics_sidecar = False,
+        set_require_zone_balance_with_skew = -1,
+        set_require_node_balance_with_skew = -1,
+        onebox_original_replicas = None):
     """
     This function encapsulates the creation of a deployment resource such that we can create multiple deployments from the a single request for a deployment.
     """
@@ -159,7 +173,7 @@ def _deployment_impl(ctx, deployment, plugins, kwargs, shared_msp=False, mount_l
             # allow plenty of time for autoscale-srv to scale up capacity for the deployment
             progressDeadlineSeconds = 3600,
         ),
-        add_blue_green_strategy(), # Do this early to allow overrides by the user's plugins
+        add_blue_green_strategy(),  # Do this early to allow overrides by the user's plugins
     ]
     all_plugins.extend(plugins)
     all_plugins.append(deployment_options(**kwargs))
@@ -207,7 +221,7 @@ def _deployment_impl(ctx, deployment, plugins, kwargs, shared_msp=False, mount_l
                         priority_tier,
                         priority_tier_header,
                         service_name not in HOST_ISOLATION_ALLOWLIST,
-                    ]
+                    ],
                 )
                 if host_isolation_enabled_without_allowlist_config:
                     fail(service_name + " must be added to host_isolation_allowlist.sky")
@@ -232,31 +246,33 @@ def _deployment_impl(ctx, deployment, plugins, kwargs, shared_msp=False, mount_l
         # If the pod has marked themselves as not needing consul, we will never turn on consul-agent
         # as a result we need the networking sidecars to handle a lack of consul-agent gracefully.
         consul_deprecated_in_pod = deployment["metadata"].get("labels", {}).get(CONSUL_AGENT_ENABLED_LABEL, "")
+        deployment_availability_tier = get_availability_tier_from_metadata(deployment["metadata"])
         networking_plugin = networking(
             ctx,
-            namespace=namespace,
-            availability_tier=get_availability_tier_from_metadata(deployment["metadata"]),
-            host_network=False,
-            register_services=deployment['registered_services'],
-            config=deployment["networking_config"],
-            pod_termination_grace_period_seconds=pod_termination_grace_period_seconds,
-            consul_deprecated=(consul_deprecated_in_pod == CONSUL_AGENT_ENABLED_LABEL_DISABLED),
-            k8s_workload_name=k8s_workload_name,
+            namespace = namespace,
+            availability_tier = deployment_availability_tier,
+            host_network = False,
+            register_services = deployment["registered_services"],
+            config = deployment["networking_config"],
+            pod_termination_grace_period_seconds = pod_termination_grace_period_seconds,
+            consul_deprecated = (consul_deprecated_in_pod == CONSUL_AGENT_ENABLED_LABEL_DISABLED),
+            k8s_workload_name = k8s_workload_name,
         )
         _apply_plugin(ctx, networking_plugin, deployment)
+
         # Automatically add the metrics sidecar to any deployments. If we encounter a service that
         # wants to disable this we can add a flag.
         if not disable_default_metrics_sidecar:
-            _apply_plugin(ctx, metrics(ctx, config=deployment["metrics_config"]), deployment)
+            _apply_plugin(ctx, metrics(ctx, config = deployment["metrics_config"]), deployment)
         _apply_plugin(ctx, sansshell_sidecar(ctx), deployment)  # go/sod:sansshell
 
         _apply_plugin(ctx, host_health_agent(ctx, deployment["registered_services"], k8s_workload_name), deployment)
         _apply_plugin(ctx, compose_plugins(
-            prestop_all_infra_sidecars(ctx, pod_termination_grace_period_seconds=pod_termination_grace_period_seconds),
+            prestop_all_infra_sidecars(ctx, pod_termination_grace_period_seconds = pod_termination_grace_period_seconds),
             prestop_all_containers(generate_prestop_sleep_action(ctx, DEFAULT_ENVOY_HEALTHCHECK_PROPAGATION_TIME)),
             volume_mount_all_containers(
                 "/usr/stripe/bin/kube-prestop",
-                read_only=True,
+                read_only = True,
             ),
         ), deployment)
 
@@ -270,15 +286,11 @@ def _deployment_impl(ctx, deployment, plugins, kwargs, shared_msp=False, mount_l
         # If Bin Packing is enabled we need to inject a few custom plugins
         # More information can be read at go/binpacking
         if is_bin_packing_enabled(ctx) == True:
-            _apply_plugin(ctx, bin_packing(set_require_zone_balance_with_skew, set_require_node_balance_with_skew), deployment)
+            _apply_plugin(ctx, bin_packing(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier), deployment)
 
         if is_horizontal_pod_autoscaling_enabled(ctx) == True and deployment["kwargs"]["replicas"] > 2:
             # Feature flag opt in is only available for services with 3 or more replicas.
             _apply_plugin(ctx, compose_plugins(horizontal_pod_autoscaler()), deployment)
-
-        # Whether to add the VPA plugin to get recommendations for this workload
-        if _should_add_vpa_plugin(ctx):
-            _apply_plugin(ctx, compose_plugins(vertical_pod_autoscaler()), deployment)
 
         if is_isolated_account_identity_enabled(ctx):
             deployment["pod"]["resource"]["metadata"]["annotations"]["stripe.io/iam-role-account-affinity"] = "FROM_ENVIRONMENT"
@@ -325,15 +337,6 @@ def _apply_plugin(ctx, plugin, deployment):
     plugin.update_pod(ctx, plugin, deployment["pod"])
     for container in all_containers(deployment["pod"]):
         plugin.update_containers(ctx, plugin, container)
-
-def _should_add_vpa_plugin(ctx):
-    # Allow global disable via feature flag
-    # https://amp.corp.stripe.com/feature-flags/flag/gocode.henson.enable_vpa
-    if not is_vertical_pod_autoscaling_enabled(ctx):
-        return False
-
-    # default to adding VPA plugin for services in qa/preprod/prod
-    return True
 
 def deployment_options(**kwargs):
     """
@@ -462,13 +465,15 @@ def _container_has_resources(ctx, container):
 
     return False
 
-
 def _validate_deployment(ctx, deployment):
     name = deployment.metadata.name
     replicas = deployment.kwargs.get("replicas", None)
 
     if replicas == None:
         fail("There are no replicas specified in the deployment for %s. Without replicas specified, Kubernetes will fall back on 1 replica which is unsafe. Please explicitly specify replicas in your deployment." % name)
+
+    if is_isolated_deploy(ctx) and replicas > 1:
+        fail("Isolated deploys should be single-replica: %s specifies %d replicas" % (name, replicas))
 
     annotations = deployment.metadata.annotations
     _validate_dynamic_replicas_desired_count(ctx, name, replicas, annotations)
@@ -502,6 +507,7 @@ def _validate_dynamic_replicas_desired_count(ctx, name, replicas, annotations):
 # uptime availability across AZs during deployment events (ir-aqua-factorial)
 MAX_PERCENT = 16
 MIN_REPLICAS_FOR_CHECK = 6
+
 def _validate_strategy_max_unavailable(ctx, name, replicas, strategy):
     if strategy == None:
         return
@@ -532,7 +538,7 @@ def _validate_strategy_max_unavailable(ctx, name, replicas, strategy):
             percent = 100 * max_unavailable // replicas
         _validate_strategy_max_unavailable_warning(ctx, name, replicas, percent, max_unavailable)
 
-def _validate_strategy_max_unavailable_warning(ctx, name, replicas, percent, literal=None):
+def _validate_strategy_max_unavailable_warning(ctx, name, replicas, percent, literal = None):
     if replicas < MIN_REPLICAS_FOR_CHECK:
         return
 
@@ -548,7 +554,7 @@ def _validate_strategy_max_unavailable_warning(ctx, name, replicas, percent, lit
                 "is above the threshold of %d%% " % MAX_PERCENT,
                 "for Deployments with more than %d replicas. " % MIN_REPLICAS_FOR_CHECK,
                 "The specified value is %d, corresponding to %d%% of %d replicas. " % (literal, percent, replicas),
-                "Please reduce the MaxUnavailable value to %d or below. " % minLiteral
+                "Please reduce the MaxUnavailable value to %d or below. " % minLiteral,
             ]))
         else:
             warn(ctx, "".join([
@@ -556,49 +562,60 @@ def _validate_strategy_max_unavailable_warning(ctx, name, replicas, percent, lit
                 "is above the threshold of %d%% " % MAX_PERCENT,
                 "for Deployments with more than %d replicas. " % MIN_REPLICAS_FOR_CHECK,
                 "The specified value is %d%%. " % percent,
-                "Please reduce the MaxUnavailable percent below the threshold."
+                "Please reduce the MaxUnavailable percent below the threshold.",
             ]))
 
-def _graviton_deployment(ctx, plugins, original_instance_type, kwargs, shared_msp=False, mount_ldap_volumes=True, disable_default_metrics_sidecar=False, graviton_replicas=0, graviton_migration_target_6g=False, set_require_zone_balance_with_skew=-1, set_require_node_balance_with_skew=-1,
-    onebox_original_replicas=None):
-        graviton_deployment_def = {
-            "render": _render_deployment,
-            "type": "deployment",
-            "metadata": {},
-            "shared_msp": shared_msp,
-            "registered_services": [],
-            "kwargs": {},
-            "networking_config": None,
-            "metrics_config": None,
-            "plugin_overrids":[],
-        }
+def _graviton_deployment(
+        ctx,
+        plugins,
+        original_instance_type,
+        kwargs,
+        shared_msp = False,
+        mount_ldap_volumes = True,
+        disable_default_metrics_sidecar = False,
+        graviton_replicas = 0,
+        graviton_migration_target_6g = False,
+        set_require_zone_balance_with_skew = -1,
+        set_require_node_balance_with_skew = -1,
+        onebox_original_replicas = None):
+    graviton_deployment_def = {
+        "render": _render_deployment,
+        "type": "deployment",
+        "metadata": {},
+        "shared_msp": shared_msp,
+        "registered_services": [],
+        "kwargs": {},
+        "networking_config": None,
+        "metrics_config": None,
+        "plugin_overrids": [],
+    }
 
-        graviton_eq = get_graviton_eq_instance_type(ctx, original_instance_type, graviton_migration_target_6g)
-        graviton_eq_resources = aws_instance_size(graviton_eq)
+    graviton_eq = get_graviton_eq_instance_type(ctx, original_instance_type, graviton_migration_target_6g)
+    graviton_eq_resources = aws_instance_size(graviton_eq)
 
-        cpu = millicores(ctx, graviton_eq_resources.cpu_millicores - graviton_eq_resources.slack_cpu_millicores)
-        memory = mebibytes(ctx, graviton_eq_resources.memory_mib)
+    cpu = millicores(ctx, graviton_eq_resources.cpu_millicores - graviton_eq_resources.slack_cpu_millicores)
+    memory = mebibytes(ctx, graviton_eq_resources.memory_mib)
 
-        dynamic_replicas_override = multi_arch_dynamic_replicas_desired_size(desired_count=graviton_replicas) if graviton_replicas != 0 else graviton_deployment_0_replicas()
+    dynamic_replicas_override = multi_arch_dynamic_replicas_desired_size(desired_count = graviton_replicas) if graviton_replicas != 0 else graviton_deployment_0_replicas()
 
-        graviton_deployment_def["plugin_overrides"] = [
-            add_arch_suffix("graviton"),
-            multi_arch_override_node_selector(graviton_eq),
-            container_resources(cpu = cpu, memory = memory),
-            dynamic_replicas_override,
-        ]
+    graviton_deployment_def["plugin_overrides"] = [
+        add_arch_suffix("graviton"),
+        multi_arch_override_node_selector(graviton_eq),
+        container_resources(cpu = cpu, memory = memory),
+        dynamic_replicas_override,
+    ]
 
-        kwargs["replicas"] = graviton_replicas
+    kwargs["replicas"] = graviton_replicas
 
-        return _deployment_impl(
-            ctx=ctx,
-            deployment=graviton_deployment_def,
-            plugins=plugins,
-            kwargs = kwargs,
-            shared_msp=shared_msp,
-            mount_ldap_volumes=mount_ldap_volumes,
-            disable_default_metrics_sidecar=disable_default_metrics_sidecar,
-            set_require_node_balance_with_skew=set_require_node_balance_with_skew,
-            set_require_zone_balance_with_skew=set_require_zone_balance_with_skew,
-            onebox_original_replicas=onebox_original_replicas
-            )
+    return _deployment_impl(
+        ctx = ctx,
+        deployment = graviton_deployment_def,
+        plugins = plugins,
+        kwargs = kwargs,
+        shared_msp = shared_msp,
+        mount_ldap_volumes = mount_ldap_volumes,
+        disable_default_metrics_sidecar = disable_default_metrics_sidecar,
+        set_require_node_balance_with_skew = set_require_node_balance_with_skew,
+        set_require_zone_balance_with_skew = set_require_zone_balance_with_skew,
+        onebox_original_replicas = onebox_original_replicas,
+    )

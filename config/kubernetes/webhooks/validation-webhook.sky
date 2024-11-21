@@ -72,6 +72,7 @@ def _render_webhooks(ctx, validating_webhooks):
     webhooks_obj = ValidatingWebhookConfiguration(ctx)
     if validating_webhooks.metadata:
         webhooks_obj["metadata"] = render_metadata(ctx, validating_webhooks.metadata)
+
         # remove the namespace from the metadata however
         if webhooks_obj["metadata"].get("namespace"):
             webhooks_obj["metadata"].pop("namespace")
@@ -80,14 +81,13 @@ def _render_webhooks(ctx, validating_webhooks):
     return yaml.marshal(webhooks_obj)
 
 def validating_webhook(
-    ctx,
-    name,
-    url,
-    failurePolicy = "Ignore",
-    rules = [],
-    timeoutSeconds = 1,
-    objectSelector = None,
-):
+        ctx,
+        name,
+        url,
+        failurePolicy = "Ignore",
+        rules = [],
+        timeoutSeconds = 1,
+        objectSelector = None):
     if len(name) == 0:
         fail("invalid webhook name passed: %s" % name)
     if len(url) <= 8:

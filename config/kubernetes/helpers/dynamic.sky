@@ -7,8 +7,7 @@ load("config/kubernetes/plugins/types.sky", "deployment_plugin")
 load("config/kubernetes/helpers/context.sky", "is_isolated_deploy")
 load("config/kubernetes/helpers/warning.sky", "warn")
 
-
-def dynamic_replicas(desired_count=1, max_count=1, min_count=1):
+def dynamic_replicas(desired_count = 1, max_count = 1, min_count = 1):
     """
     Configures the deployment to have a dynamic number of replicas rather than
     a static one. This allows your deployment to vary its replica count within
@@ -35,11 +34,10 @@ def dynamic_replicas(desired_count=1, max_count=1, min_count=1):
 
     return deployment_plugin(
         _add_dynamic_replicas,
-        desired_count=str(desired_count),
-        max_count=str(max_count),
-        min_count=str(min_count),
+        desired_count = str(desired_count),
+        max_count = str(max_count),
+        min_count = str(min_count),
     )
-
 
 def _add_dynamic_replicas(ctx, arguments, deployment_def):
     # Skip setting dynamic replicas for isolated deployements as they're always single replicas.
@@ -50,7 +48,7 @@ def _add_dynamic_replicas(ctx, arguments, deployment_def):
         warn(ctx, "skipping applying dynamic_replicas plugin due to isolated deployments")
         return
 
-    deployment_def['metadata']['annotations'].update({
+    deployment_def["metadata"]["annotations"].update({
         "stripe.io/dynamic-replicas-enabled": "yes",
         "stripe.io/dynamic-replicas-count-min": arguments.min_count,
         "stripe.io/dynamic-replicas-count-max": arguments.max_count,

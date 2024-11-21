@@ -5,7 +5,6 @@ Plugins for adding rules to control how SIRNs are managed on MSP resources.
 
 load("config/kubernetes/meta/metadata.sky", "annotations")
 
-
 def add_sirn_annotation(sirn):
     """
     Annotates the MSP Resource with a SIRN. See http://go/sirn for more information on using SIRNs.
@@ -19,6 +18,5 @@ def add_sirn_annotation(sirn):
         A plugin that adds the SIRN as an annotation to the pod.
     """
     return annotations({
-        "stripe.io/sirn": sirn
+        "stripe.io/sirn": sirn,
     })
-

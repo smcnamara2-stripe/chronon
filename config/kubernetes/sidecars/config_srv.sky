@@ -1,17 +1,18 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/core/container.sky", "sidecar_container", "resource_requirements")
+load("config/kubernetes/core/container.sky", "resource_requirements", "sidecar_container")
 load("config/kubernetes/core/env_var.sky", "default_env_vars")
-load("config/kubernetes/core/generic.sky", "is_shared_msp", "is_dedicated_msp")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/core/lifecycle.sky", "render_lifecycle")
 load("config/kubernetes/core/volume.sky", "mount_host_volume", "render_volume_mount", "volume_mount")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 load("config/kubernetes/helpers/images.sky", "image")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Container")
 load("config/kubernetes/helpers/security.sky", "mount_host_stripe_ca_certs")
-load("config/kubernetes/helpers/security.sky", "use_credentials_proxy", "mount_credentials_proxy", "mount_host_credentials_proxy")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "mount_host_credentials_proxy", "use_credentials_proxy")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/sidecars/variables.sky", "CONFIG_SRV_CONTAINER_ENV", "CONFIG_SRV_CONTAINER_DIGEST")
+load("config/kubernetes/sidecars/variables.sky", "CONFIG_SRV_CONTAINER_DIGEST", "CONFIG_SRV_CONTAINER_ENV")
 
 sidecar_name = "config-srv-sidecar"
 
@@ -30,7 +31,7 @@ def config_srv_sidecar(ctx, http_port = 10104, grpc_port = 10105):
         A plugin that adds the sidecar container to the pod.
     """
 
-    return _config_srv_sidecar_unpinned(http_port=http_port, grpc_port=grpc_port)
+    return _config_srv_sidecar_unpinned(http_port = http_port, grpc_port = grpc_port)
 
 sidecar_present_key = "config_srv_sidecar_container"
 
@@ -65,7 +66,6 @@ def _config_srv_sidecar_unpinned(*, http_port = 10104, grpc_port = 10105):
             _if_not_present,
             sidecar_container(
                 name = sidecar_name,
-
                 sidecar_service = "config-srv-sidecar-msp",
                 container_image = "stripe/deploy-and-staging/config-srv-sidecar",
                 fallback_label = CONFIG_SRV_CONTAINER_DIGEST,
@@ -77,7 +77,6 @@ def _config_srv_sidecar_unpinned(*, http_port = 10104, grpc_port = 10105):
                     mount_credentials_proxy(),
                     volume_mount("/pay/cache", container_name = "config-srv-sidecar"),
                 ],
-
                 command = [
                     "/pay/deploy/gocode/current/config-srv-sidecar/config-srv-sidecar",
                     "--http-port=%s" % http_port,
@@ -86,6 +85,7 @@ def _config_srv_sidecar_unpinned(*, http_port = 10104, grpc_port = 10105):
                     # and the metrics() sidecar on Shared MSP (which is always present)
                     "--veneur-address=udp://127.0.0.1:8128",
                 ],
-            )
-        )
+                programming_language = GO_PROGRAMMING_LANGUAGE,
+            ),
+        ),
     )

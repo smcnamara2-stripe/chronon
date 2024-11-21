@@ -85,16 +85,16 @@ def register_service(
     return compose_plugins(
         deployment_plugin(
             _register_service,
-            service=define_registered_service(port, name, tags, checks, meta, container_name, port_name, **kwargs),
+            service = define_registered_service(port, name, tags, checks, meta, container_name, port_name, **kwargs),
         ),
         statefulset_plugin(
             _register_service,
-            service=define_registered_service(port, name, tags, checks, meta, container_name, port_name, **kwargs),
+            service = define_registered_service(port, name, tags, checks, meta, container_name, port_name, **kwargs),
         ),
     )
 
 def _register_service(ctx, arguments, resource_def):
-    resource_def['registered_services'].append(arguments.service)
+    resource_def["registered_services"].append(arguments.service)
 
 def define_registered_service(
         port,
@@ -136,6 +136,7 @@ def define_registered_service(
           "plugins": a set of opaque plugins to apply
         }
     """
+
     # NB(xyu): I couldn't find any livegrep examples of people using this field
     # in practice. The whole point of setting `container_name` appears to be to
     # set the k8s containerPort hint on the correct container. Consider
@@ -161,10 +162,9 @@ def define_registered_service(
         plugins.append(container_port(port, container_name = container_name, port_name = port_name))
 
     return {
-        'service': service,
-        'plugins': plugins
+        "service": service,
+        "plugins": plugins,
     }
-
 
 # Backwards compatibility
 def envoy_consul_tag(healthcheck):

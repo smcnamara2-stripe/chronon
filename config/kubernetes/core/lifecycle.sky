@@ -2,11 +2,12 @@
 """
 Plugins for controlling the lifecycle of pods.
 """
-load("config/kubernetes/core/volume.sky", "volume_mount", )
+
+load("config/kubernetes/core/volume.sky", "volume_mount")
+load("config/kubernetes/helpers/constants.sky", "CONFIG_SRV_SIDECAR_NAME", "CONSUL_SIDECAR_CONTAINER_NAME", "CRED_PROXY_SHIM_CONTAINER_NAME", "ENVOY_CONFIG_SRV_SIDECAR_NAME", "ENVOY_RATELIMIT_SRV_SIDECAR_NAME", "ENVOY_SIDECAR_NAME", "METRICS_SIDECAR_CONTAINER_NAME", "NSQD_SIDECAR_CONTAINER_NAME")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "ExecAction", "Lifecycle", "LifecycleHandler")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "container_plugin", "pod_plugin", "all_container_plugin")
-load("config/kubernetes/helpers/constants.sky", "CONFIG_SRV_SIDECAR_NAME", "CONSUL_SIDECAR_CONTAINER_NAME", "ENVOY_SIDECAR_NAME", "ENVOY_CONFIG_SRV_SIDECAR_NAME", "ENVOY_RATELIMIT_SRV_SIDECAR_NAME", "METRICS_SIDECAR_CONTAINER_NAME", "NSQD_SIDECAR_CONTAINER_NAME", "CRED_PROXY_SHIM_CONTAINER_NAME")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Lifecycle", "LifecycleHandler", "ExecAction")
+load("config/kubernetes/plugins/types.sky", "all_container_plugin", "container_plugin", "pod_plugin")
 
 def pre_stop(action, container_name = None):
     """
@@ -83,9 +84,15 @@ MAX_GRACE_PERIOD_SECONDS = DEFAULT_GRACE_PERIOD_SECONDS + DEFAULT_ENVOY_HEALTHCH
 # We fail rendering of services which specify a grace period over 7 minutes.
 MAX_ENFORCED_GRACE_PERIOD_SECONDS = 7 * 60
 
+# Default drain duration: 8 hours. This is used for shared MSP jobs only and is longer than the 5 min default grace period for shared MSP services
+# as jobs often run much longer than 5 minutes and would be at risk of failing halfway through if the pod gets randomly terminated due to HLM or similar.
+DEFAULT_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS = 60 * 60 * 8
+
+# We fail rendering of jobs which specify a grace period over 8 hours.
+MAX_ENFORCED_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS = 60 * 60 * 8
 
 def generate_prestop_sleep_action(ctx, sleep_seonds):
-    return exec_action(ctx, "/usr/stripe/bin/kube-prestop", "--sleep-seconds",  str(sleep_seonds))
+    return exec_action(ctx, "/usr/stripe/bin/kube-prestop", "--sleep-seconds", str(sleep_seonds))
 
 def prestop_all_containers(action):
     """
@@ -100,23 +107,26 @@ def prestop_all_containers(action):
         A plugin that sets the pre-stop action for every container.
     """
     return all_container_plugin(
-            _add_handler_no_overwrite,
-            type="preStop",
-            action = action,
-        )
+        _add_handler_no_overwrite,
+        type = "preStop",
+        action = action,
+    )
 
 BLESSED_INFRA_SIDECAR_COMMANDS = [
-    '/veneur/veneur',
-    '/veneur/init.sh',
-    '/bin/consul-sidecar',
-    '/bin/envoy-sidecar',
-    '/bin/envoy-stripe.stripped',
-    '/bin/envoy-staging-stripe.stripped',
-    '/bin/envoy-config-srv',
-    '/bin/envoy-ratelimit-srv',
-    '/nsqd',
-    '/pay/deploy/gocode/current/config-srv-sidecar/config-srv-sidecar',
-    '/pay/deploy/gocode/current/credentials-proxy-shim/shim',
+    "/veneur/veneur",
+    "/veneur/init.sh",
+    "/bin/consul-sidecar",
+    "/bin/envoy-sidecar",
+    "/bin/envoy-stripe.stripped",
+    "/bin/envoy-staging-stripe.stripped",
+    "/bin/sn-mesh-proxy",
+    "/bin/sn-mesh-proxy-qa",
+    "/bin/sn-mesh-proxy-prod",
+    "/bin/envoy-config-srv",
+    "/bin/envoy-ratelimit-srv",
+    "/nsqd",
+    "/pay/deploy/gocode/current/config-srv-sidecar/config-srv-sidecar",
+    "/pay/deploy/gocode/current/credentials-proxy-shim/shim",
 ]
 
 BLESSED_INFRA_SIDECAR_CONTAINER_NAMES = [
@@ -140,20 +150,20 @@ def generate_infra_sidecar_prestop_command_args(ctx, sidecarName, pod_terminatio
     the prestop hook for these sidecars.
     """
     args = [
-        '/usr/stripe/bin/kube-prestop',
-        '--infra-sidecar',
-        '--container-name',
+        "/usr/stripe/bin/kube-prestop",
+        "--infra-sidecar",
+        "--container-name",
         sidecarName,
-        '--termination-grace-period',
+        "--termination-grace-period",
         str(pod_termination_grace_period_seconds),
     ]
 
-#   For envoy-config-srv unified sidecar, we are using the ubuntu base image which does
-#   not have /bin/sh -> busybox setup. For this sidecar, we are failing the local healthcheck
-#   from the prestop binary. This is the reason this arg is included for this sidecar.
+    #   For envoy-config-srv unified sidecar, we are using the ubuntu base image which does
+    #   not have /bin/sh -> busybox setup. For this sidecar, we are failing the local healthcheck
+    #   from the prestop binary. This is the reason this arg is included for this sidecar.
     if sidecarName == ENVOY_CONFIG_SRV_SIDECAR_NAME:
-        args.append('--fail-healthcheck')
-        args.append('--initiate-pod-termination')
+        args.append("--fail-healthcheck")
+        args.append("--initiate-pod-termination")
 
     for sidecarCommand in BLESSED_INFRA_SIDECAR_COMMANDS:
         args.append("--sidecar-command")
@@ -168,7 +178,7 @@ def prestop_all_infra_sidecars(ctx, pod_termination_grace_period_seconds):
     plugins = []
 
     for sidecarName in BLESSED_INFRA_SIDECAR_CONTAINER_NAMES:
-        action = exec_action(ctx, *generate_infra_sidecar_prestop_command_args(ctx, sidecarName=sidecarName, pod_termination_grace_period_seconds=pod_termination_grace_period_seconds))
+        action = exec_action(ctx, *generate_infra_sidecar_prestop_command_args(ctx, sidecarName = sidecarName, pod_termination_grace_period_seconds = pod_termination_grace_period_seconds))
         plugins.extend(
             [
                 pre_stop(
@@ -178,14 +188,14 @@ def prestop_all_infra_sidecars(ctx, pod_termination_grace_period_seconds):
                 volume_mount(
                     "/usr/stripe/bin/kube-prestop",
                     container_name = sidecarName,
-                    read_only=True,
+                    read_only = True,
                 ),
-            ]
+            ],
         )
 
     return compose_plugins(
-            *plugins,
-        )
+        *plugins
+    )
 
 def grace_period(seconds, overwrite = True):
     """
