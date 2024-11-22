@@ -82,6 +82,8 @@ object SparkSessionBuilder {
         .config("spark.hadoop.javax.jdo.option.ConnectionURL", "jdbc:derby:memory:myInMemDB;create=true")
         .config("spark.sql.warehouse.dir", tmpPath.toAbsolutePath.toString)
         .config("spark.driver.bindAddress", "127.0.0.1")
+        // enable chronon in job chaining computation for local testing. Outside of tests this should be false.
+        .config(SparkConstants.ChrononEnableInJobChainingComputation, "true")
     } else {
       // hive jars need to be available on classpath - no needed for local testing
       val warehouseDir = new File(wareHousePathPrefix)

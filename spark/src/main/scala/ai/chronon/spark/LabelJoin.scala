@@ -224,11 +224,11 @@ class LabelJoin(joinConf: api.Join, tableUtils: BaseTableUtils, labelDS: String)
                |  bloom sizes: $bloomSizes
                |  groupBy: ${joinPart.groupBy.toString}
                |""".stripMargin)
-
+    val enableChainingInJob: Boolean = tableUtils.sparkSession.conf.get(SparkConstants.ChrononEnableInJobChainingComputation, "false").toBoolean
     val groupBy = GroupBy.from(joinPart.groupBy,
                                PartitionRange(labelDS, labelDS)(tableUtils),
                                tableUtils,
-                               computeDependency = true,
+                               computeDependency = enableChainingInJob,
                                Option(rightBloomMap),
                                rightSkewFilter)
 

@@ -24,4 +24,5 @@ object SparkConstants {
   val ChrononGroupByUploadSplits: String = "spark.chronon.groupByUpload.numSplits"
   val ChrononMaxScanParallelism: String = "spark.chronon.maxScanParallelism"
   val ChrononSplitExternalPartsBootstrap: String = "spark.chronon.join.bootstrap.splitExternalParts"
+  val ChrononEnableInJobChainingComputation: String = "spark.chronon.enableInJobChainingComputation"
 }

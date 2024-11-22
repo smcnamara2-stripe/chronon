@@ -530,7 +530,7 @@ object GroupBy {
   def replaceJoinSource(groupByConf: api.GroupBy,
                         queryRange: PartitionRange,
                         tableUtils: BaseTableUtils,
-                        computeDependency: Boolean = true,
+                        computeDependency: Boolean,
                         showDf: Boolean = false): api.GroupBy = {
     val result = groupByConf.deepCopy()
     val newSources: java.util.List[api.Source] = groupByConf.sources.toScala.map { source =>
@@ -546,6 +546,7 @@ object GroupBy {
 
         val join = new Join(joinConf, endDate, tableUtils, mutationScan = false, showDf = showDf)
         if (computeDependency) {
+          logger.info("***** In job chaining computation is set to true. Computing join source. *****")
           val df = join.computeJoin()
           if (showDf) {
             logger.info(
@@ -907,6 +908,7 @@ object GroupBy {
     val groupByUnfilledRanges = groupByUnfilledRangesOpt.get
     logger.info(s"group by unfilled ranges: $groupByUnfilledRanges")
     val exceptions = mutable.Buffer.empty[String]
+    val enableChainingInJob: Boolean = tableUtils.sparkSession.conf.get(SparkConstants.ChrononEnableInJobChainingComputation, "false").toBoolean
     groupByUnfilledRanges.foreach {
       case groupByUnfilledRange =>
         try {
@@ -917,7 +919,7 @@ object GroupBy {
           stepRanges.zipWithIndex.foreach {
             case (range, index) =>
               logger.info(s"Computing group by for range: $range [${index + 1}/${stepRanges.size}]")
-              val groupByBackfill = from(groupByConf, range, tableUtils, computeDependency = true)
+              val groupByBackfill = from(groupByConf, range, tableUtils, computeDependency = enableChainingInJob)
               val outputDf = groupByConf.dataModel match {
                 // group by backfills have to be snapshot only
                 case Entities => groupByBackfill.snapshotEntities

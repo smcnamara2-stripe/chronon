@@ -188,7 +188,8 @@ class Analyzer(tableUtils: BaseTableUtils,
                      includeOutputTableName: Boolean = false,
                      enableHitter: Boolean = false): (Array[AggregationMetadata], Map[String, DataType]) = {
     groupByConf.setups.foreach(tableUtils.sql)
-    val groupBy = GroupBy.from(groupByConf, range, tableUtils, computeDependency = enableHitter, finalize = true)
+    val enableChainingInJob: Boolean = tableUtils.sparkSession.conf.get(SparkConstants.ChrononEnableInJobChainingComputation, "false").toBoolean
+    val groupBy = GroupBy.from(groupByConf, range, tableUtils, computeDependency = enableHitter && enableChainingInJob, finalize = true)
     val name = "group_by/" + prefix + groupByConf.metaData.name
     logger.info(s"""|Running GroupBy analysis for $name ...""".stripMargin)
     val analysis =

@@ -233,11 +233,12 @@ abstract class JoinBase(joinConf: api.Join,
     assert(joinPart.groupBy.sources.toScala.map(_.lag).toSet.size == 1, "All sources for a GroupBy must have the same lag")
     assert(joinPart.groupBy.sources.toScala.filter(s => s.lag > 0 && s.isSetEntities && (s.getEntities.isSetMutationTable || s.getEntities.isSetMutationTopic)).isEmpty, "lag is not supported for entity sources that have mutations")
     val lag = joinPart.groupBy.sources.get(0).lag
+    val enableChainingInJob: Boolean = tableUtils.sparkSession.conf.get(SparkConstants.ChrononEnableInJobChainingComputation, "false").toBoolean
     def genGroupBy(partitionRange: PartitionRange) =
       GroupBy.from(joinPart.groupBy,
                    partitionRange,
                    tableUtils,
-                   computeDependency = true,
+                   computeDependency = enableChainingInJob,
                    rightBloomMap,
                    rightSkewFilter,
                    mutationScan = mutationScan,
