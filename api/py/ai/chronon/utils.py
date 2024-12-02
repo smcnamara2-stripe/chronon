@@ -267,7 +267,7 @@ def get_join_output_table_name(join: api.Join, full_name: bool = False):
     table_name = join.metaData.name
     
     if full_name:
-        return sanitize(join.metaData.outputNamespace + "." + table_name)
+        return join.metaData.outputNamespace + "." + sanitize(table_name)
     else:
         return sanitize(table_name)
 
@@ -307,7 +307,7 @@ def get_dependencies(
             result = [wait_for_simple_schema(src.entities.snapshotTable, lag, start, end)]
         elif src.joinSource:
             parentJoinOutputTable = get_join_output_table_name(src.joinSource.join, True)
-            result = [wait_for_simple_schema(parentJoinOutputTable, lag, start, end)]
+            result = [wait_for_simple_schema(parentJoinOutputTable, lag, start, end, is_join_source_dependency=True)]
         else:
             result = [wait_for_simple_schema(src.events.table, lag, start, end, is_hourly_partitioned)]
     return [json.dumps(res) for res in result]
@@ -352,7 +352,7 @@ def get_model_transformation_dependencies(join: api.Join) -> List[str]:
 
 
 
-def wait_for_simple_schema(table, lag, start, end, is_hourly_partitioned=False):
+def wait_for_simple_schema(table, lag, start, end, is_hourly_partitioned=False, is_join_source_dependency=False):
     if not table:
         return None
     table_tokens = table.split('/')
@@ -370,6 +370,8 @@ def wait_for_simple_schema(table, lag, start, end, is_hourly_partitioned=False):
     }
     if is_hourly_partitioned:
         result["is_hourly_partitioned"] = True
+    if is_join_source_dependency:
+        result["is_join_source_dependency"] = True
     return result
 
 
