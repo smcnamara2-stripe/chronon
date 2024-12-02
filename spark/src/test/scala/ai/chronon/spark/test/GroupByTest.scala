@@ -758,6 +758,82 @@ class GroupByTest {
   }
 
   @Test
+  def testJoinSourceOutputTableOverrides(): Unit = {
+    // Create base join
+    val namespace = "test_join_source_output_table_override"
+    val today = tableUtils.partitionSpec.at(System.currentTimeMillis())
+    val joinName = "parent_join_table"
+    val parentGBName = "parent_gb"
+    val baseJoin = TestUtils.getParentJoin(spark, namespace, joinName, parentGBName)
+
+    // Compute base join
+    val joinJob = new Join(baseJoin, today, tableUtils)
+    joinJob.computeJoinOpt()
+
+    // Write to some other table
+    val baseJoinDf = spark.sql(s"SELECT * FROM $namespace.parent_join_table")
+    val someOtherNamespace = "some_other_namespace"
+    spark.sql(s"CREATE DATABASE IF NOT EXISTS $someOtherNamespace")
+    val someOtherTableName = "some_other_table_name"
+    baseJoinDf.write.saveAsTable(s"$someOtherNamespace.$someOtherTableName")
+
+    // Drop og join table
+    spark.sql(s"DROP TABLE $namespace.parent_join_table")
+    assertTrue(!spark.catalog.tableExists(s"$namespace.parent_join_table") && spark.catalog.tableExists(s"$someOtherNamespace.$someOtherTableName"))
+
+    //Compute gb with join source output table name override
+    val query = Builders.Query(startPartition = today)
+    val chainingGroupBy = TestUtils.getTestGBWithJoinSource(baseJoin, query, namespace, "user_viewed_price_gb", Some(s"$someOtherNamespace.$someOtherTableName"))
+    val newGroupBy = GroupBy.from(chainingGroupBy, PartitionRange(today, today), tableUtils, computeDependency = false)
+
+    //Verify correctness
+    val expectedSQL =
+      s"""
+         |WITH latestB AS (
+         |    SELECT
+         |        COALESCE(A.listing, '--null--') listing,
+         |        A.user,
+         |        MAX(A.ts) as ts,
+         |        A.ds
+         |    FROM
+         |        $someOtherNamespace.$someOtherTableName  A
+         |    LEFT OUTER JOIN
+         |       $namespace.views_table B ON A.listing = B.listing
+         |    WHERE
+         |        B.ts <= A.ts AND A.ds = '$today'
+         |    GROUP BY
+         |        A.listing, A.user, A.ds
+         |)
+         |SELECT
+         |    IF(latestB.listing == '--null--', null, latestB.listing) as listing,
+         |    latestB.user,
+         |    latestB.ts,
+         |    latestB.ds,
+         |    C.parent_gb_price_last
+         |FROM
+         |    latestB
+         |JOIN
+         |   $someOtherNamespace.$someOtherTableName C
+         |ON
+         |    latestB.listing = COALESCE(C.listing, '--null--') AND latestB.ts = C.ts
+         |""".stripMargin
+    val expectedInputDf = spark.sql(expectedSQL)
+    println("Expected input DF: ")
+    expectedInputDf.show()
+    println("Computed input DF: ")
+    newGroupBy.inputDf.show()
+
+    val diff = Comparison.sideBySide(newGroupBy.inputDf, expectedInputDf, List("listing", "user", "ds"))
+    if (diff.count() > 0) {
+      println(s"Actual count: ${newGroupBy.inputDf.count()}")
+      println(s"Expected count: ${expectedInputDf.count()}")
+      println(s"Diff count: ${diff.count()}")
+      diff.show()
+    }
+    assertEquals(0, diff.count())
+  }
+
+  @Test
   def testGroupByFromChainingGB(): Unit = {
     val namespace = "test_chaining_gb"
     val today = tableUtils.partitionSpec.at(System.currentTimeMillis())

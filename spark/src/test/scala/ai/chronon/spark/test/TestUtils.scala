@@ -462,9 +462,9 @@ object TestUtils {
     * @return a group by with a join source
     */
 
-  def getTestGBWithJoinSource(joinSource: api.Join, query: api.Query, namespace: String, name: String): api.GroupBy = {
+  def getTestGBWithJoinSource(joinSource: api.Join, query: api.Query, namespace: String, name: String, joinSourceOutputTableNameOverride: Option[String] = None): api.GroupBy = {
     Builders.GroupBy(
-      sources = Seq(Builders.Source.joinSource(joinSource, query)),
+      sources = Seq(Builders.Source.joinSource(joinSource, query, joinSourceOutputTableNameOverride)),
       keyColumns = Seq("user"),
       aggregations = Seq(
         Builders.Aggregation(operation = Operation.LAST_K,

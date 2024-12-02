@@ -129,10 +129,13 @@ object Builders {
       source
     }
 
-    def joinSource(join: Join, query: Query): Source = {
+    def joinSource(join: Join, query: Query, outputTableNameOverride: Option[String] = None): Source = {
       val joinSource = new JoinSource()
       joinSource.setJoin(join)
       joinSource.setQuery(query)
+      if (outputTableNameOverride.isDefined) {
+        joinSource.setOutputTableNameOverride(outputTableNameOverride.get)
+      }
       val source = new Source()
       source.setJoinSource(joinSource)
       source

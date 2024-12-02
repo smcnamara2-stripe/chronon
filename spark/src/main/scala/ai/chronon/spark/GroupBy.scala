@@ -561,6 +561,11 @@ object GroupBy {
           if(joinSource.isSetOutputTableNameOverride) joinSource.outputTableNameOverride
           else joinConf.metaData.outputTable
         }
+
+        if(joinSource.isSetOutputTableNameOverride) {
+          logger.info(s"Overriding output table name for join source: ${joinSource.outputTableNameOverride}")
+        }
+
         val topic = joinConf.left.topic
         val newSource = joinConf.left.deepCopy()
         if (newSource.isSetEvents) {

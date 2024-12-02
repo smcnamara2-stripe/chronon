@@ -386,9 +386,21 @@ object Extensions {
     }
 
     lazy val rawTable: String = {
-      if (source.isSetEntities) { source.getEntities.getSnapshotTable }
-      else if (source.isSetEvents) { source.getEvents.getTable }
-      else { source.getJoinSource.getJoin.metaData.outputTable }
+      if (source.isSetEntities) {
+        source.getEntities.getSnapshotTable
+      }
+      else if (source.isSetEvents) {
+        source.getEvents.getTable
+      }
+      else if (source.isSetJoinSource) {
+        if (source.getJoinSource.isSetOutputTableNameOverride) source.getJoinSource.outputTableNameOverride
+        else source.getJoinSource.getJoin.metaData.outputTable
+      }
+      else {
+      // We will need to add logic here if we add additional source types in the future 
+        throw new Exception("Source type must be entities, events, or join source! Please add additional logic here to handle this source type.")
+      }
+
     }
 
     def table: String = rawTable.cleanSpec
