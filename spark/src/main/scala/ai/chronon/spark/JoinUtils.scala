@@ -387,7 +387,7 @@ object JoinUtils {
             val values = collectedLeft.map(row => row.getAs[Any](leftSideKeyName))
             // Check for null keys, warn if found, err if all null
             val (notNullValues, nullValues) = values.partition(_ != null)
-            if (notNullValues.isEmpty) {
+            if (notNullValues.isEmpty && !leftDf.isEmpty) {
               throw new RuntimeException(
                 s"No not-null keys found for key: $keyName. Check source table or where clauses.")
             } else if (!nullValues.isEmpty) {

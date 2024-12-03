@@ -213,7 +213,7 @@ abstract class JoinBase(joinConf: api.Join,
 
     val leftDf = leftDfWithStats.get.df
     val rowCount = leftDfWithStats.get.count
-    val unfilledRange = leftDfWithStats.get.partitionRange
+    val unfilledRange = leftDfWithStats.get.trimmedPartitionRange
 
     logger.info(
       s"\nBackfill is required for ${joinPart.groupBy.metaData.name} for $rowCount rows on range $unfilledRange")

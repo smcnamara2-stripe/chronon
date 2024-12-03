@@ -1885,4 +1885,49 @@ class JoinTest {
     assert(tables.contains("unit_test_join_with_model_transformation_v0_unit_test_gb_1_v0")) // Intermediate table names don't change
     assert(tables.contains("unit_test_join_with_model_transformation_v0_with_prefix_unit_test_gb_2_v0"))
   }
+
+  @Test
+  def testEmptyPartitions(): Unit = {
+    val viewsSchema = List(
+      Column("user", api.StringType, 10000),
+      Column("item", api.StringType, 100),
+      Column("time_spent_ms", api.LongType, 5000)
+    )
+
+    DataFrameGen.events(spark, viewsSchema, count = 1000, partitions = 200).drop("ts").save(viewsTable)
+
+    val viewsSource = Builders.Source.events(
+      query = Builders.Query(selects = Builders.Selects("time_spent_ms"), startPartition = yearAgo),
+      table = viewsTable
+    )
+
+    val viewsGroupBy = Builders.GroupBy(
+      sources = Seq(viewsSource),
+      keyColumns = Seq("item"),
+      aggregations = Seq(
+        Builders.Aggregation(operation = Operation.AVERAGE, inputColumn = "time_spent_ms")
+      ),
+      metaData = Builders.MetaData(name = "unit_test.item_views", namespace = namespace),
+      accuracy = Accuracy.SNAPSHOT
+    )
+
+    // left side
+    val itemQueries = List(Column("item", api.StringType, 100))
+    DataFrameGen
+      .events(spark, itemQueries, 0, partitions = 100)
+      .save(itemQueriesTable)
+
+    val start = tableUtils.partitionSpec.minus(today, new Window(100, TimeUnit.DAYS))
+
+    val joinConf = Builders.Join(
+      left = Builders.Source.events(Builders.Query(startPartition = start), table = itemQueriesTable),
+      joinParts = Seq(Builders.JoinPart(groupBy = viewsGroupBy, prefix = "user")),
+      metaData = Builders.MetaData(name = "test.item_snapshot_features_2", namespace = namespace, team = "chronon")
+    )
+
+    val join = new Join(joinConf = joinConf, endPartition = monthAgo, tableUtils)
+    val computed = join.computeJoin()
+
+    assertTrue(computed.isEmpty)
+  }
 }

@@ -205,7 +205,7 @@ class Join(joinConf: api.Join,
     // this becomes the "new" left for the following GB backfills
     val BootstrapResult(bootstrapDf, externalBootstraps) = computeBootstrapTable(leftTaggedDf, leftRange, bootstrapInfo)
 
-    val bootStrapWithStats = bootstrapDf.withStats(tableUtils)
+    val bootStrapWithStats = bootstrapDf.withStats(tableUtils, leftRange)
 
     // for each join part, find the bootstrap sets that can fully "cover" the required fields. Later we will use this
     // info to filter records that need backfills vs can be waived from backfills
@@ -248,7 +248,7 @@ class Join(joinConf: api.Join,
                 val threadName = s"${joinPart.groupBy.metaData.cleanName}-${leftRange.start}-${leftRange.end}"
                 tableUtils.sparkSession.sparkContext
                   .setLocalProperty("spark.scheduler.pool", s"${joinPart.groupBy.metaData.cleanName}-part-pool")
-                val unfilledLeftDf = findUnfilledRecords(bootStrapWithStats, coveringSets.filter(_.isCovering))
+                val unfilledLeftDf = findUnfilledRecords(bootStrapWithStats, coveringSets.filter(_.isCovering), leftRange)
                 Thread.currentThread().setName(s"active-$threadName")
 
                 // if the join part contains ChrononRunDs macro, then we need to make sure the join is for a single day
@@ -577,7 +577,8 @@ class Join(joinConf: api.Join,
    * full schema information.
    */
   private def findUnfilledRecords(bootstrapDfWithStats: DfWithStats,
-                                  coveringSets: Seq[CoveringSet]): Option[DfWithStats] = {
+                                  coveringSets: Seq[CoveringSet],
+                                  partitionRange: PartitionRange): Option[DfWithStats] = {
     val bootstrapDf = bootstrapDfWithStats.df
     if (coveringSets.isEmpty || !bootstrapDf.columns.contains(Constants.MatchedHashes)) {
       // this happens whether bootstrapParts is NULL for the JOIN and thus no metadata columns were created
@@ -592,7 +593,7 @@ class Join(joinConf: api.Join,
     } else if (filteredCount == 0) {
       None
     } else {
-      Some(DfWithStats(filteredDf)(bootstrapDfWithStats.tableUtils))
+      Some(DfWithStats(filteredDf, partitionRange)(bootstrapDfWithStats.tableUtils))
     }
   }
 }

@@ -60,34 +60,39 @@ object Extensions {
 
   case class DfStats(count: Long, partitionRange: PartitionRange)
   // helper class to maintain datafram stats that are necessary for downstream operations
-  case class DfWithStats(df: DataFrame, partitionCounts: Map[String, Long])(implicit val tableUtils: BaseTableUtils) {
-    private val minPartition: String = partitionCounts.keys.min
-    private val maxPartition: String = partitionCounts.keys.max
-    val partitionRange: PartitionRange = PartitionRange(minPartition, maxPartition)
+  case class DfWithStats(df: DataFrame, partitionCounts: Map[String, Long], partitionRange: PartitionRange)(implicit val tableUtils: BaseTableUtils) {
     val count: Long = partitionCounts.values.sum
+
+    val trimmedPartitionRange: PartitionRange = if (partitionCounts.keys.isEmpty) {
+      partitionRange
+    } else {
+      val minPartition: String = partitionCounts.keys.min
+      val maxPartition: String = partitionCounts.keys.max
+      PartitionRange(minPartition, maxPartition)
+    }
 
     def prunePartitions(range: PartitionRange): Option[DfWithStats] = {
       println(
-        s"Pruning down to new range $range, original range: $partitionRange." +
+        s"Pruning down to new range $range, original range: $trimmedPartitionRange." +
           s"\nOriginal partition counts: $partitionCounts")
-      val intersected = partitionRange.intersect(range)
+      val intersected = trimmedPartitionRange.intersect(range)
       if (!intersected.wellDefined) return None
       val intersectedCounts = partitionCounts.filter(intersected.partitions contains _._1)
       if (intersectedCounts.isEmpty) return None
-      Some(DfWithStats(df.prunePartition(range), intersectedCounts))
+      Some(DfWithStats(df.prunePartition(range), intersectedCounts, trimmedPartitionRange))
     }
-    def stats: DfStats = DfStats(count, partitionRange)
+    def stats: DfStats = DfStats(count, trimmedPartitionRange)
   }
 
   object DfWithStats {
-    def apply(dataFrame: DataFrame)(implicit tableUtils: BaseTableUtils): DfWithStats = {
+    def apply(dataFrame: DataFrame, partitionRange: PartitionRange)(implicit tableUtils: BaseTableUtils): DfWithStats = {
       val partitionCounts = dataFrame
         .groupBy(col(tableUtils.partitionColumn))
         .count()
         .collect()
         .map(row => row.getString(0) -> row.getLong(1))
         .toMap
-      DfWithStats(dataFrame, partitionCounts)(tableUtils)
+      DfWithStats(dataFrame, partitionCounts, partitionRange)(tableUtils)
     }
   }
 
@@ -132,7 +137,7 @@ object Extensions {
       PartitionRange(start, end)
     }
 
-    def withStats(tblUtils: BaseTableUtils = tableUtils): DfWithStats = DfWithStats(df)(tblUtils)
+    def withStats(tblUtils: BaseTableUtils = tableUtils, partitionRange: PartitionRange): DfWithStats = DfWithStats(df, partitionRange)(tblUtils)
 
     def range[T](columnName: String): (T, T) = {
       val viewName = s"${columnName}_range_input_${(math.random * 100000).toInt}"
