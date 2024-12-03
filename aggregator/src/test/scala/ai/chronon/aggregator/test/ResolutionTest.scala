@@ -63,5 +63,9 @@ class ResolutionTest {
         )
         .isEmpty
     )
+
+    assert(ResolutionUtils.getSmallestWindowResolutionInMillis(Builders.GroupBy(
+      aggregations = null
+    )).isEmpty)
   }
 }

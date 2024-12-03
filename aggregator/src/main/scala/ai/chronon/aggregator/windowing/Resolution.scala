@@ -85,7 +85,11 @@ object ResolutionUtils {
     * Find the smallest tail window resolution in a GroupBy. Returns None if the GroupBy does not define any windows.
     * The window resolutions are: 5 min for a GroupBy a window < 12 hrs, 1 hr for < 12 days, 1 day for > 12 days.
     * */
-  def getSmallestWindowResolutionInMillis(groupBy: GroupBy): Option[Long] =
+  def getSmallestWindowResolutionInMillis(groupBy: GroupBy): Option[Long] = {
+    if (groupBy.aggregations == null) {
+      return None
+    }
+
     Option(
       groupBy.aggregations.toScala.toArray
         .flatMap(aggregation =>
@@ -93,4 +97,5 @@ object ResolutionUtils {
           else None)
         .map(FiveMinuteResolution.calculateTailHop)
     ).filter(_.nonEmpty).map(_.min)
+  }
 }
