@@ -480,4 +480,5 @@ struct ModelTransformation {
     2: optional map<string,string> outputMappings
     3: optional list<string> passThroughFields
     4: optional MetaData metaData
+    5: optional map<string,string> inputMappings
 }

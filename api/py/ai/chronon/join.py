@@ -698,11 +698,13 @@ def Model(
 def ModelTransformation(
         model: api.Model,
         output_mappings: Dict[str, str] = {},
-        pass_through_fields: List[str] = []
+        pass_through_fields: List[str] = [],
+        input_mappings: Dict[str, str] = {}
 ) -> api.ModelTransformation:
     assert model is not None, "Model must be set to create a model transformation"
     return api.ModelTransformation(
         model = model,
         outputMappings = output_mappings,
-        passThroughFields = pass_through_fields
+        passThroughFields = pass_through_fields,
+        inputMappings = input_mappings
     )
