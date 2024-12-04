@@ -20,3 +20,4 @@ STAGING_QUERY_FOLDER_NAME = 'staging_queries'
 TEAMS_FILE_PATH = 'teams.json'
 NOTEBOOKS_OUTPUT_NAMESPACE = 'chronon_poc_usertables'
 NOTEBOOKS_LOG_FILE = "/databricks/chronon_logfile.log"
+ZOOLANDER_CHRONON_PATH = "src/python/shepherd/chronon_poc"

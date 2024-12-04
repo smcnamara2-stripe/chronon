@@ -24,10 +24,11 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Iterable
-from typing import List, Union, cast, Optional
+from typing import List, Union, cast, Optional, Any, Dict
 from ai.chronon.repo import teams
 from ai.chronon.repo import TEAMS_FILE_PATH
 from ai.chronon.repo import NOTEBOOKS_LOG_FILE
+from ai.chronon.repo import ZOOLANDER_CHRONON_PATH
 import functools
 
 from pyspark.sql.types import (
@@ -169,17 +170,24 @@ def get_columns(source: api.Source):
     return columns
 
 
-def get_mod_name_from_gc(obj, mod_prefix):
+def get_mod_name_from_gc(obj: Any, mod_prefix: str) -> Optional[str]:
     """get an object's module information from garbage collector"""
     mod_name = None
-    # get obj's module info from garbage collector
-    gc.collect()
+    absolute_import_prefix = ZOOLANDER_CHRONON_PATH.replace("/", ".")
+
+    def is_correct_referrer(ref: Dict[str, Any]) -> bool:
+        if '__name__' in ref:
+            name = ref['__name__']
+            if isinstance(name, str):
+                return name.startswith(mod_prefix) or name.startswith(f"{absolute_import_prefix}.{mod_prefix}")
+        return False
+
+    _ = gc.collect()
     for ref in gc.get_referrers(obj):
-        if '__name__' in ref and ref['__name__'].startswith(mod_prefix):
+        if is_correct_referrer(ref):
             mod_name = ref['__name__']
             break
     return mod_name
-
 
 def set_name(obj, cls, mod_prefix):
     module = importlib.import_module(get_mod_name_from_gc(obj, mod_prefix))
@@ -248,21 +256,13 @@ def log_table_name(obj, full_name: bool = False):
 
 def get_staging_query_output_table_name(staging_query: api.StagingQuery, full_name: bool = False):
     """generate output table name for staging query job"""
-    if '/stripe/chronon' in os.getcwd():
-        set_name(staging_query, api.StagingQuery, "staging_queries")  
-    else:
-        set_name(staging_query, api.StagingQuery, "src.python.shepherd.chronon_poc.staging_queries")
+    set_name(staging_query, api.StagingQuery, "staging_queries") 
     return output_table_name(staging_query, full_name=full_name)
 
 
 def get_join_output_table_name(join: api.Join, full_name: bool = False):
     """Join output table name. If the join has a model transform this is the output of that job, else its the output of the join job"""
-    
-    # This allows us to make use of join sources as both relative and absolute imports.
-    try:
-        set_name(join, api.Join, "joins")
-    except AttributeError:
-        set_name(join, api.Join, "src.python.shepherd.chronon_poc.joins")
+    set_name(join, api.Join, "joins")
 
     table_name = join.metaData.name
     
