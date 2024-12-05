@@ -82,6 +82,8 @@ object Extensions {
       Some(DfWithStats(df.prunePartition(range), intersectedCounts, trimmedPartitionRange))
     }
     def stats: DfStats = DfStats(count, trimmedPartitionRange)
+
+    lazy val timeRange: TimeRange = df.timeRange(tableUtils)
   }
 
   object DfWithStats {
