@@ -3,7 +3,7 @@ description: Stripes version of the Chronon Python Package.
 repo: stripe-private-oss-forks/chronon
 contact:
   responsible_team: feature-computation
-  slack_channel: ml-features-team
+  slack_channel: ml-data-n-observability-team
 deploy:
   clusters:
     - northwest
