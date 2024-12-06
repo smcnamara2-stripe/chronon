@@ -50,7 +50,10 @@ abstract class JoinBase(joinConf: api.Join,
   val metrics: Metrics.Context = Metrics.Context(Metrics.Environment.JoinOffline, joinConf)
 
   private val outputTable = {
-   if(joinConf.isSetModelTransformation) s"${joinConf.metaData.outputTable}_pre_mt"
+    // If model transformations are set, then the join job will be writing to a pre-model transformation table
+    // For iceberg writes, this table name will be derived from the output table name map in the join config custom json.
+    // For hive writes, this will just be the output table name suffixed with _pre_mt.
+   if(joinConf.isSetModelTransformation && !tableUtils.isIcebergTable(joinConf.metaData.outputTable)) s"${joinConf.metaData.outputTable}_pre_mt"
    else joinConf.metaData.outputTable
   }
 
