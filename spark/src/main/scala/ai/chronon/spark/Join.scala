@@ -218,9 +218,9 @@ class Join(joinConf: api.Join,
     } else {
       val leftRowCount = bootStrapWithStats.count
       if (tableUtils.forceBloomFilter || leftRowCount <= tableUtils.bloomFilterThreshold) {
-        val leftBlooms = joinConf.leftKeyCols.toSeq.map { key =>
+        val leftBlooms = joinConf.leftKeyCols.toSeq.par.map { key =>
           key -> bootstrapDf.generateBloomFilter(key, leftRowCount, joinConf.left.table, leftRange)
-        }.toMap
+        }.seq.toMap
         Some(leftBlooms)
       } else {
         None

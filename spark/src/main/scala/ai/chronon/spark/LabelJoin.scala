@@ -146,9 +146,9 @@ class LabelJoin(joinConf: api.Join, tableUtils: BaseTableUtils, labelDS: String)
 
   def computeRange(leftDf: DataFrame, leftRange: PartitionRange, sanitizedLabelDs: String): DataFrame = {
     val leftDfCount = leftDf.count()
-    val leftBlooms = labelJoinConf.leftKeyCols.toSeq.map { key =>
+    val leftBlooms = labelJoinConf.leftKeyCols.toSeq.par.map { key =>
       key -> leftDf.generateBloomFilter(key, leftDfCount, joinConf.left.table, leftRange)
-    }.toMap
+    }.seq.toMap
 
     // compute joinParts in parallel
     val rightDfs = labelJoinConf.labels.asScala.map { labelJoinPart =>
