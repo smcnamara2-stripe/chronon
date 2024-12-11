@@ -55,7 +55,7 @@ object S3Utils {
     }
     if (source.isSetEntities && source.getEntities.snapshotTable.startsWith(S3)) {
       logger.info(s"Converting the following S3 Source to a temp table: ${source.getEntities.snapshotTable}")
-      val s3Prefix = updateS3Prefix(source.getEvents.table, endDate)
+      val s3Prefix = updateS3Prefix(source.getEntities.snapshotTable, endDate)
       logger.info(s"Creating a temp table from the following S3 prefix: ${s3Prefix}")
       val updatedTableName = tableNameFromS3Prefix(s3Prefix)
       val df = spark.read.parquet(s3Prefix)
