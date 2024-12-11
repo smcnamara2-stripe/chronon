@@ -405,8 +405,10 @@ object JoinUtils {
         }
         .foreach { whereClause =>
           val currentWheres: util.List[String] = Option(source.rootQuery.getWheres).getOrElse(new util.ArrayList[String]())
-          currentWheres.add(whereClause)
-          source.rootQuery.setWheres(currentWheres)
+          val wheres = new util.ArrayList[String]()
+          wheres.addAll(currentWheres)
+          wheres.add(whereClause)
+          source.rootQuery.setWheres(wheres)
         }
     }
   }
