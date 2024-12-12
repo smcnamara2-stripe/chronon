@@ -559,12 +559,14 @@ object GroupBy {
         // the output table name point at the USM result.
         val joinOutputTable = {
           if(joinSource.isSetOutputTableNameOverride) joinSource.outputTableNameOverride
-          else joinConf.metaData.outputTable
+          else joinConf.metaData.outputTable(skipOutputTableMapLookup = true)
         }
 
         if(joinSource.isSetOutputTableNameOverride) {
           logger.info(s"Overriding output table name for join source: ${joinSource.outputTableNameOverride}")
         }
+
+        logger.info(s"Output table name for join source: ${joinOutputTable}")
 
         val topic = joinConf.left.topic
         val newSource = joinConf.left.deepCopy()

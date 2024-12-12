@@ -110,6 +110,11 @@ object Extensions {
       .flatMap(m => Option(m.get("output")))
       .getOrElse(s"${metaData.outputNamespace}.${metaData.cleanName}")
 
+    def outputTable(skipOutputTableMapLookup: Boolean): String = {
+      if(skipOutputTableMapLookup) s"${metaData.outputNamespace}.${metaData.cleanName}"
+      else outputTable
+    }
+
     def outputLabelTable = s"${metaData.outputNamespace}.${metaData.cleanName}_labels"
     def outputFinalView = s"${metaData.outputNamespace}.${metaData.cleanName}_labeled"
     def outputLatestLabelView = s"${metaData.outputNamespace}.${metaData.cleanName}_labeled_latest"
@@ -394,7 +399,7 @@ object Extensions {
       }
       else if (source.isSetJoinSource) {
         if (source.getJoinSource.isSetOutputTableNameOverride) source.getJoinSource.outputTableNameOverride
-        else source.getJoinSource.getJoin.metaData.outputTable
+        else source.getJoinSource.getJoin.metaData.outputTable(skipOutputTableMapLookup = true)
       }
       else {
       // We will need to add logic here if we add additional source types in the future 
