@@ -1,7 +1,7 @@
 # Stripe Chronon Setup Instructions
 
 _These docs are very WIP. Please don't hesitate to make PRs with changes
-to the instructions, or to get in touch with us in #ml-features-shepherd on Slack!_
+to the instructions, or to get in touch with us in #shepherd on Slack!_
 
 ## Step 1: Install Docker
 You can install from Managed Software Center. 
