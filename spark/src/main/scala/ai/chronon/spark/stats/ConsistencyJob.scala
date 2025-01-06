@@ -30,7 +30,7 @@ import scala.util.ScalaJavaConversions.{JListOps, ListOps, MapOps}
 
 import ai.chronon.online.OnlineDerivationUtil.timeFields
 
-class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, startDate: String = null, tableUtilsOpt: Option[BaseTableUtils] = None) extends Serializable {
+class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, startDate: String = null, tableUtilsOpt: Option[BaseTableUtils] = None, maybeStepDays: Option[Int] = None) extends Serializable {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
   val tblProperties: Map[String, String] = Option(joinConf.metaData.tableProperties)
@@ -95,7 +95,7 @@ class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, sta
     logger.info(s"Unfilled Range between comparison table table and logged table $unfilledRanges")
     val join = new chronon.spark.Join(buildComparisonJoin(), unfilledRanges.last.end, tableUtils)
     logger.info("Starting compute Join for comparison table")
-    val compareDf = join.computeJoin(Some(30), Option(startDate))
+    val compareDf = join.computeJoin(Some(maybeStepDays.getOrElse(30)), Option(startDate))
     logger.info("======= side-by-side comparison schema =======")
     logger.info(compareDf.schema.pretty)
   }
