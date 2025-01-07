@@ -496,13 +496,6 @@ object Extensions {
         case _          => false
       }
 
-    // Check if a given GroupBy is using 3-day-long tail hops. Defaults to false if the 'use_3_day_tail_hops' flag isn't set.
-    def uses3DayTailHops: Boolean =
-      groupBy.getMetaData.customJsonLookUp("use_3_day_tail_hops") match {
-        case s: Boolean => s
-        case _          => false
-      }
-
     def semanticHash: String = {
       val newGroupBy = groupBy.deepCopy()
       newGroupBy.unsetMetaData()

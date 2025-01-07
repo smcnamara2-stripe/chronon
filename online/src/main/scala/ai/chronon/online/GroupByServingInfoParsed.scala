@@ -19,7 +19,7 @@ package ai.chronon.online
 import ai.chronon.aggregator.row.RowAggregator
 import ai.chronon.aggregator.windowing.SawtoothOnlineAggregator
 import ai.chronon.api.Constants.{ReversalField, TimeField}
-import ai.chronon.api.Extensions.{GroupByOps, MetadataOps, WindowOps}
+import ai.chronon.api.Extensions.{GroupByOps, MetadataOps}
 import ai.chronon.api._
 import org.apache.avro.Schema
 import org.apache.spark.sql.SparkSession
@@ -43,13 +43,9 @@ class GroupByServingInfoParsed(val groupByServingInfo: GroupByServingInfo, parti
   lazy val groupByOps = new GroupByOps(groupByServingInfo.groupBy)
 
   lazy val aggregator: SawtoothOnlineAggregator = {
-    val tailHopsSize =
-      if (groupByOps.uses3DayTailHops) new Window(3, TimeUnit.DAYS).millis else new Window(2, TimeUnit.DAYS).millis
-
     new SawtoothOnlineAggregator(batchEndTsMillis,
                                  groupByServingInfo.groupBy.aggregations.asScala.toSeq,
-                                 valueChrononSchema.fields.map(sf => (sf.name, sf.fieldType)),
-                                 tailBufferMillis = tailHopsSize)
+                                 valueChrononSchema.fields.map(sf => (sf.name, sf.fieldType)))
   }
 
   lazy val irChrononSchema: StructType =

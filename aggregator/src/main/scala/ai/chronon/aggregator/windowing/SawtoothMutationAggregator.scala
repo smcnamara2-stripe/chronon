@@ -40,7 +40,8 @@ case class FinalBatchIr(collapsed: Array[Any], tailHops: HopsAggregator.OutputAr
 class SawtoothMutationAggregator(aggregations: Seq[Aggregation],
                                  inputSchema: Seq[(String, DataType)],
                                  resolution: Resolution = FiveMinuteResolution,
-                                 val tailBufferMillis: Long = new Window(2, TimeUnit.DAYS).millis)
+                                 // Stripe uses 3-day tailHops, do not change this value without performing a migration.
+                                 val tailBufferMillis: Long = new Window(3, TimeUnit.DAYS).millis)
     extends SawtoothAggregator(aggregations: Seq[Aggregation],
                                inputSchema: Seq[(String, DataType)],
                                resolution: Resolution) {

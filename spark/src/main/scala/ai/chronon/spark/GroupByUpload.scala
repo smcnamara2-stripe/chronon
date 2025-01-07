@@ -43,7 +43,7 @@ import scala.collection.Seq
 import scala.util.ScalaJavaConversions.{ListOps, MapOps}
 import scala.util.{Failure, Try}
 
-class GroupByUpload(endPartition: String, groupBy: GroupBy, customGroupByUploadConfigs: GroupByUpload.CustomConfigs)
+class GroupByUpload(endPartition: String, groupBy: GroupBy)
     extends Serializable {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
   implicit val sparkSession: SparkSession = groupBy.sparkSession
@@ -76,18 +76,11 @@ class GroupByUpload(endPartition: String, groupBy: GroupBy, customGroupByUploadC
     val endTs = tableUtils.partitionSpec.epochMillis(endPartition)
     logger.info(s"TemporalEvents upload end ts: $endTs")
 
-    // Tail hops are 2 days long by default, but at Stripe we're extending them to 3 days.
-    logger.info(s"Using 3-day tailsHops? ${customGroupByUploadConfigs.use3DayTailHops}")
-    val tailHopsSize =
-      if (customGroupByUploadConfigs.use3DayTailHops) new Window(3, TimeUnit.DAYS).millis
-      else new Window(2, TimeUnit.DAYS).millis
-
     val sawtoothOnlineAggregator =
       new SawtoothOnlineAggregator(endTs,
                                    groupBy.aggregations,
                                    SparkConversions.toChrononSchema(groupBy.inputDf.schema),
-                                   resolution,
-                                   tailHopsSize)
+                                   resolution)
 
     val irSchema = SparkConversions.fromChrononSchema(sawtoothOnlineAggregator.batchIrSchema)
     val keyBuilder = FastHashing.generateKeyBuilder(groupBy.keyColumns.toArray, groupBy.inputDf.schema)
@@ -206,15 +199,11 @@ object GroupByUpload {
     result
   }
 
-  // Custom GroupByUpload configs configured at Stripe.
-  case class CustomConfigs(use3DayTailHops: Boolean = false)
-
   def run(groupByConf: api.GroupBy,
           endDs: String,
           tableUtilsOpt: Option[BaseTableUtils] = None,
           showDf: Boolean = false,
-          jsonPercent: Int = 1,
-          customConfigs: CustomConfigs = new CustomConfigs): Unit = {
+          jsonPercent: Int = 1): Unit = {
     val context = Metrics.Context(Metrics.Environment.GroupByUpload, groupByConf)
     val startTs = System.currentTimeMillis()
     implicit val tableUtils: BaseTableUtils =
@@ -235,7 +224,7 @@ object GroupByUpload {
                                     computeDependency = enableChainingInJob,
                                     mutationScan = false,
                                     showDf = showDf)
-    lazy val groupByUpload = new GroupByUpload(endDs, groupBy, customConfigs)
+    lazy val groupByUpload = new GroupByUpload(endDs, groupBy)
     // for temporal accuracy - we don't need to scan mutations for upload
     // when endDs = xxxx-01-02 the timestamp from airflow is more than (xxxx-01-03 00:00:00)
     // we wait for event partitions of (xxxx-01-02) which contain data until (xxxx-01-02 23:59:59.999)
@@ -246,9 +235,9 @@ object GroupByUpload {
                    computeDependency = enableChainingInJob,
                    mutationScan = false,
                    showDf = showDf)
-    lazy val shiftedGroupByUpload = new GroupByUpload(batchEndDate, shiftedGroupBy, customConfigs)
+    lazy val shiftedGroupByUpload = new GroupByUpload(batchEndDate, shiftedGroupBy)
     // for mutations I need the snapshot from the previous day, but a batch end date of ds +1
-    lazy val otherGroupByUpload = new GroupByUpload(batchEndDate, groupBy, customConfigs)
+    lazy val otherGroupByUpload = new GroupByUpload(batchEndDate, groupBy)
 
     logger.info(s"""
          |GroupBy upload for: ${groupByConf.metaData.team}.${groupByConf.metaData.name}
@@ -271,12 +260,13 @@ object GroupByUpload {
     val groupByServingInfo =
       buildServingInfo(groupByConf, session = tableUtils.sparkSession, endDs)(tableUtils).groupByServingInfo
 
-    // If this GroupByUpload is configured to use 3-day tailHops, we add a flag to the GroupBy's customJson so it can
-    // later be read in the Fetcher when serving the GroupBy.
-    if (customConfigs.use3DayTailHops) {
-      Try(
+    // TEMPORARY. We've migrating all Stripe GroupBys to use 3-day tailHops. Currently, we're in the process of cleaning
+    // up the code and need to leave this custom json added for a few days in case new GBU jobs land before the Fetcher
+    // app (SFS) is deployed.
+    Try(
+      // This flag is later read in the Fetcher when serving the GroupBy and tells it to use 3-day hops.
         groupByServingInfo.getGroupBy.getMetaData
-          .updateCustomJson("use_3_day_tail_hops", customConfigs.use3DayTailHops)) match {
+          .updateCustomJson("use_3_day_tail_hops", true)) match {
         case Failure(exception) =>
           throw new RuntimeException(
             "Error updating the GroupBy's serving info to include the 'use_3_day_tail_hops' flag. Revert the " +
@@ -284,7 +274,6 @@ object GroupByUpload {
             exception)
         case _ =>
       }
-    }
 
     val metaRows = Seq(
       Row(

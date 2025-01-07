@@ -34,7 +34,8 @@ class SawtoothOnlineAggregator(val batchEndTs: Long,
                                aggregations: Seq[Aggregation],
                                inputSchema: Seq[(String, DataType)],
                                resolution: Resolution = FiveMinuteResolution,
-                               tailBufferMillis: Long = new Window(2, TimeUnit.DAYS).millis)
+                               // Stripe uses 3-day tailHops, do not change this value without performing a migration.
+                               tailBufferMillis: Long = new Window(3, TimeUnit.DAYS).millis)
     extends SawtoothMutationAggregator(aggregations: Seq[Aggregation],
                                        inputSchema: Seq[(String, DataType)],
                                        resolution: Resolution,
