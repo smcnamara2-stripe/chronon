@@ -260,21 +260,6 @@ object GroupByUpload {
     val groupByServingInfo =
       buildServingInfo(groupByConf, session = tableUtils.sparkSession, endDs)(tableUtils).groupByServingInfo
 
-    // TEMPORARY. We've migrating all Stripe GroupBys to use 3-day tailHops. Currently, we're in the process of cleaning
-    // up the code and need to leave this custom json added for a few days in case new GBU jobs land before the Fetcher
-    // app (SFS) is deployed.
-    Try(
-      // This flag is later read in the Fetcher when serving the GroupBy and tells it to use 3-day hops.
-        groupByServingInfo.getGroupBy.getMetaData
-          .updateCustomJson("use_3_day_tail_hops", true)) match {
-        case Failure(exception) =>
-          throw new RuntimeException(
-            "Error updating the GroupBy's serving info to include the 'use_3_day_tail_hops' flag. Revert the " +
-              "'use_3_day_tail_hops' feature flag for the GroupByUpload and re-run the job.",
-            exception)
-        case _ =>
-      }
-
     val metaRows = Seq(
       Row(
         Constants.GroupByServingInfoKey.getBytes(Constants.UTF8),
