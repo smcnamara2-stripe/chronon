@@ -125,6 +125,15 @@ def window_to_str_pretty(window: ttypes.Window):
     unit = ttypes.TimeUnit._VALUES_TO_NAMES[window.timeUnit].lower()
     return f"{window.length} {unit}"
 
+# Need to be kept consistent with logic in str method in TimeUnitOps in api/src/main/scala/ai/chronon/api/Extensions.scala
+def timeunit_to_suffix(timeunit: ttypes.TimeUnit):
+    if timeunit == ttypes.TimeUnit.HOURS:
+        return "h"
+    elif timeunit == ttypes.TimeUnit.DAYS:
+        return "d"
+    elif timeunit == ttypes.TimeUnit.MINUTES:
+        return "min"
+    raise Exception("Unsupported TimeUnit: " + ttypes.TimeUnit._VALUES_TO_NAMES[timeunit])
 
 def op_to_str(operation: OperationType):
     return ttypes.Operation._VALUES_TO_NAMES[operation].lower()
@@ -361,7 +370,7 @@ def get_output_col_names(aggregation):
     windowed_names = []
     if aggregation.windows:
         for window in aggregation.windows:
-            unit = ttypes.TimeUnit._VALUES_TO_NAMES[window.timeUnit].lower()[0]
+            unit = timeunit_to_suffix(window.timeUnit)
             window_suffix = f"{window.length}{unit}"
             windowed_names.append(f"{base_name}_{window_suffix}")
     else:
