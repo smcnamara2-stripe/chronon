@@ -252,21 +252,34 @@ object Extensions {
                             totalCount: Long,
                             tableName: String,
                             partitionRange: PartitionRange,
-                            fpp: Double = 0.03): BloomFilter = {
+                            configBits: Option[Long] = tableUtils.bloomFilterBits): BloomFilter = {
       val approxCount =
         df.filter(df.col(col).isNotNull).select(approx_count_distinct(col)).collect()(0).getLong(0)
       if (approxCount == 0) {
         logger.info(
           s"Warning: approxCount for col ${col} from table ${tableName} is 0. Please double check your input data.")
       }
+
+      val targetError = tableUtils.bloomFilterError.getOrElse(0.03)
+      val bits = configBits match {
+        case Some(maxBits: Long) if maxBits < optimalNumOfBits(approxCount + 1, targetError) =>
+          maxBits
+        case _ =>
+          optimalNumOfBits(approxCount + 1, targetError)
+      }
+
       logger.info(s""" [STARTED] Generating bloom filter on key `$col` for range $partitionRange from $tableName
-           | Approximate distinct count of `$col`: $approxCount
-           | Total count of rows: $totalCount
-           |""".stripMargin)
+                     | Approximate distinct count of `$col`: $approxCount
+                     | Total count of rows: $totalCount
+                     | Configured max bits: ${configBits.map(_.toString).getOrElse("None")}
+                     | Using bits: $bits
+                     |""".stripMargin)
+
+
       val bloomFilter = df
         .filter(df.col(col).isNotNull)
         .stat
-        .bloomFilter(col, approxCount + 1, fpp) // expectedNumItems must be positive
+        .bloomFilter(col, approxCount + 1, bits)
 
       logger.info(s"""
            | [FINISHED] Generating bloom filter on key `$col` for range $partitionRange from $tableName
@@ -276,6 +289,10 @@ object Extensions {
            |""".stripMargin)
       bloomFilter
     }
+
+    private def optimalNumOfBits(items: Long, p: Double): Long =
+      (-items * Math.log(p) / (Math.log(2) * Math.log(2))).toLong
+
 
     def removeNulls(cols: Seq[String]): DataFrame = {
       logger.info(s"filtering nulls from columns: [${cols.mkString(", ")}]")

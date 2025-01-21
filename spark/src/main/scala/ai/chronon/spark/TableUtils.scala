@@ -64,6 +64,8 @@ trait BaseTableUtils {
   val bloomFilterThreshold: Long =
     sparkSession.conf.get("spark.chronon.backfill.bloomfilter.threshold", "1000000").toLong
   val forceBloomFilter: Boolean = sparkSession.conf.get("spark.chronon.backfill.bloomfilter.force", "false").toBoolean
+  val bloomFilterBits: Option[Long] = sparkSession.conf.getOption("spark.chronon.backfill.bloomfilter.maxbits").map(_.toLong)
+  val bloomFilterError: Option[Double] = sparkSession.conf.getOption("spark.chronon.backfill.bloomfilter.error").map(_.toDouble)
 
   // see what's allowed and explanations here: https://sparkbyexamples.com/spark/spark-persistence-storage-levels/
   val cacheLevelString: String = sparkSession.conf.get("spark.chronon.table_write.cache.level", "NONE").toUpperCase()
