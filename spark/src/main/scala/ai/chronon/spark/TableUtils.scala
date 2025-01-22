@@ -866,7 +866,7 @@ trait BaseTableUtils {
     })
 
     if (inconsistentFields.nonEmpty) {
-      throw IncompatibleSchemaException(inconsistentFields.toSeq)
+      throw IncompatibleSchemaException(inconsistentFields.toSeq, tableName)
     }
 
     val newFieldDefinitions = newFields.map(newField => s"${newField.name} ${newField.dataType.catalogString}")
@@ -913,11 +913,11 @@ case class TestHourlyTableUtils(sparkSession: SparkSession) extends BaseTableUti
   override val partitionSpec: PartitionSpec = PartitionSpec(format = "yyyyMMddHH", spanMillis = WindowUtils.Hour.millis)
 }
 
-sealed case class IncompatibleSchemaException(inconsistencies: Seq[(String, DataType, DataType)]) extends Exception {
+sealed case class IncompatibleSchemaException(inconsistencies: Seq[(String, DataType, DataType)], tableName: String) extends Exception {
   override def getMessage: String = {
     val inconsistenciesStr =
       inconsistencies.map(tuple => s"columnName: ${tuple._1} existingType: ${tuple._2} newType: ${tuple._3}")
-    s"""Existing columns cannot be modified:
+    s"""Existing columns for table $tableName cannot be modified:
        |${inconsistenciesStr.mkString("\n")}
        |""".stripMargin
   }
