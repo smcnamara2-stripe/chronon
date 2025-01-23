@@ -3,13 +3,13 @@
 Functions to help with rolling deployments
 """
 
+load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
 load("config/kubernetes/helpers/context.sky", "get_render_yaml", "get_rolling_speed_override")
 load(
     "config/kubernetes/plugins/types.sky",
     "container_plugin",
     "deployment_plugin",
 )
-load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
 
 def add_rolling_speed_override():
     """

@@ -475,9 +475,6 @@ def _service_shared_msp(
         )
 
     all_plugins = [
-        # we should try to place pods on different nodes, segregating pods
-        # of the same _henson service_ instead of the same deployment.
-        prefer_node_balance_by_henson_service(),
         pay_server_pod(
             ctx,
             name = name,
@@ -517,10 +514,31 @@ def _service_shared_msp(
         labels({
             "stripe.io/platform": "workflow",
         }),
-        # Disable the normal pod disruption budget controller for workflow workers as
-        # we use a custom one below.
-        pod_disruption_budget(disable = True),
     ]
+
+    if not is_blue_green:
+        # we should try to place pods on different nodes, segregating pods
+        # of the same _henson service_ instead of the same deployment.
+        all_plugins.append(prefer_node_balance_by_henson_service())
+
+    # During host lifecycle events where all replicas of a workflow worker (including
+    # the canary) are on the same host we can see availability issues as all replicas
+    # are terminated at the same time.
+    #
+    # The standard PDB controller that MSP uses doesn't work here because it only
+    # applies to deployments with two or more replicas. Workflow workers have a
+    # canary deployment for one of their replicas which means that it looks to MSP
+    # like they have two, one replica deployments and therefore are not interesting
+    # to the PDB controller.
+    #
+    # This is only needed for non-Blue/Green deployments. Blue/Green deployments
+    # can use the standard PDB controller.
+    use_custom_pdb = not is_blue_green
+    if use_custom_pdb:
+        # Disable the normal pod disruption budget controller for workflow workers as
+        # we use a custom one below (see `_disruption_budget`).
+        all_plugins.append(pod_disruption_budget(disable = True))
+
     all_plugins.extend(*plugins)
 
     if is_blue_green:
@@ -545,26 +563,17 @@ def _service_shared_msp(
         **extra_kwargs
     )
 
-    # We don't need two custom pod disruption budgets for the canary
-    # and main deployments so we just create one for the main deployment.
-    #
-    # During host lifecycle events where all replicas of a workflow worker (including
-    # the canary) are on the same host we can see availability issues as all replicas
-    # are terminated at the same time.
-    #
-    # The standard PDB controller that MSP uses doesn't work here because it only
-    # applies to deployments with two or more replicas. Workflow workers have a
-    # canary deployment for one of their replicas which means that it looks to MSP
-    # like they have two, one replica deployments and therefore are not interesting
-    # to the PDB controller.
-    if not is_canary:
-        disruption_budget = _disruption_budget(
-            ctx,
-            name = name + "-disruption-budget",
-            namespace = namespace,
-            min_available = 1,
-        )
-        return [deploy, disruption_budget]
+    if use_custom_pdb:
+        # We don't need two custom pod disruption budgets for the canary
+        # and main deployments, so we just create one for the main deployment.
+        if not is_canary:
+            disruption_budget = _disruption_budget(
+                ctx,
+                name = name + "-disruption-budget",
+                namespace = namespace,
+                min_available = 1,
+            )
+            return [deploy, disruption_budget]
 
     return [deploy]
 

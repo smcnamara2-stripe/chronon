@@ -1,7 +1,7 @@
 # DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/helpers/context.sky", "get_compute_config")
 load("config/kubernetes/networking/public/consul.sky", "consul_meta_envoy_priority_routing")
 load("config/kubernetes/service-config/compute.sky", "get_merged_compute_v2_config")
-load("config/kubernetes/helpers/context.sky", "get_compute_config")
 
 SUBSET_HEADER_NAME = "X-Stripe-Routing-Context-Priority-Tier"
 STANDARD_TIER_PB_PACKAGE = proto.package("com.stripe.gocode.service_config").StandardPriorityTier

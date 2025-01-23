@@ -4,11 +4,11 @@ For the structure of Role message please refer to
 https://github.com/kubernetes/api/blob/v0.18.6/rbac/v1/generated.proto#L118-L127
 """
 
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Role")
 load("config/kubernetes/meta/metadata.sky", "render_metadata")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "rbac_plugin")
 load("config/kubernetes/rbac/policyrule.sky", "policy_rule")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Role")
 
 def role(ctx, *plugins, **kwargs):
     role_mapping = {

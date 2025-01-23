@@ -1,23 +1,37 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/core/ha.sky", "prefer_zone_balance", "require_node_balance", "require_zone_balance")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/core/ha.sky", "prefer_zone_balance", "require_node_balance", "require_zone_balance", "require_node_balance_by_henson_service")
 load("config/kubernetes/core/pod.sky", "pod_runtime_class")
 load("config/kubernetes/core/volume.sky", "mount_pod_volume", "volume_mount_all_containers")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_v1_enabled", "is_bin_packing_v2_enabled", "get_env")
-load("config/kubernetes/helpers/node_selectors.sky", "node_selectors")
+load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
 load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/context.sky", "get_env", "is_bin_packing_v1_enabled", "is_bin_packing_v2_enabled")
+load("config/kubernetes/helpers/node_selectors.sky", "node_selectors")
 load("config/kubernetes/helpers/shards_list.sky", "BINPACKING_VERSION")
 load("config/kubernetes/helpers/tolerations.sky", "add_toleration")
-load("config/kubernetes/meta/metadata.sky", "labels")
+load("config/kubernetes/meta/metadata.sky", "labels", "annotations")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/sidecars/credentials_proxy_shim.sky", "credentials_proxy_shim_sidecar")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
+load("config/kubernetes/sidecars/credentials_proxy_shim.sky", "credentials_proxy_shim_sidecar")
 
-def get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew):
+# Copying over the defaults set on kata-clh for binpacking v1.
+# See https://git.corp.stripe.com/stripe-internal/gocode/blob/master/puppet-config/modules/microvm/manifests/init.pp#L17
+POD_INGRESS_BW = "5G"
+POD_EGRESS_BW = "5G"
+
+def get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew, replicas = None):
     """
     conditional_plugin won't work here as the plugin will be evaluated first and then the condition is evaluated. If the condition
     fails the plugin is ignored. Here we should not evaluate the plugin itself hence using the if condition
     """
+    if replicas != None:
+        replicas = int(replicas)
+        # If replica is 1, spread by henson service name with minDomains = 2 such that
+        # canary and main deployment are on different nodes
+        if replicas == 1:
+            min_domains = 2
+            max_skew = 1
+            return compose_plugins(require_node_balance_by_henson_service(max_skew = max_skew, min_domains = min_domains))
     if set_require_node_balance_with_skew != -1:
         return compose_plugins(require_node_balance(set_require_node_balance_with_skew))
     else:
@@ -33,7 +47,7 @@ def get_require_zone_balance_plugin(ctx, set_require_zone_balance_with_skew):
             min_domains = 3
         return compose_plugins(require_zone_balance(set_require_zone_balance_with_skew, min_domains = min_domains))
 
-def _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, version):
+def _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, version, replicas):
     plugins = [
         # For tracking, attach an extra label when we use soft constraints
         labels({
@@ -43,14 +57,13 @@ def _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set
 
         # We want to automatically spread BinPacked workloads across Availability Zones
         # however we do not want this to be a hard constraint, unless specified.
-        get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew),
+        get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew, replicas),
         get_require_zone_balance_plugin(ctx, set_require_zone_balance_with_skew),
-
     ]
     return plugins
 
-def _get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier):
-    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V1)
+def get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier, replicas):
+    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V1, replicas)
     common_plugins.extend(
         [
             # Set the proper runtime for this pod, which is kata runtime. Which will enclose the pod in a MicroVM
@@ -68,8 +81,8 @@ def _get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_req
     )
     return common_plugins
 
-def _get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier):
-    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V2)
+def get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier, instance_type, replicas):
+    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V2, replicas)
     common_plugins.extend(
         [
             node_selectors({
@@ -87,12 +100,21 @@ def _get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_req
                 value = deployment_availability_tier,
                 effect = "NoSchedule",
             ),
-            update_sidecar_env_vars(ctx),
-        ]
+            update_sidecar_env_vars(ctx, instance_type),
+            # TODO: Once PoC is completed, we can move this in to a helper plugin to customize setting the limit.
+            # Bandwidth limit annotations for the pod can be found here
+            # https://kubernetes.io/docs/reference/labels-annotations-taints/#kubernetes-io-ingress-bandwidth
+            annotations(
+                {
+                    "kubernetes.io/ingress-bandwidth": POD_INGRESS_BW,
+                    "kubernetes.io/egress-bandwidth": POD_EGRESS_BW,
+                },
+            ),
+        ],
     )
     return common_plugins
 
-def bin_packing(ctx, set_require_zone_balance_with_skew = -1, set_require_node_balance_with_skew = -1, deployment_availability_tier = None):
+def bin_packing(ctx, set_require_zone_balance_with_skew = -1, set_require_node_balance_with_skew = -1, deployment_availability_tier = None, instance_type = None, replicas = None):
     """
     Returns the plugins needed to support binpacking in a deployment.
 
@@ -100,6 +122,8 @@ def bin_packing(ctx, set_require_zone_balance_with_skew = -1, set_require_node_b
         ctx: The Henson context.
         set_require_zone_balance_with_skew: Set the require_zone_balance flag on the deployment with the provided skew
         set_require_node_balance_with_skew: Set the require_node_balance flag on the deployment with the provided skew
+        deployment_availability_tier: The availability tier of the deployment
+        replicas: The number of replicas for the deployment
 
     Returns:
         A composed plugin that enables all features required for bin packing to functionality
@@ -108,46 +132,56 @@ def bin_packing(ctx, set_require_zone_balance_with_skew = -1, set_require_node_b
     if deployment_availability_tier == None:
         deployment_availability_tier = ""
     if is_bin_packing_v1_enabled(ctx):
-        plugins = _get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier)
+        plugins = get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier, replicas)
     elif is_bin_packing_v2_enabled(ctx):
-        plugins = _get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier)
+        plugins = get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier, instance_type, replicas)
     return compose_plugins(*plugins)
 
-def update_sidecar_env_vars(ctx):
-        return pod_plugin(updater=_update_pod)
+def update_sidecar_env_vars(ctx, instance_type):
+    return pod_plugin(updater = _update_pod, instance_type = instance_type)
 
 def _update_pod(ctx, plugin, pod_def):
     containers = pod_def["containers"]
     memory = None
     cpu = None
+
     #Find the main container's resource allocation
     for container in containers:
-        if  container.get("is_main_container", False):
+        if container.get("is_main_container", False):
             memory = container["memory"]
             cpu = container["cpu"]
+    if (memory == None or cpu == None) and plugin.instance_type == None:
+        fail("Cannot detemine memory or CPU to set env variables for sidecars")
+    elif plugin.instance_type != None:
+        resources = aws_instance_size(plugin.instance_type.name)
+        memory = str(resources.memory_mib) + "Mi"
+        cpu = resources.cpu_millicores / 1000  #Dividing to make it number of cores
     for container in containers:
         if container.get("programming_language", None) == GO_PROGRAMMING_LANGUAGE:
             container_env = container.get("env", {})
-            container_env.update({"GOMEMLIMIT": _transform_memory_units(memory),
-                "GOMAXPROCS": _transform_cpu(cpu),})
+            container_env.update({
+                "GOMEMLIMIT": _transform_memory_units(memory),
+                "GOMAXPROCS": _transform_cpu(cpu),
+            })
             container["env"] = container_env
     for container in pod_def["init_containers"]:
-            container_env = container.get("env", {})
-            container_env.update({"GOMEMLIMIT": _transform_memory_units(memory),
-                "GOMAXPROCS": _transform_cpu(cpu),})
-            container["env"] = container_env
-
+        container_env = container.get("env", {})
+        container_env.update({
+            "GOMEMLIMIT": _transform_memory_units(memory),
+            "GOMAXPROCS": _transform_cpu(cpu),
+        })
+        container["env"] = container_env
 
 # GOMEMLIMIT is a numeric value in bytes with an optional unit suffix.
 # The supported suffixes include B, KiB, MiB, GiB, and TiB.
 def _transform_memory_units(memory):
-    return str(memory) + "B" #We currently store this as 4096 Mi
+    return str(memory) + "B"  #We currently store this as 4096 Mi
 
 # GOMAXPROCS Supports only integer values, the minimum is 1
 # Based on the CPU assigned to the container choose a value between max(1, int_ceil(cpu))
 def _transform_cpu(cpu):
     precision_cpu = float(cpu)
-    int_cpu = int(precision_cpu) #Starlark doesn't allow conversion from "1.0" -> 1 directly
+    int_cpu = int(precision_cpu)  #Starlark doesn't allow conversion from "1.0" -> 1 directly
     if int_cpu < precision_cpu:
         int_cpu += 1
     return str(int_cpu)

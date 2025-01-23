@@ -3,11 +3,11 @@ load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/core/volume.sky", "host_volume", "render_volume_mount", "volume_mount")
 load("config/kubernetes/helpers/constants.sky", "HOST_HEALTH_AGENT_SIDECAR_NAME")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/sidecars/variables.sky", "HOST_HEALTH_AGENT_CONTAINER_FALLBACK_DIGEST", "HOST_HEALTH_AGENT_FALLBACK_ENV")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Quantity")
 load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "mount_host_stripe_ca_certs", "use_credentials_proxy")
 load("config/kubernetes/networking/internal/proxyless.sky", "augment_with_proxyless_registrations")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/sidecars/variables.sky", "HOST_HEALTH_AGENT_CONTAINER_FALLBACK_DIGEST", "HOST_HEALTH_AGENT_FALLBACK_ENV")
 
 def add_proxyless_registration(ctx, registerd_services, k8s_workload_name):
     consul_agent_services = [s["service"] for s in registerd_services]
@@ -43,5 +43,4 @@ def host_health_agent(ctx, registered_services, k8s_workload_name):
             },
             programming_language = "go",
         ),
-
     )

@@ -151,14 +151,20 @@ def account_for_shard(ctx, shard):
 
     fail("Shard not found: {}".format(shard))
 
-def all_available_shards_with_cron(ctx):
+def all_available_shards_with_cron(ctx, shared_msp = None):
     """
     Returns all available shards based on the current Henson context in which cron is supported.
     Args:
       ctx: The Henson context.
+      shared_msp: If specified, only return shards that do (True) or don't (False) support Shared MSP. If not specified, return all cron shards across shared and dedicated msp
     """
     shards = get_shards_from_context(ctx)
     shards = [s for s in shards if s.shard_state != SHARD_STATE.DECOMMISSIONING]
+
+    # Only filter shards if shared_msp is explicitly set to True/False
+    if shared_msp != None:
+        shards = [s for s in shards if s.shared_msp == shared_msp]
+
     return [s.name for s in shards if s.cron == True]
 
 def msp_shard(shard):
@@ -247,13 +253,7 @@ def maybe_enable_security_group_policy(ctx, shard_name):
     for them.
     """
     new_ctx = struct(vars = dict(ctx.vars))
-
-    local_shards = get_shards_from_context(ctx)
-    for s in local_shards:
-        if s.name == shard_name:
-            if s.account != "mainland":
-                new_ctx.vars["msp.use_sgp"] = True
-            break
+    new_ctx.vars["msp.use_sgp"] = True
 
     return new_ctx
 

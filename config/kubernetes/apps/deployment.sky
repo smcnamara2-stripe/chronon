@@ -19,13 +19,13 @@ load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size", "g
 load("config/kubernetes/helpers/binpacking.sky", "bin_packing")
 load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_strategy", "with_blue_green_traffic_shifting")
 load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME", "HOST_HEALTH_AGENT_SIDECAR_NAME")
-load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_cluster", "get_env", "get_name", "get_repo", "is_bin_packing_enabled", "is_horizontal_pod_autoscaling_enabled", "is_isolated_account_identity_enabled", "is_isolated_deploy", "is_onebox")
+load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_cluster", "get_env", "get_name", "get_repo", "is_bin_packing_enabled", "is_horizontal_pod_autoscaling_enabled", "is_isolated_account_identity_enabled", "is_isolated_deploy", "is_onebox", "is_dedicated_msp_shard")
 load("config/kubernetes/helpers/ldap.sky", "LDAP_MOUNT_NAME", "mount_ldap_host_volumes")
-load("config/kubernetes/helpers/multi_arch_deployment_transition.sky", "add_arch_suffix", "calculate_multi_arch_replica_split", "graviton_deployment_0_replicas", "multi_arch_dynamic_replicas_desired_size", "multi_arch_override_node_selector")
+load("config/kubernetes/helpers/multi_arch_deployment_transition.sky", "add_arch_suffix", "calculate_multi_arch_replica_split", "multi_arch_override_node_selector")
 load("config/kubernetes/helpers/onebox.sky", "add_onebox_original_max_replicas_label")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Deployment", "DeploymentSpec")
 load("config/kubernetes/helpers/quantities.sky", "mebibytes", "millicores")
-load("config/kubernetes/helpers/resource_sharing.sky", "adjust_resources_for_sidecar", "maybe_add_overhead_for_kata", "maybe_clear_sidecar_resources", "share_resources_with_envoy")
+load("config/kubernetes/helpers/resource_sharing.sky", "adjust_resources_for_sidecar", "maybe_add_overhead_for_kata", "maybe_clear_sidecar_resources", "maybe_overcommit_resources", "share_resources_with_envoy")
 load("config/kubernetes/helpers/rolling.sky", "add_rolling_speed_override")
 load("config/kubernetes/helpers/service_consul_services.sky", "add_service_consul_services")
 load("config/kubernetes/helpers/tags.sky", "priority_tier_label")
@@ -40,6 +40,21 @@ load("config/kubernetes/sidecars/host_health_agent.sky", "host_health_agent")
 load("config/kubernetes/sidecars/metrics.sky", "metrics")
 load("config/kubernetes/sidecars/sansshell.sky", "sansshell_sidecar")
 load("config/kubernetes/stripe.sky", "CONSUL_AGENT_ENABLED_LABEL", "CONSUL_AGENT_ENABLED_LABEL_DISABLED")
+
+SHARED_MSP_SERVICES_IN_DEDICATED_MSP_SHARDS = [
+    "autoscale-srv",
+    "kube-cost-attribution",
+    "msp-fleet-manager",
+    "kube-orch-controller-manager",
+    "kube-state-metrics",
+    "kube-webhooks-test",
+    "kube-crd",
+    "kube-rbac",
+    "kubernetes-ui",
+    "msp-canary-invoker",
+    "msp-dataland-export",
+    "msp-lifecycle-tracker",
+]
 
 def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, disable_default_metrics_sidecar = False, graviton_migration_enabled = False, graviton_migration_size = 0, graviton_migration_target_6g = False, set_require_zone_balance_with_skew = 1, set_require_node_balance_with_skew = -1, **kwargs):
     """
@@ -103,7 +118,6 @@ def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, dis
             graviton_migration_size,
         )
 
-        deployment["plugin_overrides"] = [multi_arch_dynamic_replicas_desired_size(desired_count = replicas)]
         kwargs["replicas"] = replicas
 
     amd_64_deployment = _deployment_impl(
@@ -196,6 +210,9 @@ def _deployment_impl(
         if k8s_workload_name == None:
             fail("A Kubernetes workload name was not found for this shared MSP deployment.")
 
+        if is_shared_msp_service_in_dedicated_msp_shard(ctx, get_name(ctx)) :
+            fail("Shared MSP service %s cannot be deployed to a dedicated MSP shard" % get_name(ctx))
+
         # If the service is using host isolation, we set an environment variable
         # that contains the pod's priority tier as well as the priority tier
         # header (which can be a custom header). We use this environment
@@ -247,6 +264,7 @@ def _deployment_impl(
         # as a result we need the networking sidecars to handle a lack of consul-agent gracefully.
         consul_deprecated_in_pod = deployment["metadata"].get("labels", {}).get(CONSUL_AGENT_ENABLED_LABEL, "")
         deployment_availability_tier = get_availability_tier_from_metadata(deployment["metadata"])
+        deployment_replicas = deployment["kwargs"]["replicas"]
         networking_plugin = networking(
             ctx,
             namespace = namespace,
@@ -286,7 +304,17 @@ def _deployment_impl(
         # If Bin Packing is enabled we need to inject a few custom plugins
         # More information can be read at go/binpacking
         if is_bin_packing_enabled(ctx) == True:
-            _apply_plugin(ctx, bin_packing(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier), deployment)
+            _apply_plugin(
+                ctx,
+                bin_packing(
+                    ctx,
+                    set_require_zone_balance_with_skew,
+                    set_require_node_balance_with_skew,
+                    deployment_availability_tier,
+                    replicas = deployment_replicas,
+                ),
+                deployment,
+            )
 
         if is_horizontal_pod_autoscaling_enabled(ctx) == True and deployment["kwargs"]["replicas"] > 2:
             # Feature flag opt in is only available for services with 3 or more replicas.
@@ -324,6 +352,7 @@ def _deployment_impl(
             # These two plugins are noops unless this pod is BinPacked.
             maybe_clear_sidecar_resources(),
             maybe_add_overhead_for_kata(),
+            maybe_overcommit_resources(),
         ),
         deployment,
     )
@@ -338,9 +367,32 @@ def _apply_plugin(ctx, plugin, deployment):
     for container in all_containers(deployment["pod"]):
         plugin.update_containers(ctx, plugin, container)
 
+def context_aware_deployment_options(ctx, **kwargs):
+    """
+    Defines deployment options for a deployment, implementing contextual overrides such as isolated deployments.
+
+    The arguments map directly to fields on the DeploymentSpec in Kubernetes. Commonly used
+    options include `replicas` and `strategy`.
+
+    Args:
+        ctx: context
+        **kwargs: Options to apply to the deployment. These map directly to fields on the Kubernetes
+            [DeploymentSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deploymentspec-v1-apps).
+
+    Returns:
+        A plugin that applies the options to a deployment.
+    """
+
+    # isolated deploys have at most one replica per deployment
+    if is_isolated_deploy(ctx):
+        if kwargs.get("replicas", 0) > 1:
+            kwargs["replicas"] = 1
+
+    return deployment_options(**kwargs)
+
 def deployment_options(**kwargs):
     """
-    Defines options for a deployment.
+    Defines options for a deployment. Don't use this function directly; call context_aware_deployment_options instead.
 
     The arguments map directly to fields on the DeploymentSpec in Kubernetes. Commonly used
     options include `replicas` and `strategy`.
@@ -473,10 +525,9 @@ def _validate_deployment(ctx, deployment):
         fail("There are no replicas specified in the deployment for %s. Without replicas specified, Kubernetes will fall back on 1 replica which is unsafe. Please explicitly specify replicas in your deployment." % name)
 
     if is_isolated_deploy(ctx) and replicas > 1:
-        fail("Isolated deploys should be single-replica: %s specifies %d replicas" % (name, replicas))
+        fail("Isolated deploys should be single-replica: %s specifies %d replicas - if you are using a custom invocation of `deployment_options`, please consider replacing this call with `context_aware_deployment_options(ctx, ...)`" % (name, replicas))
 
     annotations = deployment.metadata.annotations
-    _validate_dynamic_replicas_desired_count(ctx, name, replicas, annotations)
     _validate_az_affinity(ctx, name, annotations)
 
     strategy = deployment.kwargs["strategy"]
@@ -493,15 +544,6 @@ def _validate_az_affinity(ctx, name, annotations):
             return
         else:
             fail("%s has unexpected AZ set: %s" % (name, reason))
-
-def _validate_dynamic_replicas_desired_count(ctx, name, replicas, annotations):
-    enabled = annotations.get("stripe.io/dynamic-replicas-enabled", "no")
-    if enabled != "yes":
-        return
-
-    desired = annotations.get("stripe.io/dynamic-replicas-count-desired", "")
-    if desired != str(replicas):
-        fail("%s has dynamic replicas enabled, but its desired count (%s) does not match the given replica count (%s)" % (name, desired, replicas))
 
 # max_unavailable must be less than 1/6th the number of total pods to ensure
 # uptime availability across AZs during deployment events (ir-aqua-factorial)
@@ -596,13 +638,10 @@ def _graviton_deployment(
     cpu = millicores(ctx, graviton_eq_resources.cpu_millicores - graviton_eq_resources.slack_cpu_millicores)
     memory = mebibytes(ctx, graviton_eq_resources.memory_mib)
 
-    dynamic_replicas_override = multi_arch_dynamic_replicas_desired_size(desired_count = graviton_replicas) if graviton_replicas != 0 else graviton_deployment_0_replicas()
-
     graviton_deployment_def["plugin_overrides"] = [
         add_arch_suffix("graviton"),
         multi_arch_override_node_selector(graviton_eq),
         container_resources(cpu = cpu, memory = memory),
-        dynamic_replicas_override,
     ]
 
     kwargs["replicas"] = graviton_replicas
@@ -619,3 +658,11 @@ def _graviton_deployment(
         set_require_zone_balance_with_skew = set_require_zone_balance_with_skew,
         onebox_original_replicas = onebox_original_replicas,
     )
+
+def is_shared_msp_service_in_dedicated_msp_shard(ctx, service_name):
+    if not is_dedicated_msp_shard(ctx):
+        return False
+    for srv in SHARED_MSP_SERVICES_IN_DEDICATED_MSP_SHARDS:
+        if service_name.startswith(srv):
+            return False
+    return True

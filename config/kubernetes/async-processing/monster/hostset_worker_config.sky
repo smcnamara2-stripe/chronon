@@ -73,10 +73,10 @@ def common_autoscaling_config(
     memory = memory_trigger(value = memory_threshold)
 
     return autoscaling(
-        min_replicas = max_replicas,  # disabling autoscaling for BFCM
+        min_replicas = min_replicas,
         max_replicas = max_replicas,
         cpu_trigger = cpu,
-        memory_trigger = memory,
+        memory_trigger = memory if memory_threshold != None else None,
         prom_metric = prom_metric,
         scale_up_scaling_policies = [scale_up_policy] if scale_up_policy != None else None,
         scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds if scale_up_stabilization_window_seconds != None else None,
@@ -144,10 +144,15 @@ A100_HOST_SETS = struct(
                 "bom": cluster(instance_type = r6g_xlarge),
                 "cmh": cluster(instance_type = r7g_xlarge),
             },
+            preprod = {
+                "northwest": empty_worker_cluster(),
+                "bom": empty_worker_cluster(),
+                "cmh": cluster(instance_type = r7g_xlarge),
+            },
             prod = {
                 "northwest": cluster(
-                    consume_replicas = 14,
-                    fanout_replicas = 10,
+                    consume_replicas = 11,
+                    fanout_replicas = 7,
                     instance_type = r7g_8xlarge,
                     mb_per_worker = 1000,
                 ),
@@ -157,8 +162,8 @@ A100_HOST_SETS = struct(
                     mb_per_worker = 1000,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 14,
-                    fanout_replicas = 10,
+                    consume_replicas = 8,
+                    fanout_replicas = 6,
                     instance_type = r7g_8xlarge,
                     mb_per_worker = 1000,
                 ),
@@ -236,6 +241,11 @@ A200_HOST_SETS = struct(
                 "bom": cluster(mb_per_worker = 1250),
                 "cmh": cluster(mb_per_worker = 1250, instance_type = r7g_xlarge),
             },
+            preprod = {
+                "northwest": empty_worker_cluster(),
+                "bom": empty_worker_cluster(),
+                "cmh": cluster(mb_per_worker = 1250, instance_type = r7g_xlarge),
+            },
             prod = {
                 "northwest": cluster(
                     consume_replicas = 21,
@@ -249,8 +259,8 @@ A200_HOST_SETS = struct(
                     mb_per_worker = 1100,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 21,
-                    fanout_replicas = 6,
+                    consume_replicas = 15,
+                    fanout_replicas = 4,
                     mb_per_worker = 900,  # 263 workers
                     instance_type = r7g_8xlarge,
                 ),
@@ -264,6 +274,11 @@ A200_HOST_SETS = struct(
             qa = {
                 "northwest": cluster(mb_per_worker = 1250, instance_type = r7g_xlarge),
                 "bom": cluster(mb_per_worker = 1250),
+                "cmh": cluster(mb_per_worker = 1250, instance_type = r7g_xlarge),
+            },
+            preprod = {
+                "northwest": empty_worker_cluster(),
+                "bom": empty_worker_cluster(),
                 "cmh": cluster(mb_per_worker = 1250, instance_type = r7g_xlarge),
             },
             prod = {
@@ -381,7 +396,7 @@ A200_HOST_SETS = struct(
                 ),
                 "bom": cluster(),
                 "cmh": cluster(
-                    consume_replicas = 16,  # Updated for BFCM, prevValue = 10
+                    consume_replicas = 10,
                     fanout_replicas = 4,
                     mb_per_worker = 3200,
                     consume_autoscaling = common_autoscaling_config(
@@ -409,8 +424,8 @@ A200_HOST_SETS = struct(
             },
             prod = {
                 "northwest": cluster(
-                    consume_replicas = 50,
-                    fanout_replicas = 6,
+                    consume_replicas = 34,
+                    fanout_replicas = 4,
                     mb_per_worker = 3200,
                     instance_type = m6g_16xlarge,
                 ),
@@ -419,8 +434,8 @@ A200_HOST_SETS = struct(
                     consume_replicas = 6,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 50,
-                    fanout_replicas = 6,
+                    consume_replicas = 10,
+                    fanout_replicas = 4,
                     mb_per_worker = 3200,
                     instance_type = m6g_16xlarge,
                 ),
@@ -448,7 +463,7 @@ A200_HOST_SETS = struct(
                 ),
                 "bom": cluster(),
                 "cmh": cluster(
-                    consume_replicas = 8,  # Updated for BFCM, prevValue = 4
+                    consume_replicas = 4,
                     mb_per_worker = 2000,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
@@ -483,7 +498,7 @@ A200_HOST_SETS = struct(
                     fanout_replicas = 3,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 6,  # Updated for BFCM, prevValue = 3
+                    consume_replicas = 3,
                     fanout_replicas = 3,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
@@ -499,7 +514,12 @@ A200_HOST_SETS = struct(
             suffix = "low-cpu",
             default = cluster(mb_per_worker = 3000),
             qa = {
-                "northwest": cluster(graviton_migration_enabled = True, graviton_migration_size = "100%", graviton_migration_target_6g = True),
+                "northwest": cluster(
+                    consume_replicas = 6,
+                    graviton_migration_enabled = True,
+                    graviton_migration_size = "100%",
+                    graviton_migration_target_6g = True,
+                ),
                 "bom": empty_worker_cluster(),
                 "cmh": cluster(graviton_migration_enabled = True, graviton_migration_size = "100%", graviton_migration_target_6g = True),
             },
@@ -510,16 +530,22 @@ A200_HOST_SETS = struct(
             },
             prod = {
                 "northwest": cluster(
-                    consume_replicas = 1,
-                    fanout_replicas = 1,
+                    consume_replicas = 6,
+                    fanout_replicas = 4,
                     graviton_migration_enabled = True,
                     graviton_migration_size = "100%",
                     graviton_migration_target_6g = True,
                 ),
-                "bom": empty_worker_cluster(),
+                "bom": cluster(
+                    consume_replicas = 2,
+                    fanout_replicas = 2,
+                    graviton_migration_enabled = True,
+                    graviton_migration_size = "100%",
+                    graviton_migration_target_6g = True,
+                ),
                 "cmh": cluster(
-                    consume_replicas = 1,
-                    fanout_replicas = 1,
+                    consume_replicas = 6,
+                    fanout_replicas = 4,
                     graviton_migration_enabled = True,
                     graviton_migration_size = "100%",
                     graviton_migration_target_6g = True,
@@ -588,7 +614,7 @@ A200_HOST_SETS = struct(
         hostset(
             "frontline_experience",
             suffix = "low-cpu",
-            default = cluster(mb_per_worker = 2875),
+            default = cluster(mb_per_worker = 8400),
             qa = {
                 "northwest": cluster(),
                 "bom": cluster(),
@@ -633,8 +659,8 @@ A200_HOST_SETS = struct(
                 ),
                 "cmh": cluster(
                     mb_per_worker = 3650,
-                    consume_replicas = 18,  # Updated for BFCM, prevValue = 9
-                    fanout_replicas = 5,  # Updated for BFCM, prevValue = 3
+                    consume_replicas = 9,
+                    fanout_replicas = 3,
                     instance_type = r7g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
@@ -654,7 +680,7 @@ A200_HOST_SETS = struct(
         hostset(
             "local-payment-methods",
             suffix = "low-cpu",
-            default = cluster(mb_per_worker = 2400),
+            default = cluster(mb_per_worker = 4800),
             qa = {
                 "northwest": cluster(),
                 "bom": cluster(),
@@ -667,41 +693,38 @@ A200_HOST_SETS = struct(
             },
             prod = {
                 "northwest": cluster(
-                    mb_per_worker = 2800,
-                    consume_replicas = 18,  # Updated for BFCM, prevValue = 9
+                    consume_replicas = 9,
                     consume_autoscaling = common_autoscaling_config(
                         min_replicas = 8,
                         max_replicas = 18,
                     ),
-                    fanout_replicas = 6,  # Updated for BFCM, prevValue = 2
+                    fanout_replicas = 2,
                     fanout_autoscaling = common_autoscaling_config(
                         min_replicas = 2,
                         max_replicas = 6,
                     ),
                 ),
                 "bom": cluster(
-                    mb_per_worker = 2600,
-                    consume_replicas = 6,  # Updated for BFCM, prevValue = 2
+                    consume_replicas = 2,
                     consume_autoscaling = common_autoscaling_config(
                         min_replicas = 2,
                         max_replicas = 6,
                     ),
-                    fanout_replicas = 6,  # Updated for BFCM, prevValue = 2
+                    fanout_replicas = 2,
                     fanout_autoscaling = common_autoscaling_config(
                         min_replicas = 2,
                         max_replicas = 6,
                     ),
                 ),
                 "cmh": cluster(
-                    mb_per_worker = 2600,
-                    consume_replicas = 9,  # Updated for BFCM, prevValue = 4
+                    consume_replicas = 4,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
                         availability_threshold = "0.50",
                         min_replicas = 4,  # 50% of NW
                         max_replicas = 9,
                     ),
-                    fanout_replicas = 6,  # Updated for BFCM, prevValue = 2
+                    fanout_replicas = 2,
                     fanout_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.50",
                         min_replicas = 2,
@@ -722,21 +745,35 @@ A200_HOST_SETS = struct(
             prod = {
                 "northwest": cluster(
                     consume_replicas = 56,
+                    consume_autoscaling = common_autoscaling_config(
+                        availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
+                        cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
+                        memory_threshold = 80,  # Scale up when we cross 80% Memory utilization
+                        min_replicas = 56,
+                        max_replicas = 70,
+                    ),
                     fanout_replicas = 10,
+                    fanout_autoscaling = common_autoscaling_config(
+                        availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
+                        cpu_threshold = 60,  # Scale up when we cross 60% CPU Utilization
+                        memory_threshold = 80,  # Scale up when we cross 80% Memory utilization
+                        min_replicas = 10,
+                        max_replicas = 20,
+                    ),
                     mb_per_worker = 1700,
                     instance_type = m6g_16xlarge,  # This hostset gets CPU bound when running on r7g_8xlarge, so going to a higher CPU instance
                 ),
                 "bom": cluster(consume_replicas = 4),
                 "cmh": cluster(
-                    consume_replicas = 40,  # Updated for BFCM, prevValue = 14
-                    fanout_replicas = 10,  # Updated for BFCM, prevValue = 5
+                    consume_replicas = 14,
+                    fanout_replicas = 5,
                     mb_per_worker = 1700,
                     instance_type = m6g_16xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
                         availability_threshold = "0.50",
                         min_replicas = 14,  # 50% of NW
-                        max_replicas = 40,
+                        max_replicas = 28,
                     ),
                     fanout_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
@@ -765,7 +802,7 @@ A200_HOST_SETS = struct(
                 "northwest": cluster(consume_replicas = 12),
                 "bom": cluster(),
                 "cmh": cluster(
-                    consume_replicas = 12,  # Updated for BFCM, prevValue = 6
+                    consume_replicas = 6,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
                         availability_threshold = "0.50",
@@ -851,7 +888,7 @@ A200_HOST_SETS = struct(
             prod = {
                 "northwest": cluster(
                     consume_replicas = 70,  # autoscaling below
-                    fanout_replicas = 50,  # Updated for BFCM, prevValue = 18
+                    fanout_replicas = 18,
                     mb_per_worker = 2900,
                     instance_type = r6g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
@@ -892,8 +929,8 @@ A200_HOST_SETS = struct(
                     ),
                 ),
                 "bom": cluster(
-                    consume_replicas = 30,  # Updated for BFCM, prevValue = 6  # autoscaling below
-                    fanout_replicas = 20,  # Updated for BFCM, prevValue = 3
+                    consume_replicas = 6,  # autoscaling below
+                    fanout_replicas = 3,
                     instance_type = r6g_xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.65",
@@ -934,7 +971,7 @@ A200_HOST_SETS = struct(
                 ),
                 "cmh": cluster(
                     consume_replicas = 70,  # autoscaling below
-                    fanout_replicas = 50,  # Updated for BFCM, prevValue = 18
+                    fanout_replicas = 18,
                     mb_per_worker = 2900,
                     instance_type = r6g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
@@ -1022,7 +1059,7 @@ A200_HOST_SETS = struct(
             },
             prod = {
                 "northwest": cluster(
-                    consume_replicas = 70,  # Updated for BFCM, prevValue = 20  # See autoscaling below
+                    consume_replicas = 20,  # See autoscaling below
                     fanout_replicas = 6,
                     mb_per_worker = 2100,
                     instance_type = r7g_8xlarge,
@@ -1041,7 +1078,7 @@ A200_HOST_SETS = struct(
                     ),
                 ),
                 "bom": cluster(
-                    consume_replicas = 20,  # Updated for BFCM, prevValue = 5  # See autoscaling below
+                    consume_replicas = 5,  # See autoscaling below
                     fanout_replicas = 4,
                     mb_per_worker = 4500,
                     consume_autoscaling = common_autoscaling_config(
@@ -1059,8 +1096,8 @@ A200_HOST_SETS = struct(
                     ),
                 ),
                 "cmh": cluster(
-                    consume_replicas = 70,  # Updated for BFCM, prevValue = 10  # See autoscaling below
-                    fanout_replicas = 6,  # Updated for BFCM, prevValue = 4
+                    consume_replicas = 10,  # See autoscaling below
+                    fanout_replicas = 4,
                     mb_per_worker = 2100,
                     instance_type = r7g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
@@ -1120,7 +1157,7 @@ A200_HOST_SETS = struct(
                     mb_per_worker = 2500,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 12,
+                    consume_replicas = 10,
                     fanout_replicas = 4,
                     mb_per_worker = 1200,
                 ),
@@ -1146,7 +1183,7 @@ A200_HOST_SETS = struct(
                 ),
                 "bom": cluster(),
                 "cmh": cluster(
-                    consume_replicas = 6,  # Updated for BFCM, prevValue = 3
+                    consume_replicas = 3,
                     mb_per_worker = 2600,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
@@ -1562,17 +1599,24 @@ A200_HOST_SETS = struct(
             "search-desc-connect",
             disable_preloading = True,  # This allows a smaller mb_per_worker. If re-enabling preloading, make sure to bump mb_per_worker
             qa = {
-                "northwest": cluster(mb_per_worker = 2800),
+                "northwest": cluster(mb_per_worker = 280),
                 "bom": cluster(mb_per_worker = 2800),
                 "cmh": cluster(mb_per_worker = 2800),
             },
             prod = {
                 "northwest": cluster(
-                    mb_per_worker = 1900,
-                    consume_replicas = 15,
+                    mb_per_worker = 2800,
+                    consume_replicas = 20,
                     fanout_replicas = 2,
+                    # This hostset gets CPU bound when running on the default r6g_8xlarge, so going to a higher CPU instance
                     instance_type = m6g_16xlarge,
-                ),  # This hostset gets CPU bound when running on the default r6g_8xlarge, so going to a higher CPU instance
+                    consume_autoscaling = common_autoscaling_config(
+                        min_replicas = 20,
+                        max_replicas = 30,
+                        scale_up_stabilization_window_seconds = 300,
+                        # Use the default scale up and scale down policy
+                    ),
+                ),
                 "bom": cluster(
                     mb_per_worker = 1850,
                     consume_replicas = 6,
@@ -1580,14 +1624,14 @@ A200_HOST_SETS = struct(
                 ),
                 "cmh": cluster(
                     mb_per_worker = 2800,
-                    consume_replicas = 15,  # Updated for BFCM, prevValue = 7
+                    consume_replicas = 10,
                     fanout_replicas = 2,
                     instance_type = m6g_16xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
                         availability_threshold = "0.50",
-                        min_replicas = 7,  # 50% of NW
-                        max_replicas = 15,
+                        min_replicas = 10,  # 50% of NW
+                        max_replicas = 20,
                     ),
                 ),
             },
@@ -1644,7 +1688,7 @@ A200_HOST_SETS = struct(
                     fanout_replicas = 2,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 13,  # Updated for BFCM, prevValue = 6
+                    consume_replicas = 6,
                     fanout_replicas = 4,
                     consume_autoscaling = common_autoscaling_config(
                         # Lower threshold for cmh to avoid running out of capacity during quick failovers
@@ -1665,11 +1709,16 @@ A200_HOST_SETS = struct(
                 "bom": cluster(),
                 "cmh": cluster(instance_type = r7g_xlarge),
             },
+            preprod = {
+                "northwest": empty_worker_cluster(),
+                "bom": empty_worker_cluster(),
+                "cmh": cluster(instance_type = r7g_xlarge),
+            },
             prod = {
                 "northwest": cluster(
-                    consume_replicas = 14,
+                    consume_replicas = 7,
                     fanout_replicas = 3,
-                    mb_per_worker = 900,  # 263 workers
+                    mb_per_worker = 1000,  # 237 workers
                     instance_type = r7g_8xlarge,
                 ),
                 "bom": cluster(
@@ -1677,16 +1726,10 @@ A200_HOST_SETS = struct(
                     mb_per_worker = 750,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 14,  # Updated for BFCM, prevValue = 7
+                    consume_replicas = 7,
                     fanout_replicas = 3,
-                    mb_per_worker = 900,  # 263 workers
+                    mb_per_worker = 1000,  # 237 workers
                     instance_type = r7g_8xlarge,
-                    consume_autoscaling = common_autoscaling_config(
-                        # Lower threshold for cmh to avoid running out of capacity during quick failovers
-                        availability_threshold = "0.50",
-                        min_replicas = 7,  # 50% of NW
-                        max_replicas = 14,
-                    ),
                 ),
             },
         ),
@@ -1700,11 +1743,16 @@ A200_HOST_SETS = struct(
                 "bom": cluster(),
                 "cmh": cluster(instance_type = r7g_xlarge),
             },
+            preprod = {
+                "northwest": empty_worker_cluster(),
+                "bom": empty_worker_cluster(),
+                "cmh": cluster(instance_type = r7g_xlarge),
+            },
             prod = {
                 "northwest": cluster(
-                    consume_replicas = 62,
+                    consume_replicas = 40,
                     fanout_replicas = 9,
-                    mb_per_worker = 900,  # 263 workers
+                    mb_per_worker = 1000,  # 237 workers
                     instance_type = r7g_8xlarge,
                 ),
                 "bom": cluster(
@@ -1713,9 +1761,9 @@ A200_HOST_SETS = struct(
                     mb_per_worker = 750,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 62,
-                    fanout_replicas = 9,
-                    mb_per_worker = 900,  # 263 workers
+                    consume_replicas = 32,
+                    fanout_replicas = 7,
+                    mb_per_worker = 1000,  # 237 workers
                     instance_type = r7g_8xlarge,
                 ),
             },
@@ -1731,8 +1779,8 @@ A400_HOST_SETS = struct(
             default = cluster(mb_per_worker = 4000),
             qa = {
                 "bom": cluster(
-                    consume_replicas = 4,  # Updated for BFCM, prevValue = 2
-                    fanout_replicas = 4,  # Updated for BFCM, prevValue = 2
+                    consume_replicas = 2,
+                    fanout_replicas = 2,
                     instance_type = r6g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
@@ -1748,11 +1796,10 @@ A400_HOST_SETS = struct(
                         min_replicas = 2,  # 100% of bom replicas
                         max_replicas = 4,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "cmh": cluster(
-                    consume_replicas = 4,  # Updated for BFCM, prevValue = 2
-                    fanout_replicas = 4,  # Updated for BFCM, prevValue = 2
+                    consume_replicas = 2,
+                    fanout_replicas = 2,
                     instance_type = r6g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
@@ -1768,18 +1815,17 @@ A400_HOST_SETS = struct(
                         min_replicas = 2,
                         max_replicas = 4,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "northwest": cluster(
-                    consume_replicas = 6,
-                    fanout_replicas = 4,  # Updated for BFCM, prevValue = 3
+                    consume_replicas = 8,
+                    fanout_replicas = 3,
                     instance_type = r6g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
                         cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
                         memory_threshold = 80,  # Scale up when we cross 80% Memory utilization
                         min_replicas = 3,
-                        max_replicas = 6,
+                        max_replicas = 12,
                     ),
                     fanout_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
@@ -1788,13 +1834,12 @@ A400_HOST_SETS = struct(
                         min_replicas = 2,
                         max_replicas = 4,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
             },
             prod = {
                 "cmh": cluster(
                     mb_per_worker = 5200,
-                    consume_replicas = 300,
+                    consume_replicas = 350,
                     fanout_replicas = 0,  # declared in the monster-low-cpu section below
                     instance_type = m6g_16xlarge,
                     consume_autoscaling = common_autoscaling_config(
@@ -1802,13 +1847,12 @@ A400_HOST_SETS = struct(
                         cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
                         memory_threshold = 80,  # Scale up when we cross 80% Memory utilization
                         min_replicas = 123,  # 21% of northwest replicas
-                        max_replicas = 300,
+                        max_replicas = 350,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "northwest": cluster(
                     mb_per_worker = 5200,
-                    consume_replicas = 465,  # Updated for BFCM, prevValue = 430
+                    consume_replicas = 430,
                     fanout_replicas = 0,  # declared in the monster-low-cpu section below
                     instance_type = m6g_16xlarge,
                     consume_autoscaling = common_autoscaling_config(
@@ -1816,9 +1860,8 @@ A400_HOST_SETS = struct(
                         cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
                         memory_threshold = 90,  # Scale up when we cross 90% Memory utilization
                         min_replicas = 320,  # 75% of northwest replicas
-                        max_replicas = 465,
+                        max_replicas = 480,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "bom": empty_worker_cluster(),
             },
@@ -1835,14 +1878,13 @@ A400_HOST_SETS = struct(
                     consume_replicas = 5,
                     fanout_replicas = 3,
                     instance_type = r6g_8xlarge,
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
             },
             prod = {
                 "cmh": cluster(
                     mb_per_worker = 3800,
                     consume_replicas = 0,
-                    fanout_replicas = 100,  # Updated for BFCM, prevValue = 40
+                    fanout_replicas = 40,
                     instance_type = r6g_8xlarge,
                     fanout_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
@@ -1851,12 +1893,11 @@ A400_HOST_SETS = struct(
                         min_replicas = 20,  # 30% of northwest replicas
                         max_replicas = 100,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "bom": cluster(
                     mb_per_worker = 4000,
-                    consume_replicas = 10,  # Updated for BFCM, prevValue = 6
-                    fanout_replicas = 6,  # Updated for BFCM, prevValue = 3
+                    consume_replicas = 6,
+                    fanout_replicas = 3,
                     instance_type = r6g_8xlarge,
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
@@ -1872,7 +1913,6 @@ A400_HOST_SETS = struct(
                         min_replicas = 3,
                         max_replicas = 6,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 # pre-loading disabled for fanout workers through environment variables
                 # general workers need a little bit more cpu, so we're increasing the
@@ -1880,7 +1920,7 @@ A400_HOST_SETS = struct(
                 "northwest": cluster(
                     mb_per_worker = 4200,  # Increasing since memory utilization is hovering > ~90% and worker utilizatio is still low.
                     consume_replicas = 0,
-                    fanout_replicas = 100,  # Updated for BFCM, prevValue = 70
+                    fanout_replicas = 70,
                     fanout_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
                         cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
@@ -1888,7 +1928,6 @@ A400_HOST_SETS = struct(
                         min_replicas = 50,  # 75% of northwest replicas
                         max_replicas = 100,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
             },
         ),
@@ -1909,24 +1948,21 @@ SIGMA_HOST_SET = struct(
                 "bom": cluster(
                     consume_replicas = 2,
                     fanout_replicas = 2,
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "cmh": cluster(
                     consume_replicas = 0,
                     fanout_replicas = 0,
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "northwest": cluster(
                     mb_per_worker = 2900,
-                    consume_replicas = 4,  # Updated for BFCM, prevValue = 2
+                    consume_replicas = 2,
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.90",
                         cpu_threshold = 90,
-                        memory_threshold = 90,
+                        memory_threshold = None,
                         min_replicas = 2,
                         max_replicas = 4,
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
             },
             # pre-loading disabled for fanout workers through environment variables
@@ -1934,7 +1970,6 @@ SIGMA_HOST_SET = struct(
                 "cmh": cluster(
                     consume_replicas = 0,
                     fanout_replicas = 0,
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "northwest": cluster(
                     consume_replicas = 300,
@@ -1943,7 +1978,7 @@ SIGMA_HOST_SET = struct(
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.60",
                         cpu_threshold = 80,
-                        memory_threshold = 90,
+                        memory_threshold = None,
                         min_replicas = 100,
                         max_replicas = 300,
                         scale_down_stabilization_window_seconds = 300,
@@ -1953,7 +1988,6 @@ SIGMA_HOST_SET = struct(
                             period_seconds = 1800,  # scale down at most every 30 minutes
                         ),
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "bom":
                 # As part of the cutover for India DL, we expect BOM to see up to 20% of northwest's traffic
@@ -1965,7 +1999,7 @@ SIGMA_HOST_SET = struct(
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.60",
                         cpu_threshold = 80,
-                        memory_threshold = 90,
+                        memory_threshold = None,
                         min_replicas = 10,
                         max_replicas = 150,
                         scale_down_stabilization_window_seconds = 300,
@@ -1975,7 +2009,6 @@ SIGMA_HOST_SET = struct(
                             period_seconds = 1800,  # scale down at most every 30 minutes
                         ),
                     ),
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
             },
             rate_limiter_namespace_override = "monster-sigma",
@@ -1988,18 +2021,15 @@ SIGMA_HOST_SET = struct(
                 "cmh": cluster(
                     consume_replicas = 0,
                     fanout_replicas = 0,
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "northwest": cluster(
                     consume_replicas = 2,
                     fanout_replicas = 2,
                     mb_per_worker = 2900,
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
                 "bom": cluster(
                     consume_replicas = 0,
                     fanout_replicas = 0,
-                    image_artifact = "pay-server-image-noble-linux-arm64",
                 ),
             },
             rate_limiter_namespace_override = "monster-sigma-staging",
@@ -2017,14 +2047,14 @@ TEST_HOST_SET = struct(
         hostset(
             "monster-test",
             prod = {
-                "northwest": cluster(consume_replicas = 2, fanout_replicas = 2, mb_per_worker = 2800, instance_type = r6g_4xlarge, image_artifact = "pay-server-image-noble-linux-arm64"),
-                "bom": cluster(mb_per_worker = 2800, image_artifact = "pay-server-image-noble-linux-arm64"),
-                "cmh": cluster(consume_replicas = 2, fanout_replicas = 2, mb_per_worker = 2800, instance_type = r6g_4xlarge, image_artifact = "pay-server-image-noble-linux-arm64"),
+                "northwest": cluster(consume_replicas = 2, fanout_replicas = 2, mb_per_worker = 2800, instance_type = r6g_4xlarge),
+                "bom": cluster(mb_per_worker = 2800),
+                "cmh": cluster(consume_replicas = 2, fanout_replicas = 2, mb_per_worker = 2800, instance_type = r6g_4xlarge),
             },
             qa = {
-                "northwest": cluster(consume_replicas = 2, fanout_replicas = 2, image_artifact = "pay-server-image-noble-linux-arm64"),
-                "bom": cluster(consume_replicas = 2, fanout_replicas = 2, image_artifact = "pay-server-image-noble-linux-arm64"),
-                "cmh": cluster(consume_replicas = 2, fanout_replicas = 2, image_artifact = "pay-server-image-noble-linux-arm64"),
+                "northwest": cluster(consume_replicas = 2, fanout_replicas = 2),
+                "bom": cluster(consume_replicas = 2, fanout_replicas = 2),
+                "cmh": cluster(consume_replicas = 2, fanout_replicas = 2),
             },
         ),
     ],

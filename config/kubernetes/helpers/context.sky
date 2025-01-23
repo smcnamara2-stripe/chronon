@@ -8,7 +8,7 @@ useful when defining a workload. These functions provide a consistent interface 
 accessing that data.
 """
 
-load("config/kubernetes/helpers/shards_list.sky", "BINPACKING_STATE", "BINPACKING_VERSION", "get_shards_from_context")
+load("config/kubernetes/helpers/shards_list.sky", "BINPACKING_STATE", "BINPACKING_VERSION", "SHARD_TYPE", "get_shards_from_context")
 
 HORIZON_MANIFEST_V1_PROTO_PKG = proto.package("com.stripe.horizon.manifest.v_1")
 CSC_PB = proto.package("com.stripe.gocode.service_config")
@@ -726,6 +726,27 @@ def get_bin_packing_version(ctx, shard, _override_shards_map = None):
             return s.binpacking_version
 
     return None
+
+def is_dedicated_msp_shard(ctx, _override_shards_map = None):
+    """
+    Returns True if the shard is a dedicated MSP shard.
+
+    Args:
+      ctx: The Henson context.
+
+    Returns:
+        True if the shard is a dedicated MSP shard, False otherwise.
+    """
+    shard = get_target_shard(ctx)
+    shards = get_shards_from_context(ctx)
+    # Only used in tests to provide a custom list of shards
+    if _override_shards_map != None:
+        clusters = _override_shards_map.get(get_env(ctx), {})
+        shards = clusters.get(get_cluster(ctx), [])
+    for s in shards:
+        if s.name == shard:
+            return s.shard_type == SHARD_TYPE.DEDICATED_MSP
+    return False
 
 def is_horizontal_pod_autoscaling_enabled(ctx):
     """

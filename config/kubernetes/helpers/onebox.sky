@@ -1,7 +1,7 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/plugins/types.sky", "deployment_plugin")
-load("config/kubernetes/helpers/tags.sky", "HENSON_ONEBOX_ORIGINAL_MAX_REPLICAS_LABEL")
 load("config/kubernetes/helpers/context.sky", "is_onebox")
+load("config/kubernetes/helpers/tags.sky", "HENSON_ONEBOX_ORIGINAL_MAX_REPLICAS_LABEL")
+load("config/kubernetes/plugins/types.sky", "deployment_plugin")
 
 def add_onebox_original_max_replicas_label(onebox_original_replicas):
     """

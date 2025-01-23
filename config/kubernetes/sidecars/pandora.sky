@@ -5,16 +5,16 @@ It uses the pandora-init-image as the init container.
 The code path invokes the Pandora secret-bag for the confidant-init binary.
 """
 
+load("config/kubernetes/core/container.sky", "resource_requirements")
 load("config/kubernetes/core/env_var.sky", "default_env_vars")
 load("config/kubernetes/core/generic.sky", "is_shared_msp")
 load("config/kubernetes/core/volume.sky", "host_volume", "pod_volume", "render_volume_mount", "volume_mount")
-load("config/kubernetes/helpers/images.sky", "image")
-load("config/kubernetes/helpers/quantities.sky", "mebibytes")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/core/container.sky", "resource_requirements")
 load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "is_bin_packing_v1_enabled")
+load("config/kubernetes/helpers/images.sky", "image")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Container")
+load("config/kubernetes/helpers/quantities.sky", "mebibytes")
 load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", use_credentials_proxy_plugin = "use_credentials_proxy")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 
 _ConfidantSecret = struct
@@ -322,7 +322,7 @@ def _render_pandora_container(ctx, container_def, pod):
 
     if container.config["use_credentials_proxy"]:
         volume_mounts.extend([
-            mount_credentials_proxy(read_only = is_bin_packing_enabled(ctx) == False),
+            mount_credentials_proxy(read_only = is_bin_packing_v1_enabled(ctx) == False),
             volume_mount("/etc/ssl/certs/stripe-cas"),
         ])
     else:

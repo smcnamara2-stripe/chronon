@@ -5,9 +5,9 @@ Plugins for making Kubernetes configurations highly available
 
 load("config/kubernetes/helpers/context.sky", "get_name", "is_isolated_deploy")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "TopologySpreadConstraint")
+load("config/kubernetes/helpers/warning.sky", "warn")
 load("config/kubernetes/meta/metadata.sky", "render_selector")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/helpers/warning.sky", "warn")
 
 def spread_across_zones(selected_zones = ()):
     """Spread pods across availability zones.
@@ -30,7 +30,7 @@ def _add_anti_affinity_to_pod(ctx, arguments, pod_def):
     pod_def["affinity"]["highly_available"] = True
     pod_def["affinity"]["highly_available_zones"] = selected_zones
 
-def require_node_balance(max_skew = 1):
+def require_node_balance(max_skew = 1, min_domains = None):
     """Require that a workload's pods be balanced across Nodes.
 
     The scheduler will refuse to assign pods to nodes if sufficient balance cannot be acheived
@@ -44,9 +44,9 @@ def require_node_balance(max_skew = 1):
     """
     if max_skew <= 0:
         fail("max_skew must be positive")
-    return pod_plugin(_add_topology_spreading_to_pod, max_skew = max_skew, topology_key = "kubernetes.io/hostname", strict_constraint = True, by_service = False, min_domains = None)
+    return pod_plugin(_add_topology_spreading_to_pod, max_skew = max_skew, topology_key = "kubernetes.io/hostname", strict_constraint = True, by_service = False, min_domains = min_domains)
 
-def require_node_balance_by_henson_service(max_skew = 1):
+def require_node_balance_by_henson_service(max_skew = 1, min_domains = None):
     """Require that a workload's pods be balanced across nodes by Henson service name (rather than deployment name)
 
     The scheduler will refuse to assign pods to nodes if sufficient balance cannot be acheived
@@ -59,7 +59,7 @@ def require_node_balance_by_henson_service(max_skew = 1):
     """
     if max_skew <= 0:
         fail("max_skew must be positive")
-    return pod_plugin(_add_topology_spreading_to_pod, max_skew = max_skew, topology_key = "kubernetes.io/hostname", strict_constraint = True, by_service = True, min_domains = None)
+    return pod_plugin(_add_topology_spreading_to_pod, max_skew = max_skew, topology_key = "kubernetes.io/hostname", strict_constraint = True, by_service = True, min_domains = min_domains)
 
 def prefer_node_balance(max_skew = 1):
     """Prefer that a workload's pods be balanced across Nodes.
@@ -143,7 +143,14 @@ def render_topology_spreading(ctx, pod):
     if plugins == None:
         return None
     constraints = []
+    node_spread_by_henson_service_set = False
     for plugin in plugins:
+        # Skip setting strict topology spread by henson service if it's already set
+        if plugin.by_service and plugin.strict_constraint:
+            if node_spread_by_henson_service_set:
+                warn(ctx, "Multiple topology spreading plugins set to spread by Henson service name. Only the first one will be applied.")
+                continue
+            node_spread_by_henson_service_set = True
         constraints += _render_topology_spreading(ctx, plugin, pod)
     return constraints
 
@@ -170,6 +177,7 @@ def _render_topology_spreading(ctx, plugin, pod):
     when_unsatisfiable = "DoNotSchedule"
     if not plugin.strict_constraint:
         when_unsatisfiable = "ScheduleAnyway"
+
     # Tests default to kubemaster. We need to account for the shard in the test context.
     return [TopologySpreadConstraint(
         ctx,

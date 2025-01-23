@@ -56,11 +56,11 @@ load(
     "host_mount_stripe_cas",
     "pod_mount",
 )
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load(
     "config/kubernetes/networking/internal/proxyless.sky",
     "augment_with_proxyless_registrations",
 )
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 
 ENVOY_MONITOR_PORT = 18300
 ENVOYCONTROL_V2_CIRCUIT_BREAKER_LIMITS = 4096

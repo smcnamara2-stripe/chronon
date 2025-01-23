@@ -5,24 +5,19 @@ load("config/kubernetes/async-processing/monster/secrets.sky", "monster_secrets"
 load("config/kubernetes/async-processing/monster/util.sky", "format_isolation_group", "generate_consul_name", "monster_deployment_labels", "worker_type")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/entrypoints.sky", "deployment")
-load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A200", "A300", "A400")
-load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_cluster", "get_env")
-load("config/kubernetes/helpers/dynamic.sky", "dynamic_replicas")
+load("config/kubernetes/helpers/context.sky", "get_env")
 load("config/kubernetes/helpers/failure_threshold.sky", "failure_threshold")
 load("config/kubernetes/helpers/images.sky", "image")
 load("config/kubernetes/helpers/ldap.sky", "mount_ldap_host_volumes")
 load("config/kubernetes/helpers/msp_shard.sky", "autoset_shard")
-load("config/kubernetes/helpers/node_selectors.sky", "host_set")
 load("config/kubernetes/helpers/security.sky", "add_security_groups")
-load("config/kubernetes/meta/metadata.sky", "labels")
 load("config/kubernetes/networking/public/config.sky", "global_ratelimit", "networking_config")
-load("config/kubernetes/pay-server.sky", "default_pay_server_image", "einhorn_service", "pay_server_pod")
+load("config/kubernetes/pay-server.sky", "einhorn_service", "pay_server_pod")
 load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
-load("config/kubernetes/sidecars/envoy_ratelimit.sky", "ratelimit_sidecar")
 load("config/kubernetes/sidecars/geoip.sky", "use_geoip_databases")
-load("config/kubernetes/sidecars/offload_profiles.sky", "use_offload_profiles")
 load("config/kubernetes/sidecars/memcontainer.sky", "memento_sidecar")
 load("config/kubernetes/sidecars/metrics.sky", "metrics_config")
+load("config/kubernetes/sidecars/offload_profiles.sky", "use_offload_profiles")
 
 def enable_vnext_metrics(_ctx, config):
     ig = format_isolation_group(config.monster_isolation_group)
@@ -47,13 +42,6 @@ def extract_replica_count(replicas):
     return replicas
 
 def make_deployment_options_plugins(config):
-    # If replicas are defined using dynamic configurations we will set those up using dynamic configs.
-    if type(config.replicas) == "struct":
-        return [
-            deployment_options(replicas = config.replicas.desired),
-            dynamic_replicas(config.replicas.desired, config.replicas.max, config.replicas.min),
-        ]
-
     # We limit how many previous revisions of ReplicaSet's we keep around to limit
     # the amount of metadata the k8s control plane has to serve up for Monster
     # See: https://jira.corp.stripe.com/browse/RUN_ORCH-11446, http://go/ir/gray-fuse, http://go/ir/whim-tangent

@@ -87,7 +87,7 @@ def cluster(
         graviton_migration_enabled = False,
         graviton_migration_size = 0,
         graviton_migration_target_6g = False,
-        image_artifact = "pay-server-image",
+        image_artifact = "pay-server-image-noble-linux-arm64",
         consume_autoscaling = None,
         fanout_autoscaling = None):
     return struct(
@@ -126,7 +126,7 @@ def _global_default_template_cluster():
         graviton_migration_enabled = False,
         graviton_migration_size = 0,
         graviton_migration_target_6g = False,
-        image_artifact = "pay-server-image",
+        image_artifact = "pay-server-image-noble-linux-arm64",
         consume_autoscaling = None,
         fanout_autoscaling = None,
     )

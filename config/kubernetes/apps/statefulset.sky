@@ -5,21 +5,21 @@ Functions for creating and configuring Kubernetes [StatefulSet][]s.
 [statefulset]: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
 """
 
-load("config/kubernetes/core/pod.sky", "all_containers", "main_container")
-load("config/kubernetes/meta/metadata.sky", "get_availability_tier_from_metadata", "render_metadata", "render_selector")
+load("config/kubernetes/core/env_var.sky", "all_containers_env_vars")
+load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
 load("config/kubernetes/core/lifecycle.sky", "DEFAULT_ENVOY_HEALTHCHECK_PROPAGATION_TIME", "DEFAULT_GRACE_PERIOD_SECONDS", "generate_prestop_sleep_action", "grace_period", "prestop_all_containers", "prestop_all_infra_sidecars")
+load("config/kubernetes/core/pod.sky", "all_containers", "main_container")
+load("config/kubernetes/core/volume.sky", "volume_mount_all_containers")
+load("config/kubernetes/helpers/context.sky", "get_env", "is_isolated_deploy", "is_onebox")
+load("config/kubernetes/helpers/ldap.sky", "LDAP_MOUNT_NAME", "mount_ldap_host_volumes")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "StatefulSet", "StatefulSetSpec")
+load("config/kubernetes/meta/metadata.sky", "get_availability_tier_from_metadata", "render_metadata", "render_selector")
 load("config/kubernetes/networking/public/networking.sky", "networking")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "statefulset_plugin")
-load("config/kubernetes/sidecars/metrics.sky", "metrics")
 load("config/kubernetes/sidecars/host_health_agent.sky", "host_health_agent")
-load("config/kubernetes/helpers/context.sky", "get_env", "is_isolated_deploy", "is_onebox")
-load("config/kubernetes/core/volume.sky", "volume_mount_all_containers")
-load("config/kubernetes/helpers/ldap.sky", "LDAP_MOUNT_NAME", "mount_ldap_host_volumes")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "StatefulSet", "StatefulSetSpec")
-load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
+load("config/kubernetes/sidecars/metrics.sky", "metrics")
 load("config/kubernetes/stripe.sky", "CONSUL_AGENT_ENABLED_LABEL", "CONSUL_AGENT_ENABLED_LABEL_DISABLED")
-load("config/kubernetes/core/env_var.sky", "all_containers_env_vars")
 
 def statefulset(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, **kwargs):
     """

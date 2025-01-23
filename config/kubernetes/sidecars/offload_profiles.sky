@@ -1,15 +1,15 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
-load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
-load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "render_volume_mount", "volume_mount")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "use_credentials_proxy")
-load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/helpers/images.sky", "image", "image_defaults")
-load("config/kubernetes/core/env_var.sky", "container_env_vars", "default_env_vars")
-load("config/kubernetes/helpers/context.sky", "get_container_images", "get_env")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Container", "EnvVar")
 load("config/kubernetes/core/container.sky", "resource_requirements")
+load("config/kubernetes/core/env_var.sky", "container_env_vars", "default_env_vars")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "render_volume_mount", "volume_mount")
+load("config/kubernetes/helpers/context.sky", "get_container_images", "get_env")
+load("config/kubernetes/helpers/images.sky", "image", "image_defaults")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Container", "EnvVar")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "use_credentials_proxy")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
+load("config/kubernetes/plugins/types.sky", "pod_plugin")
 
 def use_offload_profiles():
     """
@@ -67,7 +67,6 @@ def _offload_profiles_container(ctx, container_def, pod):
     container = struct(**container_def)
     is_shared = container_def["is_shared"]
     env = default_env_vars(ctx)
-    env.append(EnvVar(ctx, name = "STRIPE_BUNDLE_USE_SORBET_RUBY", value = "true"))
     env.append(EnvVar(ctx, name = "STRIPE_BUNDLE_USE_NEXT_RUBY_PCT_ENABLED", value = "100"))
 
     if is_shared:

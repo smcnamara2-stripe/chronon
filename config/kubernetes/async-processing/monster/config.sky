@@ -1,5 +1,5 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A200", "A300", "A400")
+load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A200", "A400")
 
 AVAILABILITY_TIER_A400_AUTO = "a400-auto"
 AVAILABILITY_TIER_A400 = "a400"
@@ -32,7 +32,6 @@ def monster_deployment_config(
         strategy,
         script = None,
         einhorn_workers = None,
-        dynamic_replicas = None,
         failure_threshold = 100,
         extra_env = None,  # List of (env_var_name, val_string) pairs to add to each pod's env
         hack_kick_interval = None,
@@ -43,7 +42,7 @@ def monster_deployment_config(
         graviton_migration_target_6g = False,
         autoscaling_plugin = None,
         rate_limiter_namespace_override = None,
-        image_artifact = "pay-server-image"):
+        image_artifact = "pay-server-image-noble-linux-arm64"):
     return struct(
         monster_service = monster_service,
         monster_isolation_group = monster_isolation_group,
@@ -57,7 +56,6 @@ def monster_deployment_config(
         replicas = replicas,
         failure_threshold = failure_threshold,
         strategy = strategy,
-        dynamic_replicas = dynamic_replicas,
         extra_env = extra_env,
         hack_kick_interval = hack_kick_interval,
         hack_kick_start_delay = hack_kick_start_delay,

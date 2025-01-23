@@ -2,7 +2,7 @@
 load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "volume_mount")
 load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
-load("config/kubernetes/helpers/context.sky", "get_aws_region", "get_cluster", "is_bin_packing_enabled", "is_bin_packing_v1_enabled")
+load("config/kubernetes/helpers/context.sky", "get_aws_region", "get_cluster", "is_bin_packing_v1_enabled")
 load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "use_credentials_proxy")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/sidecars/variables.sky", "GEOIP_CONTAINER_DIGEST", "GEOIP_CONTAINER_ENV")
@@ -78,7 +78,7 @@ def use_geoip_databases(ctx, use_legacy_host_mounts = False):
                 fallback_label = GEOIP_CONTAINER_DIGEST,
                 fallback_env = GEOIP_CONTAINER_ENV,
                 plugins = [
-                    mount_credentials_proxy(read_only = is_bin_packing_enabled(ctx) == False),
+                    mount_credentials_proxy(read_only = is_bin_packing_v1_enabled(ctx) == False),
                     volume_mount(_out_path, read_only = False),
                     volume_mount(_share_path, read_only = False),
                 ],

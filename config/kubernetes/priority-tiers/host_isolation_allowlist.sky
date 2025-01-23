@@ -15,6 +15,7 @@ HOST_ISOLATION_ALLOWLIST = [
     "bankcon-cred-gateway-srv",
     "billing-api-srv",
     "capital-api-srv",
+    "config-test-pay-server-srv",
     "charges-render-srv",
     "climate-bapi-srv",
     "consumer-bridge-srv",
@@ -61,4 +62,6 @@ HOST_ISOLATION_ALLOWLIST = [
     "open-banking-v-one-executor-srv",
     "crypto-fa-grpc-srv",
     "off-session-payments-srv",
+    "payments-warehouse-worker-srv",
+    "payment-method-credentials-srv",
 ]

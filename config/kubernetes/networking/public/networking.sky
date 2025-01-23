@@ -1,15 +1,15 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/core/container.sky", "init_container")
+load("config/kubernetes/core/env_var.sky", "all_containers_env_vars")
 load("config/kubernetes/core/lifecycle.sky", "DEFAULT_NEW_ENDPOINT_PROPAGATION_SECONDS", "exec_action", "generate_infra_sidecar_prestop_command_args", "pre_stop")
 load("config/kubernetes/core/probe.sky", "command_probe", "probes")
-load("config/kubernetes/core/env_var.sky", "all_containers_env_vars")
-load("config/kubernetes/meta/metadata.sky", "annotations")
 load(
     "config/kubernetes/core/volume.sky",
     "host_volume",
     "pod_volume",
     "volume_mount_all_containers",
 )
+load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME")
 load(
     "config/kubernetes/helpers/context.sky",
     "get_blue_green_color",
@@ -19,16 +19,14 @@ load(
     "get_name",
 )
 load("config/kubernetes/helpers/images.sky", "image")
-load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME")
-load(
-    "config/kubernetes/networking/public/config.sky",
-    "build_networking_config",
-)
+load("config/kubernetes/meta/metadata.sky", "annotations")
 load(
     "config/kubernetes/networking/internal/common.sky",
     "POD_NETWORKING_HOST_VOLUME_PATH",
     "PROXYLESS_ADMIN_SERVER_DIR",
 )
+load("config/kubernetes/networking/internal/config/envoy-config-srv-config.sky", "UNPRIVILEGED_ENVOY_PORT")
+load("config/kubernetes/networking/internal/config/override.sky", "NOT_PROVIDED", "target")
 load(
     "config/kubernetes/networking/internal/consul.sky",
     "TAG_IGNORED_BY_HOST_ENVOY",
@@ -36,15 +34,17 @@ load(
     "finalize_consul_service",
 )
 load("config/kubernetes/networking/internal/envoy-config-srv.sky", "envoy_config_srv_sidecar", "henson_listener_config")
-load("config/kubernetes/networking/internal/config/envoy-config-srv-config.sky", "UNPRIVILEGED_ENVOY_PORT")
-load("config/kubernetes/networking/internal/config/override.sky", "NOT_PROVIDED", "target")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "pod_plugin")
-load("config/kubernetes/sidecars/envoy_ratelimit.sky", "ratelimit_sidecar")
 load(
     "config/kubernetes/networking/internal/proxyless.sky",
     "proxyless_mesh_service_name",
 )
+load(
+    "config/kubernetes/networking/public/config.sky",
+    "build_networking_config",
+)
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/types.sky", "pod_plugin")
+load("config/kubernetes/sidecars/envoy_ratelimit.sky", "ratelimit_sidecar")
 
 PROXYLESS_METADATA_ANNOTATION_KEY = "networking.stripe.io/network-access-control-lists"
 

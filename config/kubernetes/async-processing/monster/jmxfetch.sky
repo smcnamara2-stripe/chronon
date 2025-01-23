@@ -2,12 +2,12 @@
 # Helper functions for jmxfetch sidecar running along with Monster Scala services
 # jmxfetch is used to get JMX metrics to statsd / veneur
 
-load("config/kubernetes/core/env_var.sky", "container_env_vars")
-load("config/kubernetes/sidecars/config_file.sky", "config_file")
-load("config/kubernetes/core/volume.sky", "mount_pod_volume")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/core/container.sky", "container")
+load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/core/volume.sky", "mount_pod_volume")
 load("config/kubernetes/helpers/images.sky", "image")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/sidecars/config_file.sky", "config_file")
 
 def add_jmxfetch_sidecar(
         ctx,

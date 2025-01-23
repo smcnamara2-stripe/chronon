@@ -3,8 +3,8 @@
 Plugins for adding rules to control how pods are scheduled onto nodes.
 """
 
-load("config/kubernetes/plugins/types.sky", "pod_plugin")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Affinity", "LabelSelector", "LabelSelectorRequirement", "PodAffinityTerm", "PodAntiAffinity", "WeightedPodAffinityTerm")
+load("config/kubernetes/plugins/types.sky", "pod_plugin")
 
 def avoid_pods_with_labels(ctx, labels, weight = None):
     """

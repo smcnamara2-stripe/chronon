@@ -1,8 +1,8 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/helpers/proto_or_yaml.sky", "ValidatingWebhook", "ValidatingWebhookConfiguration", "WebhookClientConfig")
+load("config/kubernetes/meta/metadata.sky", "metadata", "render_metadata")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "webhook_configuration_plugin")
-load("config/kubernetes/meta/metadata.sky", "metadata", "render_metadata")
 
 def validating_webhook_configuration(ctx, *plugins, webhook_name = None, webhook_name_suffix = "-validation-webhook", **kwargs):
     """

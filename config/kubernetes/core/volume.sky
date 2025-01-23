@@ -3,9 +3,9 @@
 Plugins for working with volumes in pods.
 """
 
+load("config/kubernetes/helpers/proto_or_yaml.sky", "EmptyDirVolumeSource", "HostPathVolumeSource", "Volume", "VolumeMount", "VolumeSource")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "all_container_plugin", "container_plugin", "pod_plugin")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "EmptyDirVolumeSource", "HostPathVolumeSource", "Volume", "VolumeMount", "VolumeSource")
 
 def mount_host_volume(path, container_name = None, volume_args = {}, mount_args = {}):
     """

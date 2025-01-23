@@ -1,12 +1,12 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/volume.sky", "mount_pod_volume", "volume_mount")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "is_bin_packing_v1_enabled")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/context.sky", "is_bin_packing_v1_enabled")
 load("config/kubernetes/helpers/quantities.sky", "mebibytes")
 load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "mount_host_stripe_ca_certs", "use_credentials_proxy")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/sidecars/variables.sky", "KUBE_CREDS_CONTAINER_DIGEST", "KUBE_CREDS_CONTAINER_ENV")
-load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 # This sidecar is specifically for interop with third-party Kubernetes services. DO NOT use this with internal services. If you need certificates in your service,
 # use credentials-proxy.
@@ -60,7 +60,7 @@ def use_kube_creds(
             fallback_env = KUBE_CREDS_CONTAINER_ENV,
             programming_language = GO_PROGRAMMING_LANGUAGE,
             plugins = [
-                mount_credentials_proxy(read_only = is_bin_packing_enabled(ctx) == False),
+                mount_credentials_proxy(read_only = is_bin_packing_v1_enabled(ctx) == False),
                 volume_mount("/etc/ssl/certs/stripe-cas"),
                 volume_mount(_kubeconfig_path, read_only = False),
                 volume_mount(certs_path, read_only = False),

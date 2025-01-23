@@ -9,9 +9,9 @@ which allows other services to discover it.
 """
 
 load("config/kubernetes/core/container.sky", "container_port")
+load("config/kubernetes/helpers/constants.sky", "CONSUL_SIDECAR_CONTAINER_NAME")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "container_plugin", "deployment_plugin", "statefulset_plugin")
-load("config/kubernetes/helpers/constants.sky", "CONSUL_SIDECAR_CONTAINER_NAME")
 
 def consul_meta_envoy_priority_routing(routing_header, routing_assignment, meta = None, receive_non_priority_traffic = None):
     """

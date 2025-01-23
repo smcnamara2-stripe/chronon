@@ -3,23 +3,23 @@
 Plugins and helpers to specifically support running pay-server workloads.
 """
 
-load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
-load("config/kubernetes/stripe.sky", "stripe_pod")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/core/probe.sky", "command_probe", "http_probe", "probes")
 load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "volume_mount")
 load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A200", "A300", "A400", "get_pod_availability_tier_by_name")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_env", "has_availability_tier")
+load("config/kubernetes/helpers/images.sky", "image_defaults")
 load("config/kubernetes/meta/metadata.sky", "labels")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/types.sky", "container_plugin", "pod_plugin")
+load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
 load("config/kubernetes/sidecars/consul.sky", "consul_check", "consul_container_name", "consul_service", "envoy_consul_tag")
 load("config/kubernetes/sidecars/health.sky", "safely_deployed_service")
 load("config/kubernetes/sidecars/mongo_caches.sky", "use_mongo_caches")
 load("config/kubernetes/sidecars/worker.sky", "add_worker_sidecar")
-load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_env", "has_availability_tier")
-load("config/kubernetes/helpers/images.sky", "image_defaults")
-load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
+load("config/kubernetes/stripe.sky", "stripe_pod")
 
 default_pay_server_image = image_defaults(
     # if they try to use defaults, their service yaml should have the artifact specified.
@@ -94,7 +94,6 @@ def pay_server_pod(ctx, gem_override_policy = default_gem_override_policy, **kwa
     default_env_vars = {
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
-        "STRIPE_BUNDLE_USE_SORBET_RUBY": "true",
         "STRIPE_BUNDLE_USE_NEXT_RUBY_PCT_ENABLED": "100",
     }
 

@@ -3,19 +3,18 @@
 Service-Networking private API for rendering a consul sidecar
 """
 
+load("config/kubernetes/core/container.sky", "resource_requirements")
 load("config/kubernetes/core/env_var.sky", "default_env_vars")
 load("config/kubernetes/core/lifecycle.sky", "render_lifecycle")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
 load("config/kubernetes/core/volume.sky", "host_volume", "render_volume_mount", "volume_mount")
-load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/constants.sky", "CONSUL_SIDECAR_CONTAINER_NAME", "GO_PROGRAMMING_LANGUAGE")
 load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Container")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 load("config/kubernetes/sidecars/config_file.sky", "config_file")
 load("config/kubernetes/sidecars/variables.sky", "CONSUL_CONTAINER_FALLBACK_DIGEST", "CONSUL_CONTAINER_FALLBACK_ENV")
-load("config/kubernetes/helpers/constants.sky", "CONSUL_SIDECAR_CONTAINER_NAME")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Container")
-load("config/kubernetes/core/container.sky", "resource_requirements")
 
 # Name of the sidecar container that registers Consul services for a pod.
 #

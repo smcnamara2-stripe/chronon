@@ -1,13 +1,13 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
-load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
-load("config/kubernetes/core/volume.sky", "mount_host_volume", "volume_mount")
-load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "use_credentials_proxy")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/sidecars/variables.sky", "GO_PROFILER_CONTAINER_FALLBACK_DIGEST", "GO_PROFILER_CONTAINER_FALLBACK_ENV")
 load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "volume_mount")
 load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/security.sky", "mount_credentials_proxy", "use_credentials_proxy")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
+load("config/kubernetes/sidecars/variables.sky", "GO_PROFILER_CONTAINER_FALLBACK_DIGEST", "GO_PROFILER_CONTAINER_FALLBACK_ENV")
 
 SIDECAR_NAME = "go-profiler-sidecar"
 

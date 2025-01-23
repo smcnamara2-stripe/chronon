@@ -35,31 +35,6 @@ def calculate_multi_arch_replica_split(replicas, migration_size):
 
     return int(replicas), int(graviton_replicas)
 
-def multi_arch_dynamic_replicas_desired_size(desired_count = 1):
-    """
-    IMPORTANT: This plugin overrides the dynamic replicas settings iff they already exist in the rendered deployment.
-    Otherwise it remains untouched. In other words this plugin relies on dynamic replicas already being present and overrides.
-
-    Args:
-        desired_count: The initial replica count for the first deployment. After
-            your first deployment, if this value changes from one deployment to
-            the next the new value will override the deployment's replica
-            count. Otherwise the current replica count will remain unchanged.
-    """
-    return deployment_plugin(
-        _override_dynamic_replicas_desired_size,
-        desired_count = str(desired_count),
-    )
-
-def graviton_deployment_0_replicas():
-    """
-    IMPORTANT: This plugin sets the replica size to 0 and set the minimum replica count for dynamic replicas to 0 as well
-
-    """
-    return deployment_plugin(
-        _graviton_deployment_0_replicas,
-    )
-
 def multi_arch_override_node_selector(instance_type):
     """
     IMPORTANT: This plugin overrides the node selector settings' instance-type section iff they already exist in the rendered deployment.
@@ -87,26 +62,6 @@ def add_arch_suffix(suffix):
         _add_arch_suffix,
         suffix = suffix,
     )
-
-def _override_dynamic_replicas_desired_size(ctx, arguments, deployment_def):
-    if deployment_def.get("metadata").get("annotations").get("stripe.io/dynamic-replicas-enabled"):
-        original_max = int(deployment_def.get("metadata").get("annotations").get("stripe.io/dynamic-replicas-count-max"))
-        original_min = int(deployment_def.get("metadata").get("annotations").get("stripe.io/dynamic-replicas-count-min"))
-        desired = int(arguments.desired_count)
-
-        if desired > original_max:
-            print("desired_count (%d) is greater than max_count (%d) setting your desired dynamic replica count to max" % (desired, original_max))
-            desired = original_max
-        if desired < original_min:
-            print("desired_count (%d) is less than min_count (%d) setting your desired dynamic replica count to min" % (desired, original_min))
-            desired = original_min
-
-        deployment_def["metadata"]["annotations"].update({
-            "stripe.io/dynamic-replicas-count-desired": str(desired),
-        })
-        deployment_def["kwargs"]["replicas"] = desired
-    else:
-        print("You are attempting to override dynamic replicas plugin but dynamic replicas has not been enabled on this deployment. Not overriding")
 
 def _override_node_selector_instance_type(ctx, arguments, deployment_definition):
     instance_type = arguments.instance_type
@@ -139,11 +94,4 @@ def _add_arch_suffix(ctx, arguments, deployment_def):
             dep_name = deployment_def["metadata"]["name"][:-truncate_len]
         deployment_def["metadata"].update({
             "name": dep_name + "-" + arguments.suffix,
-        })
-
-def _graviton_deployment_0_replicas(ctx, argument, deployment_def):
-    if deployment_def.get("metadata").get("annotations").get("stripe.io/dynamic-replicas-enabled"):
-        deployment_def["metadata"]["annotations"].update({
-            "stripe.io/dynamic-replicas-count-desired": str(0),
-            "stripe.io/dynamic-replicas-count-min": str(0),
         })

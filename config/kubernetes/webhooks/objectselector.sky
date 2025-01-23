@@ -1,7 +1,8 @@
 # DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/helpers/context.sky", "get_render_yaml")
+
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/helpers/proto_or_yaml.sky", "LabelSelector")
-load("config/kubernetes/helpers/context.sky", "get_render_yaml")
 
 def webhook_object_selector(
         ctx,

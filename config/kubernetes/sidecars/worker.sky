@@ -1,15 +1,15 @@
 # DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/core/container.sky", "resource_requirements")
 load("config/kubernetes/core/env_var.sky", "default_env_vars")
 load("config/kubernetes/core/volume.sky", "mount_pod_volume", "render_volume_mount", "volume_mount")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 load("config/kubernetes/helpers/context.sky", "get_blue_green_color")
 load("config/kubernetes/helpers/images.sky", "image", "sidecar_image")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "Container", "EnvVar")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 load("config/kubernetes/sidecars/health.sky", "pod_health_volume")
 load("config/kubernetes/sidecars/variables.sky", "WORKER_CONTAINER_FALLBACK_ENV", "WORKER_CONTAINER_FALLBACK_SHA")
-load("config/kubernetes/helpers/proto_or_yaml.sky", "Container", "EnvVar")
-load("config/kubernetes/core/container.sky", "resource_requirements")
-load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 sidecar_name = "worker-sidecar"
 health_pod_volume_name = "pay-pod-health"

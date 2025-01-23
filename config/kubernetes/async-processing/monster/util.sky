@@ -23,7 +23,7 @@ ROLLING_UPDATE_STRATEGIES = {
     "ha_low_replica": {"max_unavailable_percent": 0, "max_surge_percent": 100},
     "ha_high_replica": {"max_unavailable_percent": 5, "max_surge_percent": 100},
     # special case
-    "prod_general_consume": {"max_unavailable_percent": 5, "max_surge_percent": 25},
+    "prod_general_consume": {"max_unavailable_percent": 5, "max_surge_percent": 50},
     "qa_general": {"max_unavailable_percent": 20, "max_surge_percent": 100},
 }
 
@@ -91,9 +91,6 @@ def get_monster_env_cmd_arguments(ctx, unformatted_host_set, host_type):
         "--host-type",
         host_type,
     ]
-
-def dynamic_replicas(desired, max, min):
-    return struct(desired = desired, max = max, min = min)
 
 def get_jmx_java_options(jmx_port):
     return [

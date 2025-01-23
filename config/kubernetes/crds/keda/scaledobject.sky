@@ -1,5 +1,5 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/crds/keda/common_queries.sky", "HORIZON_MEMORY_USAGE", "HORIZON_OP_UTILIZATION", "RUBY_WORKER_UTILIZATION", "WORKFLOW_TASKS_SLOTS_QUERY", "WORKFLOW_WORKER_ACTIVE_QUERY")
+load("config/kubernetes/crds/keda/common_queries.sky", "HORIZON_MEMORY_USAGE", "HORIZON_OP_UTILIZATION", "RUBY_WORKER_UTILIZATION", "WORKFLOW_TASKS_SLOTS_QUERY", "WORKFLOW_TASK_SLOTS_QUERY_WITH_UTILIZATION", "WORKFLOW_WORKER_ACTIVE_QUERY")
 load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_cluster", "get_env", "get_name", "get_repo", "is_faas_managed", "is_isolated_deploy", "is_onebox")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "HPAScalingPolicy", "HPAScalingRules", "HorizontalPodAutoscalerBehavior")
 load("config/kubernetes/meta/metadata.sky", "render_metadata")
@@ -317,13 +317,14 @@ def memory_trigger(value):
         "value": value,
     }
 
-def horizon_memory_scaling_trigger(utilization = None, role = None, service_name = None):
+def horizon_memory_scaling_trigger(utilization = None, role = None, server_priority_tier = None, service_name = None):
     """
     Returns a Struct for defining the Horizon memory trigger.
 
     Args:
         utilization: Value to trigger scaling actions for. Value is between 0 and 100.
         role: Role of the target deployment
+        server_priority_tier: Name of the tier used for host isolation
         service_name: If the deployment is a sub-deployment within a role, use this for further filtering
 
     Returns:
@@ -332,16 +333,18 @@ def horizon_memory_scaling_trigger(utilization = None, role = None, service_name
     return {
         "utilization": utilization,
         "role": role,
+        "server_priority_tier": _normalize_priority_tier_name(server_priority_tier),
         "service_name": service_name,
     }
 
-def horizon_op_scaling_trigger(utilization = None, role = None, service_name = None):
+def horizon_op_scaling_trigger(utilization = None, role = None, server_priority_tier = None, service_name = None):
     """
     Returns a Struct for defining the Horizon op trigger.
 
     Args:
         utilization: Value to trigger scaling actions for. Value is between 0 and 100.
         role: Role of the target deployment
+        server_priority_tier: Name of the tier used for host isolation
         service_name: If the deployment is a sub-deployment within a role, use this for further filtering
 
     Returns:
@@ -350,10 +353,16 @@ def horizon_op_scaling_trigger(utilization = None, role = None, service_name = N
     return {
         "utilization": utilization,
         "role": role,
+        "server_priority_tier": _normalize_priority_tier_name(server_priority_tier),
         "service_name": service_name,
     }
 
-def workflow_worker_activity_task_slots_trigger(threshold, workflow_engine_task_queue_project, workflow_engine_namespace, activity_task_slots_per_worker = None):
+def _normalize_priority_tier_name(server_priority_tier):
+    if server_priority_tier != None:
+        return server_priority_tier.lower().replace("_", "-")
+    return None
+
+def workflow_worker_activity_task_slots_trigger(workflow_engine_task_queue_project, workflow_engine_namespace, activity_task_slots_per_worker = None, threshold = None, utilization = None):
     """
     Returns a Struct for defining the Workflow Worker Activity trigger
 
@@ -371,6 +380,7 @@ def workflow_worker_activity_task_slots_trigger(threshold, workflow_engine_task_
         "workflow_engine_task_queue_project": workflow_engine_task_queue_project,
         "workflow_engine_namespace": workflow_engine_namespace,
         "activity_task_slots_per_worker": activity_task_slots_per_worker,
+        "utilization": utilization,
     }
 
 def workflow_worker_work_present_trigger(workflow_engine_task_queue_project, workflow_engine_namespace):
@@ -548,7 +558,7 @@ def scaled_object(
         ruby_worker_scaling_trigger = ruby_worker_scaling_trigger,
     )
 
-def scaled_object_plugin_from_compute_config(compute_config, role = None, service_name = None):
+def scaled_object_plugin_from_compute_config(compute_config, role = None, service_name = None, server_priority_tier = None):
     """
     Returns a plugin that creates an KEDA ScaledObject CRD based on configuration in ComputeConfig
 
@@ -556,6 +566,10 @@ def scaled_object_plugin_from_compute_config(compute_config, role = None, servic
         compute_config: Merged Compute V2 Config which may or may not contain autsocaling configuration
 
         role: Horizon role of the service, if a horizon service.
+
+        service_name: If the deployment is a sub-deployment within a service, use this for further filtering
+
+        server_priority_tier: Priority tier name used for host isolation.
 
     Returns:
         A scaled object plugin if the compute config has autoscaling configuration
@@ -604,12 +618,14 @@ def scaled_object_plugin_from_compute_config(compute_config, role = None, servic
                 horizon_memory_trigger = horizon_memory_scaling_trigger(
                     utilization = autoscaling_cfg["horizon_memory_scaling_trigger"].get("utilization"),
                     role = role,
+                    server_priority_tier = server_priority_tier,
                 )
 
             if autoscaling_cfg.get("horizon_op_scaling_trigger"):
                 horizon_op_trigger = horizon_op_scaling_trigger(
                     utilization = autoscaling_cfg["horizon_op_scaling_trigger"].get("utilization"),
                     role = role,
+                    server_priority_tier = server_priority_tier,
                 )
 
             if autoscaling_cfg.get("workflow_worker_activity_task_slots_trigger"):
@@ -619,6 +635,7 @@ def scaled_object_plugin_from_compute_config(compute_config, role = None, servic
                     workflow_engine_task_queue_project = trigger_cfg.get("workflow_engine_task_queue_project"),
                     workflow_engine_namespace = trigger_cfg.get("workflow_engine_namespace"),
                     activity_task_slots_per_worker = trigger_cfg.get("activity_task_slots_per_worker"),
+                    utilization = trigger_cfg.get("utilization"),
                 )
 
             if autoscaling_cfg.get("workflow_worker_work_present_trigger"):
@@ -1000,7 +1017,8 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
             henson_service_name = get_name(ctx),
             host_cluster = get_cluster(ctx),
             deploy_color = get_blue_green_color(ctx) if get_blue_green_color(ctx) != None else "",
-            service_name = ", service_name=\"%s\"" % so_mapping.horizon_memory_scaling_trigger.get("service_name") if so_mapping.horizon_memory_scaling_trigger.get("service_name") != None else "",
+            server_priority_tier = ",server_priority_tier=\"%s\"" % so_mapping.horizon_memory_scaling_trigger.get("server_priority_tier") if so_mapping.horizon_memory_scaling_trigger.get("server_priority_tier") != None else "",
+            service_name = ",service_name=\"%s\"" % so_mapping.horizon_memory_scaling_trigger.get("service_name") if so_mapping.horizon_memory_scaling_trigger.get("service_name") != None else "",
         )
 
         trigger["metadata"]["threshold"] = "%d" % so_mapping.horizon_memory_scaling_trigger.get("utilization")
@@ -1021,7 +1039,8 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
             henson_service_name = get_name(ctx),
             host_cluster = get_cluster(ctx),
             deploy_color = get_blue_green_color(ctx) if get_blue_green_color(ctx) != None else "",
-            service_name = ", service_name=\"%s\"" % so_mapping.horizon_op_scaling_trigger.get("service_name") if so_mapping.horizon_op_scaling_trigger.get("service_name") != None else "",
+            server_priority_tier = ",server_priority_tier=\"%s\"" % so_mapping.horizon_op_scaling_trigger.get("server_priority_tier") if so_mapping.horizon_op_scaling_trigger.get("server_priority_tier") != None else "",
+            service_name = ",service_name=\"%s\"" % so_mapping.horizon_op_scaling_trigger.get("service_name") if so_mapping.horizon_op_scaling_trigger.get("service_name") != None else "",
         )
 
         trigger["metadata"]["threshold"] = "%d" % so_mapping.horizon_op_scaling_trigger.get("utilization")
@@ -1033,22 +1052,39 @@ def _render_scaledobject(ctx, so_mapping, default_replicas, shared_msp):
     if so_mapping.workflow_worker_activity_task_slots_trigger != None:
         task_slots_per_worker = so_mapping.workflow_worker_activity_task_slots_trigger.get("activity_task_slots_per_worker")
         if not task_slots_per_worker:
-            task_slots_per_worker = 200 if get_repo(ctx) == "zoolander" else 1
+            task_slots_per_worker = 200 if get_repo(ctx).removeprefix("stripe-internal/") == "zoolander" else 1
 
         trigger = dict(_prom_trigger_scheme)
         trigger["metadata"] = dict(_prom_trigger_metadata_scheme)
 
-        trigger["metadata"]["query"] = WORKFLOW_TASKS_SLOTS_QUERY.format(
-            activity_task_slots_per_worker = task_slots_per_worker,
-            env = get_env(ctx),
-            repo = get_repo(ctx).removeprefix("stripe-internal/"),
-            workflow_engine_task_queue_project = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_task_queue_project"),
-            workflow_engine_namespace = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_namespace"),
-            host_cluster = get_cluster(ctx),
-        )
+        # TODO: Remove these checks when all users have been migrated from threshold to utilization.
+        # We have to check for 0 as the proto's default value is 0, not Null
+        if so_mapping.workflow_worker_activity_task_slots_trigger.get("utilization") != None and so_mapping.workflow_worker_activity_task_slots_trigger.get("utilization") != 0:
+            trigger["metadata"]["query"] = WORKFLOW_TASK_SLOTS_QUERY_WITH_UTILIZATION.format(
+                activity_task_slots_per_worker = task_slots_per_worker,
+                env = get_env(ctx),
+                repo = get_repo(ctx).removeprefix("stripe-internal/"),
+                workflow_engine_task_queue_project = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_task_queue_project"),
+                workflow_engine_namespace = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_namespace"),
+                host_cluster = get_cluster(ctx),
+            )
 
-        trigger["metadata"]["threshold"] = "%g" % so_mapping.workflow_worker_activity_task_slots_trigger.get("threshold")
-        trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+            trigger["metadata"]["threshold"] = "%d" % so_mapping.workflow_worker_activity_task_slots_trigger.get("utilization", 0)
+            trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+        elif so_mapping.workflow_worker_activity_task_slots_trigger.get("threshold") != None and so_mapping.workflow_worker_activity_task_slots_trigger.get("threshold") != 0:
+            trigger["metadata"]["query"] = WORKFLOW_TASKS_SLOTS_QUERY.format(
+                activity_task_slots_per_worker = task_slots_per_worker,
+                env = get_env(ctx),
+                repo = get_repo(ctx).removeprefix("stripe-internal/"),
+                workflow_engine_task_queue_project = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_task_queue_project"),
+                workflow_engine_namespace = so_mapping.workflow_worker_activity_task_slots_trigger.get("workflow_engine_namespace"),
+                host_cluster = get_cluster(ctx),
+            )
+
+            trigger["metadata"]["threshold"] = "%g" % so_mapping.workflow_worker_activity_task_slots_trigger.get("threshold")
+            trigger["metricType"] = PROMETHEUS_METRIC_TYPE_VALUE
+        else:
+            fail("Workflow Activity Task Slots trigger must specify one of `threshold` or `utilization`")
 
         trigger["metadata"]["serverAddress"] = _get_prometheus_server_address(ctx)
         triggers.append(trigger)

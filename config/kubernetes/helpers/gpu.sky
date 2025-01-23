@@ -1,7 +1,7 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/meta/metadata.sky", "labels")
 load("config/kubernetes/core/pod.sky", "pod_runtime_class")
+load("config/kubernetes/meta/metadata.sky", "labels")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 
 def enable_gpus(ctx):
     """

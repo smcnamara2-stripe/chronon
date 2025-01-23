@@ -1,30 +1,25 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/apps/deployment.sky", "deployment_options")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/pay-server.sky", "bapi_gc_config", "default_gem_override_policy", "default_pay_server_image", "einhorn_service", "pay_server_pod")
+load("config/kubernetes/apps/deployment.sky", "context_aware_deployment_options")
+load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A110", "A120", "A130", "A140", "A150")
+load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
+load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_metrics_tagging")
+load("config/kubernetes/helpers/context.sky", "get_entrypoint_command", "get_env", "get_identity", "get_name", "get_puma_port", "get_puma_tags", "get_puma_worker_shutdown_timeout_seconds")
+load("config/kubernetes/helpers/failure_threshold.sky", "failure_threshold")
+load("config/kubernetes/helpers/images.sky", "image_defaults")
+load("config/kubernetes/helpers/msp_shard.sky", "autoset_shard")
+load("config/kubernetes/helpers/scheduling.sky", "msp_fleet_manager_scheduling_delay")
+load("config/kubernetes/helpers/security.sky", "add_security_groups")
 load("config/kubernetes/meta/metadata.sky", "labels")
+load("config/kubernetes/networking/public/config.sky", "networking_config")
+load("config/kubernetes/pay-server.sky", "bapi_gc_config", "default_gem_override_policy", "default_pay_server_image", "einhorn_service", "pay_server_pod")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
 
 # ruleid: no-auto-secrets-usage
 load("config/kubernetes/sidecars/geoip.sky", "use_geoip_databases")
-load("config/kubernetes/sidecars/config_srv.sky", "config_srv_sidecar")
-load("config/kubernetes/helpers/availability_tiers.sky", "get_pod_availability_tier_by_name")
-load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_cluster", "get_entrypoint_command", "get_env", "get_identity", "get_name", "get_puma_port", "get_puma_tags", "get_puma_worker_shutdown_timeout_seconds")
-load("config/kubernetes/helpers/failure_threshold.sky", "failure_threshold")
-load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_metrics_tagging")
-
-# Choose your instance type. See go/shared-msp/skycfg-changes.
-load("config/kubernetes/helpers/healthcheck.sky", "healthchecked_service")
-load("config/kubernetes/helpers/images.sky", "image_defaults")
-load("config/kubernetes/helpers/msp_shard.sky", "autoset_shard")
-load("config/kubernetes/helpers/security.sky", "add_security_groups")
-load("config/kubernetes/networking/public/config.sky", "networking_config")
-load("config/kubernetes/networking/public/consul.sky", "consul_meta_envoy_priority_routing")
-load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
-load("config/kubernetes/helpers/scheduling.sky", "msp_fleet_manager_scheduling_delay")
 load("config/kubernetes/sidecars/offload_profiles.sky", "use_offload_profiles")
-load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A110", "A120", "A130", "A140", "A150")
-load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
 
 P0 = struct(
     name = "p0",
@@ -114,7 +109,7 @@ def build_failure_threshold(ctx, replicas, default_threshold_pct = 95, min_repli
     if replicas <= 3:
         return 100
 
-    if (1 - default_threshold_pct / 100) * replicas >= min_replicas_unavailable:
+    if (1 - default_threshold_pct // 100) * replicas >= min_replicas_unavailable:
         return default_threshold_pct
 
     return int((1 - min_replicas_unavailable / replicas) * 100)
@@ -133,7 +128,12 @@ def bapi_service(
         gem_override_policy = default_gem_override_policy,
         hack_kick_interval = "90m",
         hack_kick_start_delay = "30m",
-        hack_kick_start_jitter = None):
+        hack_kick_start_jitter = None,
+        enable_jpeg_artifact = False):
+    if enable_jpeg_artifact:
+        suffix = "-arm64" if instance_type.name.split(".")[0].endswith("g") else "-amd64"
+        image_artifact = get_name(ctx) + "-service-image-linux" + suffix
+
     if image_artifact:
         image = image_defaults(
             name = None,
@@ -225,11 +225,17 @@ def bapi_service(
         # Add scheduling delay to allow pods to terminate and allow nodes to be reused
         # before provisioning a new node.
         # Note: This does add a lag to kubernetes deployment scale ups - a tradeoff we're willing to make
-        # in favor of much faster deploy speed and better node reuse.
+        # in favor of much faster deploy speed and better node reuse. Unfortunately, this also slows down
+        # manual scaleups because today fleet manager cannot distinguish between provisioning related to deploys
+        # (where we want this delay as noted above) and from manual scaleups (e.g., during incident response)
+        # where we do not. This will show up in Splunk as a 70s gap between kube-controller-manager creating a pod
+        # and msp-fleet-manager calling RunInstances with an instance id.
+        # More discussion at https://go.corp.stripe.com/msp-pod-startup-lifecycle
         msp_fleet_manager_scheduling_delay("70s"),
         # Allow deploys to advance when (replicas * failure threshold / 100) pods are available
         failure_threshold(build_failure_threshold(ctx, replicas)),
-        deployment_options(
+        context_aware_deployment_options(
+            ctx,
             replicas = replicas,
 
             # Require pods to not crashloop for at least 10 seconds

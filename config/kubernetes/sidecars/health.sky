@@ -1,14 +1,14 @@
 # DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/core/container.sky", "sidecar_container")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/core/lifecycle.sky", "exec_action", "grace_period", "pre_stop")
 load("config/kubernetes/core/probe.sky", "add_initial_delay_seconds")
 load("config/kubernetes/core/volume.sky", "add_host_volume", "add_volume_mount", "host_volume", "mount_pod_volume", "pod_volume", "volume_mount")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
-load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
-load("config/kubernetes/sidecars/variables.sky", "HEALTH_CONTAINER_FALLBACK_ENV", "HEALTH_CONTAINER_FALLBACK_SHA")
-load("config/kubernetes/sidecars/consul.sky", "consul_termination_delay")
-load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
+load("config/kubernetes/sidecars/consul.sky", "consul_termination_delay")
+load("config/kubernetes/sidecars/variables.sky", "HEALTH_CONTAINER_FALLBACK_ENV", "HEALTH_CONTAINER_FALLBACK_SHA")
 
 health_container_name = "health-sidecar"
 health_pod_volume_name = "pay-pod-health"
@@ -81,7 +81,7 @@ def safely_deployed_service(
             plugins = [
                 volume_mount("/pay/pod/health", read_only = False),
             ],
-            programming_language=GO_PROGRAMMING_LANGUAGE,
+            programming_language = GO_PROGRAMMING_LANGUAGE,
         ),
 
         # This is a duplicate and strange. This is the only place where name is not matching the path

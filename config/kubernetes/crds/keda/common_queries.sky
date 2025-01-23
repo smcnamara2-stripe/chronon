@@ -2,11 +2,25 @@
 HORIZON_MEMORY_USAGE = '''
 (
     max by (role,host_cluster) (
-        avg_over_time(jvm_memory_usage_bytes{{role="{role}",henson_service="{henson_service_name}", host_cluster="{host_cluster}", deploy_color="{deploy_color}"{service_name}}}[1m])
+        avg_over_time(
+            jvm_memory_usage_bytes{{
+                role="{role}",
+                henson_service="{henson_service_name}",
+                host_cluster="{host_cluster}",
+                deploy_color="{deploy_color}"{server_priority_tier}{service_name}
+            }}[1m]
+        )
     )
     /
     max by (role,host_cluster) (
-        avg_over_time(jvm_memory_max_bytes{{role="{role}",henson_service="{henson_service_name}", host_cluster="{host_cluster}", deploy_color="{deploy_color}"{service_name}}}[1m])
+        avg_over_time(
+            jvm_memory_max_bytes{{
+                role="{role}",
+                henson_service="{henson_service_name}",
+                host_cluster="{host_cluster}",
+                deploy_color="{deploy_color}"{server_priority_tier}{service_name}
+            }}[1m]
+        )
     )
 ) * 100
 '''
@@ -17,6 +31,18 @@ max(
         workflow_engine_worker_task_slots_available{{execution_type="activity", task_queue="{env}_{repo}_{workflow_engine_task_queue_project}", workflow_namespace="{workflow_engine_namespace}", host_cluster="{host_cluster}"}}
     )
 )
+'''
+
+WORKFLOW_TASK_SLOTS_QUERY_WITH_UTILIZATION = '''
+max(
+    (
+        {activity_task_slots_per_worker} - avg(
+            workflow_engine_worker_task_slots_available{{execution_type="activity", task_queue="{env}_{repo}_{workflow_engine_task_queue_project}", workflow_namespace="{workflow_engine_namespace}", host_cluster="{host_cluster}"}}
+        )
+    )
+    /
+    {activity_task_slots_per_worker}
+) * 100
 '''
 
 WORKFLOW_WORKER_ACTIVE_QUERY = '''
@@ -48,7 +74,7 @@ avg (
         pool_name!="admin",
         henson_service="{henson_service_name}",
         host_cluster="{host_cluster}",
-        deploy_color="{deploy_color}"{service_name}
+        deploy_color="{deploy_color}"{server_priority_tier}{service_name}
     }}[1m])
     /
   max_over_time(
@@ -57,7 +83,7 @@ avg (
         pool_name!="admin",
         henson_service="{henson_service_name}",
         host_cluster="{host_cluster}",
-        deploy_color="{deploy_color}"{service_name}
+        deploy_color="{deploy_color}"{server_priority_tier}{service_name}
     }}[1m])
 ) * 100
 '''

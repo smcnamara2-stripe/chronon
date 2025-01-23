@@ -3,22 +3,22 @@
 Plugins and helpers to specifically support running pay-server CronJobs.
 """
 
-load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "volume_mount")
-load("config/kubernetes/core/env_var.sky", "container_env_vars")
-load("config/kubernetes/core/container.sky", "init_container")
-load("config/kubernetes/helpers/context.sky", "get_aws_region", "get_cluster", "get_env", "get_name", "get_owner")
-load("config/kubernetes/helpers/images.sky", "image", "image_defaults")
 load("config/kubernetes/batch/cronjob.sky", "cronjob")
+load("config/kubernetes/core/container.sky", "init_container")
+load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume", "volume_mount")
+load("config/kubernetes/helpers/context.sky", "get_aws_region", "get_cluster", "get_env", "get_name", "get_owner")
+load("config/kubernetes/helpers/cron.sky", "DEFAULT_FAILED_JOB_HISTORY_LIMIT", "DEFAULT_SUCCESSFUL_JOB_HISTORY_LIMIT")
+load("config/kubernetes/helpers/images.sky", "image", "image_defaults")
+load("config/kubernetes/helpers/msp_shard.sky", "msp_shard")
 load("config/kubernetes/helpers/quantities.sky", "mebibytes", "millicores")
 load("config/kubernetes/helpers/security.sky", "mount_host_stripe_ca_certs", "run_as_unprivileged")
-load("config/kubernetes/meta/metadata.sky", "annotations", "labels")
-load("config/kubernetes/stripe.sky", "stripe_pod")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "container_plugin", "cronjob_plugin")
-load("config/kubernetes/helpers/msp_shard.sky", "msp_shard")
 load("config/kubernetes/helpers/tags.sky", "DEPRECATED_OWNER_LABEL", "SERVICE_OWNER_LABEL")
 load("config/kubernetes/meta/cron_metadata.sky", "cron_metadata")
-load("config/kubernetes/helpers/cron.sky", "DEFAULT_FAILED_JOB_HISTORY_LIMIT", "DEFAULT_SUCCESSFUL_JOB_HISTORY_LIMIT")
+load("config/kubernetes/meta/metadata.sky", "annotations", "labels")
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/types.sky", "container_plugin", "cronjob_plugin")
+load("config/kubernetes/stripe.sky", "stripe_pod")
 
 MAX_CRON_NAME_LEN = 52
 DEFAULT_TTL_SECS_AFTER_FINISH = 1209600
@@ -467,7 +467,6 @@ def _pay_server_cronjob(
         "KUBE_CLUSTER": get_cluster(ctx),
         "KUBE_MSP_SHARD": shard,
         "DISABLE_PRELOAD": str(disable_ruby_preload).upper(),
-        "STRIPE_BUNDLE_USE_SORBET_RUBY": "true",
         "STRIPE_CRON_TIER": cron_tier,
         "STRIPE_BUNDLE_MSP_OVERRIDE_RBENV_VERSION": "sorbet_ruby_3_3",
     }

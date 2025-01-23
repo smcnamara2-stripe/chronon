@@ -5,12 +5,12 @@ Plugin for registering a Consul service with healthchecking.
 
 load("config/kubernetes/core/generic.sky", "is_shared_msp")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
-load("config/kubernetes/sidecars/consul.sky", "consul_check")
 load("config/kubernetes/networking/public/consul.sky", "consul_tag_envoy_healthcheck", "define_registered_service")
-load("config/kubernetes/sidecars/health.sky", "safely_deployed_service")
-load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/types.sky", "deployment_plugin", "pod_plugin", "statefulset_plugin")
+load("config/kubernetes/sidecars/consul.sky", "consul_check")
+load("config/kubernetes/sidecars/health.sky", "safely_deployed_service")
 
 def shared_msp_healthchecked_service(
         ctx,

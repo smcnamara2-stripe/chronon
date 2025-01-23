@@ -1,10 +1,13 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/core/container.sky", "sidecar_container")
+load("config/kubernetes/core/generic.sky", "is_dedicated_msp")
+load("config/kubernetes/core/lifecycle.sky", "DEFAULT_GRACE_PERIOD_SECONDS", "exec_action", "generate_infra_sidecar_prestop_command_args", "pre_stop")
+load("config/kubernetes/core/volume.sky", "mount_host_volume")
+load("config/kubernetes/helpers/context.sky", "get_env", "get_name")
 load("config/kubernetes/helpers/ldap.sky", "mount_ldap_host_volumes")
 load("config/kubernetes/helpers/security.sky", "mount_host_credentials_proxy", "mount_host_stripe_ca_certs")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/core/volume.sky", "mount_host_volume")
-load("config/kubernetes/helpers/context.sky", "get_env", "get_name")
+load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 
 sidecar_name = "memento-sidecar"
 
@@ -16,9 +19,15 @@ memcontainer_always_enabled_services = [
 ]
 
 def memento_sidecar(ctx):
-    if not (get_env(ctx) == "qa" or get_name(ctx) in memcontainer_always_enabled_services):
+    if not (get_env(ctx) == "qa" or get_env(ctx) == "preprod" or get_name(ctx) in memcontainer_always_enabled_services):
         # returning empty means memcontainer will not be included in the deployment
         return compose_plugins()
+
+    memcontainer_prestop_cmd = generate_infra_sidecar_prestop_command_args(ctx, sidecar_name, DEFAULT_GRACE_PERIOD_SECONDS)
+
+    # add the memcontainer process (itself) to the list of commands to ignore
+    memcontainer_prestop_cmd.append("--sidecar-command")
+    memcontainer_prestop_cmd.append("/pay/deploy/gocode/current/memcontainer/memcontainer")
 
     return compose_plugins(
         mount_host_stripe_ca_certs(container_name = sidecar_name),
@@ -26,6 +35,13 @@ def memento_sidecar(ctx):
         mount_ldap_host_volumes(container_name = sidecar_name),
         mount_host_volume("/pay/cache", container_name = sidecar_name, volume_args = {"type": "Directory"}),
         mount_host_volume("/pay/conf", container_name = sidecar_name, volume_args = {"type": "Directory"}),
+        conditional_plugin(
+            is_dedicated_msp,
+            compose_plugins(
+                mount_host_volume("/etc/ssl/certs", container_name = sidecar_name, volume_args = {"type": "Directory"}),
+                mount_host_volume("/etc/ssl/private", container_name = sidecar_name, volume_args = {"type": "Directory"}),
+            ),
+        ),
         sidecar_container(
             name = sidecar_name,
             sidecar_service = "memcontainer",
@@ -43,4 +59,5 @@ def memento_sidecar(ctx):
             container_image = "stripe/gocode/memcontainer",
             plugins = [],
         ),
+        pre_stop(exec_action(ctx, *memcontainer_prestop_cmd), container_name = sidecar_name),
     )

@@ -1,10 +1,10 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/proto_or_yaml.sky", "VerticalPodAutoscaler", "VerticalPodAutoscalerSpec")
-load("config/kubernetes/plugins/types.sky", "deployment_plugin")
-load("config/kubernetes/meta/metadata.sky", "annotations", "labels", "render_metadata")
 load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_blue_green_color", "get_env", "is_bin_packing_enabled", "is_isolated_deploy")
+load("config/kubernetes/helpers/proto_or_yaml.sky", "VerticalPodAutoscaler", "VerticalPodAutoscalerSpec")
 load("config/kubernetes/helpers/warning.sky", "warn")
+load("config/kubernetes/meta/metadata.sky", "annotations", "labels", "render_metadata")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/types.sky", "deployment_plugin")
 
 def right_size(ctx, old_instance_type = None):
     if old_instance_type == None:

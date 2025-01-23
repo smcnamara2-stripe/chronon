@@ -2,12 +2,11 @@
 load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/probe.sky", "http_probe", "probes")
 load("config/kubernetes/core/volume.sky", "mount_host_volume", "pod_volume", "volume_mount")
-load("config/kubernetes/helpers/constants.sky", "VECTOR_SIDECAR_CONTAINER_NAME")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE", "VECTOR_SIDECAR_CONTAINER_NAME")
 load("config/kubernetes/helpers/context.sky", "get_env")
 load("config/kubernetes/helpers/security.sky", "mount_host_credentials_proxy", "mount_host_stripe_ca_certs")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/sidecars/variables.sky", "VECTOR_CONTAINER_FALLBACK_DIGEST", "VECTOR_CONTAINER_FALLBACK_ENV")
-load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 
 DEFAULT_IMAGE_NAME = "stripe/gocode/vector-image"
 

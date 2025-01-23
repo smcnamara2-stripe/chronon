@@ -59,6 +59,9 @@ review_requirements:
   - codeowners-connections-fdp
   reviewers:
   - codeowners-orchestration
+  reviewers_in_training:
+  - fredi
+  - wenheqi
 - files:
   - sidecars/memcontainer.sky
   assignees:

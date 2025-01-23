@@ -1779,6 +1779,10 @@ _LEGACY_YAML_ENTRIES = [
     },
     # ruby infra cronjobs for updating metadata about source code and code quality. Does not interact with financial data
     {
+        "name": "ruby-infra--pkg-dependencies-bom-file-graph",
+        "sox_control": "disabled",
+    },
+    {
         "name": "ruby-infra--pkg-dependencies-graph",
         "sox_control": "disabled",
     },
@@ -2186,6 +2190,11 @@ _LEGACY_YAML_ENTRIES = [
     # this cron deletes old profiles from mongo, and does not handle any financial data
     {
         "name": "production-profiler-delete-old-profiles",
+        "sox_control": "disabled",
+    },
+    # Job imports Group Membership data from Unwrap and does not handle any financial data
+    {
+        "name": "import-unwrap-data",
         "sox_control": "disabled",
     },
 ]

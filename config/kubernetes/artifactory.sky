@@ -6,10 +6,13 @@ Helpers for defining jobs that publish to Artifactory
 load("config/kubernetes/batch/job.sky", "job")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/core/volume.sky", "mount_host_volume")
+load("config/kubernetes/helpers/aws_instance_sizes.sky", "m5_large")
 load("config/kubernetes/helpers/context.sky", "get_henson_git_commit")
 load("config/kubernetes/helpers/images.sky", "image")
 load("config/kubernetes/helpers/quantities.sky", "cores", "gibibytes")
 load("config/kubernetes/helpers/security.sky", "run_as_unprivileged")
+load("config/kubernetes/meta/metadata.sky", "name_prefix")
+load("config/kubernetes/networking/public/config.sky", "networking_config")
 load("config/kubernetes/stripe.sky", "stripe_pod")
 
 def artifactory_publish_job(
@@ -18,11 +21,11 @@ def artifactory_publish_job(
         package_type,
         package_image,
         packages,
+        shared_msp = False,
         *extra_plugins,
-        **kwargs):
+        **job_kwargs):
     """
-    Constructs a job which will publish a collection of packages of the specified type to
-    Artifactory.
+    Constructs a job which will publish a collection of packages of the specified type to Artifactory.
 
     Args:
         ctx: The Skycfg context from the `main` function.
@@ -33,9 +36,10 @@ def artifactory_publish_job(
             to publish and the publish script.
         packages: A list of package filenames, relative to the working directory of the
             container image.
+        shared_msp: boolean which is True iff the publish job should go to shared MSP (default is False)
         *extra_plugins: Any additional plugins beyond the minimal set needed to publish to
             artifactory.
-        **kwargs: Options to apply to the batch job. These map directly to fields on the Kubernetes
+        **job_kwargs: Options to apply to the batch job. These map directly to fields on the Kubernetes
             [JobSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#jobspec-v1-batch).
 
     Returns:
@@ -46,41 +50,66 @@ def artifactory_publish_job(
         # Kubernetes rejects Job resources with names longer than 63 characters.
         job_name = job_name[:63]
 
-    if kwargs.get("ttlSecondsAfterFinished") == None:
+    if job_kwargs.get("ttlSecondsAfterFinished") == None:
         # Delete completed job after 12 hours.
-        kwargs["ttlSecondsAfterFinished"] = 60 * 60 * 12
+        job_kwargs["ttlSecondsAfterFinished"] = 60 * 60 * 12
+
+    if shared_msp:
+        job_kwargs["shared_msp"] = True
+        job_kwargs["shared_msp_networking_plugin"] = True
+        job_kwargs["enable_native_sidecar_support"] = True
+
+        # services outside QA won't be able to reach qa artifactory because
+        # - prod artifactory has privatelinks set up to access it from other environments but QA artifactory doesn't
+        # - envoy will route to qa-artifactory.stripe.build but this won't resolve to anything outside of QA
+        job_plugins = (
+            networking_config(enable_cross_domain_services = ["artifactory", "qa-artifactory"]),
+        )
+        pod_kwargs = {
+            "namespace": "artifactpublishbox",
+            "instance_type": m5_large,
+        }
+    else:
+        # The machine cert is needed to connect to Artifactory over mTLS (RUN_DND-5841).
+        job_plugins = (
+            mount_host_volume("/etc/ssl/certs", volume_args = {"type": "Directory"}),
+            mount_host_volume("/etc/ssl/private", volume_args = {"type": "Directory"}),
+        )
+        pod_kwargs = {
+            "host_type": "artifactpublishbox",
+            "cpu": cores(ctx, 1),
+            "memory": gibibytes(ctx, 3),
+        }
 
     return job(
         ctx,
         stripe_pod(
             ctx,
             name = job_name,
-            host_type = "artifactpublishbox",
             image = image(ctx, artifact = package_image),
             command = [
                 "./publish-package.sh",
                 package_type,
             ] + packages,
-            cpu = cores(ctx, 1),
-            memory = gibibytes(ctx, 3),
+            **pod_kwargs
         ),
         container_env_vars(
             vars = {
                 "GIT_COMMIT_SHA": get_henson_git_commit(ctx),
             },
         ),
-        # The machine cert is needed to connect to Artifactory over mTLS (RUN_DND-5841).
-        mount_host_volume("/etc/ssl/certs", volume_args = {"type": "Directory"}),
-        mount_host_volume("/etc/ssl/private", volume_args = {"type": "Directory"}),
         run_as_unprivileged(),
-        *extra_plugins,
-        **kwargs
+        # Generate a unique name for the job so we don't error on repeated deploys.
+        name_prefix("{}-".format(service_name)),
+        *(job_plugins + extra_plugins),
+        **job_kwargs
     )
 
 def artifactory_npm_publish_job(
         ctx,
         service_name,
-        packages):
+        packages,
+        shared_msp = False):
     """
     Constructs a job which will publish a collection of npm packages to Artifactory.
 
@@ -89,6 +118,7 @@ def artifactory_npm_publish_job(
         service_name: The henson service name for this publish job.
         packages: A list of package filenames, relative to the working directory of the
             container image.
+        shared_msp: boolean which is True iff the publish job should go to shared MSP (default is False)
 
     Returns:
         A `job` which will publish the given npm packages.
@@ -99,4 +129,5 @@ def artifactory_npm_publish_job(
         "npm",
         "npm-packages-image",
         packages,
+        shared_msp = shared_msp,
     )

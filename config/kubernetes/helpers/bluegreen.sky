@@ -1,4 +1,5 @@
 # DO NOT EDIT: http://go/vendor-skycfg
+load("config/kubernetes/apps/strategy.sky", "blue_green_deployment_strategy_dedicated_msp", "blue_green_deployment_strategy_shared_msp")
 load("config/kubernetes/core/generic.sky", "is_dedicated_msp", "is_shared_msp")
 load("config/kubernetes/helpers/context.sky", "get_blue_green_color")
 load("config/kubernetes/helpers/node_selectors.sky", "host_set")
@@ -6,7 +7,6 @@ load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/plugins/conditional.sky", "conditional_plugin")
 load("config/kubernetes/plugins/types.sky", "container_plugin", "deployment_plugin", "pod_plugin")
 load("config/kubernetes/sidecars/consul.sky", "consul_container_name")
-load("config/kubernetes/apps/strategy.sky", "blue_green_deployment_strategy_dedicated_msp", "blue_green_deployment_strategy_shared_msp")
 
 def with_blue_green_traffic_shifting():
     return compose_plugins(

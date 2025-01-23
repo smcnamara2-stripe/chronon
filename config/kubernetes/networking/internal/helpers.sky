@@ -1,11 +1,11 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/networking/internal/common.sky", "POD_NETWORKING_HOST_VOLUME_PATH")
 load(
     "config/kubernetes/core/volume.sky",
     "mount_host_volume",
     "mount_pod_volume",
     "volume_mount",
 )
+load("config/kubernetes/networking/internal/common.sky", "POD_NETWORKING_HOST_VOLUME_PATH")
 
 _stripe_cas_path = "/etc/ssl/certs/stripe-cas"
 

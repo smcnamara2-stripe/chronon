@@ -8,8 +8,6 @@ For Dedicated MSP, `build_networking_config` can be used to construct a configur
 for the `networking` plugin.
 """
 
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "deployment_plugin", "job_plugin", "statefulset_plugin")
 load(
     "config/kubernetes/networking/internal/config/envoy-config-srv-config.sky",
     "local_rate_limit",
@@ -21,6 +19,8 @@ load(
     "is_network_config_updater",
     "network_config_updater",
 )
+load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/plugins/types.sky", "deployment_plugin", "job_plugin", "statefulset_plugin")
 
 def _override_matching_keys(args):
     """

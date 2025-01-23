@@ -5,9 +5,9 @@ Plugin for adding additional environment variables to a container.
 
 load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_cluster", "get_container_versions", "get_env", "get_henson_git_commit", "get_name", "get_sidecar_container_versions", "get_target_shard")
 load("config/kubernetes/helpers/msp_shard.sky", "get_account_for_shard", "get_account_id")
-load("config/kubernetes/plugins/types.sky", "all_container_plugin", "container_plugin")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "EnvVar", "EnvVarSource", "ObjectFieldSelector")
 load("config/kubernetes/networking/internal/common.sky", "POD_NETWORKING_BASEDIR")
+load("config/kubernetes/plugins/types.sky", "all_container_plugin", "container_plugin")
 
 def container_env_vars(vars = {}, from_fields = {}, container_name = None):
     """

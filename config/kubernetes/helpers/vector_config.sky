@@ -92,7 +92,7 @@ _PROMETHEUS_SCRAPE_TARGET_TLS_CONFIG = """\
       key_file: "{{.key_file}}"
 """
 
-def vector_target(ctx, name, endpoints, scrape_interval = 10, filter_rules = None, remap_rules = None, extra_tags = None):
+def vector_target(ctx, name, endpoints, scrape_interval = 10, filter_rules = None, remap_rules = None, extra_tags = None, custom_filters = []):
     """
     Builds a subset of the Vector configuration for a specific target, which should be scraped on the given endpoint.
 
@@ -107,6 +107,11 @@ def vector_target(ctx, name, endpoints, scrape_interval = 10, filter_rules = Non
         filter_rules: `list of string` when provided, rules to evaluate each metric against. e.g., `metric_name == "xxx"` or `starts_with(metric_name, "xxx")`.
         remap_rules: `list of string` when provided, custom lines of VRL which are added to the remap configuration which can be used to drop labels.
         extra_tags: `dict` when provided, these extra fields will be added as tags. host_cluster and host_env are always added.
+        custom_filters: `list of dict` when provided, a separate filter transform will be created for each dict in the list. Each dict should have the following keys:
+            - name: `string` name of the filter transform
+            - filter_rules: `list of string` rules to evaluate each metric against. e.g., `metric_name == "xxx"` or `starts_with(metric_name, "xxx")`.
+
+            Each filter will take the `name` of the target as input and will be added as input to the remap transform.
 
     Returns:
         A struct containing:
@@ -144,7 +149,7 @@ def vector_target(ctx, name, endpoints, scrape_interval = 10, filter_rules = Non
     if any([endpoint.startswith("https") for endpoint in endpoints]):
         source += _PROMETHEUS_SCRAPE_TARGET_TLS_CONFIG
 
-    transforms, tagged_name = _build_transforms(ctx, name, filter_rules, remap_rules, extra_tags)
+    transforms, tagged_name = _build_transforms(ctx, name, filter_rules, remap_rules, extra_tags, custom_filters)
 
     return struct(**{
         "sources": [source],
@@ -256,16 +261,16 @@ _TRANSFORM_FILTER_CONFIG = """\
 _TRANSFORM_REMAP_CONFIG = """\
   "{remap_name}":
     type: remap
-    inputs:
-      - "{filtered_name}"
+    inputs: {input_filter_names}
     source: |-
       metric_name = to_string(.name) ?? "unknown"
 {remap_vrl}
 """
 
-def _build_transforms(ctx, name, filter_rules = None, remap_rules = None, extra_tags = None):
+def _build_transforms(ctx, name, filter_rules = None, remap_rules = None, extra_tags = None, custom_filters = []):
     """Helper function to build a set of transforms which applies any given set of VRL statements, filters, and extra tags."""
     transforms = []
+    input_filter_names = []
 
     base_tags = {
         "host_cluster": get_cluster(ctx),
@@ -290,6 +295,30 @@ def _build_transforms(ctx, name, filter_rules = None, remap_rules = None, extra_
 
         transforms.append(filter_transform)
 
+    input_filter_names.append(filtered_name)
+
+    for custom_filter in custom_filters:
+        if not hasattr(custom_filter, "name") or not custom_filter.name:
+            fail("'name' field not provided to custom filter rule: %s" % custom_filter)
+
+        if not hasattr(custom_filter, "filter_rules") or not custom_filter.filter_rules:
+            fail("'filter_rules' field not provided to custom filter rule: %s" % custom_filter)
+
+        custom_filter_statements = []
+        custom_filter_condition = " || ".join(custom_filter.filter_rules)
+        custom_filter_statements.append(custom_filter_condition)
+
+        custom_filter_vrl = _indent(8, "\n".join(custom_filter_statements))
+
+        custom_filter_transform = _TRANSFORM_FILTER_CONFIG.format(
+            filtered_name = custom_filter.name,
+            name = name,
+            filter_vrl = custom_filter_vrl,
+        )
+
+        transforms.append(custom_filter_transform)
+        input_filter_names.append(custom_filter.name)
+
     remap_name = "{name}_remapped".format(name = name)
 
     if not remap_rules:
@@ -304,7 +333,7 @@ def _build_transforms(ctx, name, filter_rules = None, remap_rules = None, extra_
 
     remapped_transform = _TRANSFORM_REMAP_CONFIG.format(
         remap_name = remap_name,
-        filtered_name = filtered_name,
+        input_filter_names = str(input_filter_names),
         remap_vrl = remap_vrl,
     )
 
@@ -529,6 +558,24 @@ def not_filters(*filter_rules):
         returns a filter where NOT ((metric_name is very_high_cardinality_metric OR metric_name starts with high_cardinality_) OR (ignore_me is true))
     """
     return ["!(%s)" % (" || ".join(["(%s)" % (" || ".join(rules)) for rules in filter_rules]))]
+
+def custom_filter_transform(name, filter_rules):
+    """
+    Returns a custom filter transform dict which can be used to filter metrics based on the provided rules. The result of this function can be passed into the `vector_target` function with the `custom_filters` param.
+
+    Args:
+        name: `string` the name of the filter transform
+        filter_rules: `list of string` rules to evaluate each metric against. e.g., `metric_name == "xxx"` or `starts_with(metric_name, "xxx")`.
+
+    Returns:
+        A struct which can be passed to `custom_filters` in `vector_target()`. The struct will have the following properties:
+            - name: `string` name of the filter transform
+            - filter_rules: `list of string` rules to evaluate each metric against. e.g., `metric_name == "xxx"` or `starts_with(metric_name, "xxx")`.
+    """
+    return struct(**{
+        "name": name,
+        "filter_rules": filter_rules,
+    })
 
 def _indent(chars, string):
     """Indents each line of the given string by the number of characters."""
