@@ -22,6 +22,7 @@ import ai.chronon.online.{SparkConversions, _}
 import ai.chronon.spark.Extensions._
 import ai.chronon.spark.{BaseTableUtils, TimedKvRdd}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataType
 
 import scala.collection.mutable.ListBuffer
@@ -102,6 +103,29 @@ object CompareBaseJob {
   }
 
   /*
+   * Add suffixes to reduce ambiguity during compare
+   * 
+   *  1. start with all columns in baseDf
+   *  2. rename baseDf columns also in unfilteredRenameCols that are not in keys
+   *  3. keep all columns in baseDf that are not being renamed
+   */
+  def addSuffix(
+    unfilteredRenameCols: Seq[String],
+    baseDf: DataFrame,
+    suffix: String,
+    keysSet: Set[String]
+  ): DataFrame = {
+    val columnsToRename = unfilteredRenameCols.filterNot(keysSet.contains)
+    val columnsToRenameSet = columnsToRename.toSet
+    val columnsToLeave = baseDf.columns.filterNot(columnsToRenameSet.contains)
+
+    val renamedColumns = columnsToRename.map(c => col(c).as(s"${c}${suffix}"))
+    val unchangedColumns = columnsToLeave.map(col)
+
+    baseDf.select(unchangedColumns ++ renamedColumns: _*)
+  }
+
+  /*
    * Navigate the dataframes and compare them and fetch statistics.
    */
   def compare(
@@ -147,26 +171,14 @@ object CompareBaseJob {
         |""".stripMargin)
 
     // Rename the left data source columns with a suffix (except the keys) to reduce the ambiguity
-    val renamedLeftDf = prunedLeftDf.schema.fieldNames.foldLeft(prunedLeftDf)((df, field) => {
-      if (!keys.contains(field)) {
-        df.withColumnRenamed(field, s"${field}${CompareMetrics.leftSuffix}")
-      } else {
-        df
-      }
-    })
+    val renamedLeftDf = addSuffix(prunedLeftDf.columns, prunedLeftDf, CompareMetrics.leftSuffix, keys.toSet)
 
     // 4.. Join both the dataframes based on the keys and the partition column
     renamedLeftDf.validateJoinKeys(rightDf, keys)
     val joinedDf = renamedLeftDf.join(rightDf, keys, "full")
 
     // Rename the right data source columns with a suffix (except the keys) to reduce the ambiguity
-    val compareDf = rightDf.schema.fieldNames.foldLeft(joinedDf)((df, field) => {
-      if (!keys.contains(field)) {
-        df.withColumnRenamed(field, s"${field}${CompareMetrics.rightSuffix}")
-      } else {
-        df
-      }
-    })
+    val compareDf = addSuffix(rightDf.columns, joinedDf, CompareMetrics.rightSuffix, keys.toSet)
 
     val leftChrononSchema = StructType("input",
                                        SparkConversions
