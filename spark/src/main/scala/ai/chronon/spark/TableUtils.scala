@@ -324,8 +324,8 @@ trait BaseTableUtils {
   def firstAvailablePartition(tableName: String, subPartitionFilters: Map[String, String] = Map.empty, partitionColumnOverride: String = partitionColumn): Option[String] =
     partitions(tableName, subPartitionFilters, partitionColumnOverride).reduceOption((x, y) => Ordering[String].min(x, y))
 
-  def ifPartitionExistsInTable(tableName: String, partition: String): Boolean =
-    partitions(tableName).contains(partition)
+  def ifPartitionExistsInTable(tableName: String, partition: String, partitionColumnOverride: String = partitionColumn): Boolean =
+    partitions(tableName, partitionColumnOverride = partitionColumnOverride).contains(partition)
 
   def insertPartitions(df: DataFrame,
                        tableName: String,

@@ -280,10 +280,15 @@ class Analyzer(tableUtils: BaseTableUtils,
         joinConf.metaData.outputTable,
         rangeToFill,
         Some(Seq(joinConf.left.table)),
+        joinConf = Some(joinConf),
         tableToPartitionOverrideMap = tablePartitionMap)
       .getOrElse(Seq.empty)
 
     joinConf.joinParts.toScala.foreach { part =>
+
+      // Join sources should be replaced prior to analyzing the group by
+      part.groupBy = GroupBy.replaceJoinSource(part.groupBy, range, tableUtils, computeDependency = false)
+
       val (aggMetadata, gbKeySchema) =
         analyzeGroupBy(part.groupBy, part.fullPrefix, includeOutputTableName = true, enableHitter = enableHitter)
       aggregationsMetadata ++= aggMetadata.map { aggMeta =>
@@ -426,8 +431,18 @@ class Analyzer(tableUtils: BaseTableUtils,
           groupBy.sources.toScala.flatMap { source =>
             val table = source.table
             logger.info(s"Checking table $table for data availability ... Expected start partition: $expectedStart")
+
+            val partitionColumnOverride: String = {
+              if (source.query != null && source.query.selects != null) source.query.selects.getOrDefault(tableUtils.partitionColumn, tableUtils.partitionColumn)
+              else tableUtils.partitionColumn
+            }
+
+            if (partitionColumnOverride != tableUtils.partitionColumn) {
+              logger.info(s"Partition column override detected: $partitionColumnOverride")
+            }
+
             //check if partition available or table is cumulative
-            if (!tableUtils.ifPartitionExistsInTable(table, expectedStart) && !source.isCumulative) {
+            if (tableUtils.isPartitioned(table) && !tableUtils.ifPartitionExistsInTable(table, expectedStart, partitionColumnOverride) && !source.isCumulative) {
               Some((table, groupBy.getMetaData.getName, expectedStart))
             } else {
               None
