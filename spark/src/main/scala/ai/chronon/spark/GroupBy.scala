@@ -292,7 +292,7 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
                              queryTimeRange: Option[TimeRange] = None,
                              resolution: Resolution = FiveMinuteResolution): DataFrame = {
 
-    println("Computing join part using two stack")
+    logger.info("Computing join part using two stack")
 
     val selectCols = keyColumns :+ Constants.TimeColumn :+ Constants.PartitionColumn
     val queriesDf = skewFilter
@@ -373,7 +373,7 @@ class GroupBy(val aggregations: Seq[api.Aggregation],
                      queryTimeRange: Option[TimeRange] = None,
                      resolution: Resolution = FiveMinuteResolution): DataFrame = {
 
-    println("Computing join part using temporal events")
+    logger.info("Computing join part using temporal events")
 
     val queriesDf = skewFilter
       .map { queriesUnfilteredDf.filter }

@@ -1,12 +1,13 @@
 package ai.chronon.spark
 import ai.chronon.aggregator.windowing.{FiveMinuteResolution, Resolution}
 import ai.chronon.api
-import ai.chronon.api.{Constants, ConstantNameProvider}
 import ai.chronon.api.Extensions.MetadataOps
-import ai.chronon.api.ThriftJsonCodec
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import ai.chronon.api.{ConstantNameProvider, Constants, ThriftJsonCodec}
+import org.apache.spark.sql.DataFrame
+import org.slf4j.LoggerFactory
 
 object PySparkUtils {
+  @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
   /**
     * Pyspark has a tough time creating a FiveMinuteResolution via jvm.ai.chronon.aggregator.windowing.FiveMinuteResolution so we provide this helper method
@@ -94,7 +95,7 @@ object PySparkUtils {
     * @return DataFrame
     */
   def runGroupBy(groupByConf: api.GroupBy, endDate: String, stepDays: Option[Int], tableUtils: BaseTableUtils, constantsProvider: ConstantNameProvider) : DataFrame = {
-    println(s"Executing GroupBy: ${groupByConf.metaData.name}")
+    logger.info(s"Executing GroupBy: ${groupByConf.metaData.name}")
     Constants.initConstantNameProvider(constantsProvider)
     GroupBy.computeBackfill(
       groupByConf,
@@ -102,7 +103,7 @@ object PySparkUtils {
       tableUtils,
       stepDays
     )
-    println(s"Finished executing GroupBy: ${groupByConf.metaData.name}")
+    logger.info(s"Finished executing GroupBy: ${groupByConf.metaData.name}")
     tableUtils.sql(s"SELECT * FROM ${groupByConf.metaData.outputTable}")
   }
 
@@ -124,7 +125,7 @@ object PySparkUtils {
               tableUtils: BaseTableUtils,
               constantsProvider: ConstantNameProvider
              ) : DataFrame = {
-    println(s"Executing Join ${joinConf.metaData.name}")
+    logger.info(s"Executing Join ${joinConf.metaData.name}")
     Constants.initConstantNameProvider(constantsProvider)
     val join = new Join(
       joinConf,
@@ -133,7 +134,7 @@ object PySparkUtils {
       skipFirstHole = skipFirstHole
     )
     val resultDf = join.computeJoin(stepDays)
-    println(s"Finished executing Join ${joinConf.metaData.name}")
+    logger.info(s"Finished executing Join ${joinConf.metaData.name}")
     resultDf
   }
 
@@ -148,11 +149,11 @@ object PySparkUtils {
     * @return DataFrame
     */
   def validateGroupBy(groupByConf: api.GroupBy, startDate: String, endDate: String, tableUtils: BaseTableUtils, constantsProvider: ConstantNameProvider) : List[String] = {
-    println(s"Validating GroupBy ${groupByConf.metaData.name}")
+    logger.info(s"Validating GroupBy ${groupByConf.metaData.name}")
     Constants.initConstantNameProvider(constantsProvider)
     val validator = new Validator(tableUtils, groupByConf, startDate, endDate)
     val result = validator.validateGroupBy(groupByConf)
-    println(s"Finished validating GroupBy ${groupByConf.metaData.name}")
+    logger.info(s"Finished validating GroupBy ${groupByConf.metaData.name}")
     result
   }
 
@@ -168,11 +169,11 @@ object PySparkUtils {
     * @return DataFrame
     */
   def validateJoin(joinConf: api.Join, startDate: String, endDate: String, tableUtils: BaseTableUtils, constantsProvider: ConstantNameProvider) : List[String] = {
-    println(s"Validating Join: ${joinConf.metaData.name}")
+    logger.info(s"Validating Join: ${joinConf.metaData.name}")
     Constants.initConstantNameProvider(constantsProvider)
     val validator = new Validator(tableUtils, joinConf, startDate, endDate)
     val result = validator.validateJoin(joinConf)
-    println(s"Finished validating Join: ${joinConf.metaData.name}")
+    logger.info(s"Finished validating Join: ${joinConf.metaData.name}")
     result
   }
 
@@ -187,11 +188,11 @@ object PySparkUtils {
     * @param constantsProvider ConstantsProvider must be set from the Scala side. Doing so from PySpark will not properly set it.
     */
   def analyzeGroupBy(groupByConf: api.GroupBy, startDate: String, endDate: String, enableHitterAnalysis: Boolean, tableUtils: BaseTableUtils, constantsProvider: ConstantNameProvider) : Unit = {
-    println(s"Analyzing GroupBy: ${groupByConf.metaData.name}")
+    logger.info(s"Analyzing GroupBy: ${groupByConf.metaData.name}")
     Constants.initConstantNameProvider(constantsProvider)
     val analyzer = new Analyzer(tableUtils, groupByConf, startDate, endDate, enableHitter = enableHitterAnalysis)
     analyzer.analyzeGroupBy(groupByConf, enableHitter = enableHitterAnalysis)
-    println(s"Finished analyzing GroupBy: ${groupByConf.metaData.name}")
+    logger.info(s"Finished analyzing GroupBy: ${groupByConf.metaData.name}")
   }
 
 
@@ -207,11 +208,11 @@ object PySparkUtils {
     * @return DataFrame
     */
   def analyzeJoin(joinConf: api.Join, startDate: String, endDate: String, enableHitterAnalysis: Boolean, tableUtils: BaseTableUtils, constantsProvider: ConstantNameProvider) : Unit = {
-    println(s"Analyzing Join: ${joinConf.metaData.name}")
+    logger.info(s"Analyzing Join: ${joinConf.metaData.name}")
     Constants.initConstantNameProvider(constantsProvider)
     val analyzer = new Analyzer(tableUtils, joinConf, startDate, endDate, enableHitter = enableHitterAnalysis)
     analyzer.analyzeJoin(joinConf, enableHitter = enableHitterAnalysis)
-    println(s"Finished analyzing Join: ${joinConf.metaData.name}")
+    logger.info(s"Finished analyzing Join: ${joinConf.metaData.name}")
   }
 
   /**
@@ -225,7 +226,7 @@ object PySparkUtils {
     * @param constantsProvider ConstantsProvider must be set from the Scala side. Doing so from PySpark will not properly set it.
     */
   def runStagingQuery(stagingQueryConf: api.StagingQuery, endDate: String, stepDays: Option[Int], skipFirstHole: Boolean, tableUtils: BaseTableUtils, constantsProvider: ConstantNameProvider) : Unit = {
-    println(s"Executing Staging Query: ${stagingQueryConf.metaData.name}")
+    logger.info(s"Executing Staging Query: ${stagingQueryConf.metaData.name}")
     Constants.initConstantNameProvider(constantsProvider)
     val stagingQuery = new StagingQuery(
       stagingQueryConf,
@@ -233,7 +234,7 @@ object PySparkUtils {
       tableUtils
     )
     stagingQuery.computeStagingQuery(stepDays)
-    println(s"Finished executing Staging Query: ${stagingQueryConf.metaData.name}")
+    logger.info(s"Finished executing Staging Query: ${stagingQueryConf.metaData.name}")
   }
 
 }

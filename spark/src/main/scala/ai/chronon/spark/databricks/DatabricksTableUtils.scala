@@ -30,13 +30,13 @@ case class DatabricksTableUtils (override val sparkSession: SparkSession) extend
 
     partitionSparkCols match {
       case Seq() =>
-        println(s"Creating table $tableName without partitioning")
+        logger.info(s"Creating table $tableName without partitioning")
         createTableWriter.create()
       case Seq(head) =>
-        println(s"Creating table $tableName partitioned by $head")
+        logger.info(s"Creating table $tableName partitioned by $head")
         createTableWriter.partitionedBy(head).create()
       case head +: tail =>
-        println(s"Creating table $tableName partitioned by $head and $tail")
+        logger.info(s"Creating table $tableName partitioned by $head and $tail")
         createTableWriter.partitionedBy(head, tail: _*).create()
     }
 
@@ -89,7 +89,7 @@ case class DatabricksTableUtils (override val sparkSession: SparkSession) extend
       }
       // If the table is a temp view, fallback to querying for the distinct partition columns because SHOW PARTITIONS
       // doesn't work on temp views. This can be inefficient for large tables.
-      println(
+      logger.info(
         s"Selecting partitions for temp view table tableName=$tableName, " +
           s"partitionColumnOverride=$partitionColumnOverride."
       )
@@ -98,12 +98,12 @@ case class DatabricksTableUtils (override val sparkSession: SparkSession) extend
       )
       val outputPartitionsRows = outputPartitionsRowsDf.collect()
       // Users have ran into issues where the partition column is not a string, so add logging to facilitate debug.
-      println(
+      logger.info(
         s"Found ${outputPartitionsRows.length} partitions for temp view table tableName=$tableName. The partition schema is ${outputPartitionsRowsDf.schema}."
       )
 
       val outputPartitionsRowsDistinct = outputPartitionsRows.map(_.getString(0)).distinct
-      println(
+      logger.info(
         s"Converted ${outputPartitionsRowsDistinct.length} distinct partitions for temp view table to String. " +
           s"tableName=$tableName."
       )

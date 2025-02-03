@@ -62,6 +62,7 @@ object Extensions {
   // helper class to maintain datafram stats that are necessary for downstream operations
   case class DfWithStats(df: DataFrame, partitionCounts: Map[String, Long], partitionRange: PartitionRange)(implicit val tableUtils: BaseTableUtils) {
     val count: Long = partitionCounts.values.sum
+    @transient lazy val logger = LoggerFactory.getLogger(getClass)
 
     val trimmedPartitionRange: PartitionRange = if (partitionCounts.keys.isEmpty) {
       partitionRange
@@ -72,7 +73,7 @@ object Extensions {
     }
 
     def prunePartitions(range: PartitionRange): Option[DfWithStats] = {
-      println(
+      logger.info(
         s"Pruning down to new range $range, original range: $trimmedPartitionRange." +
           s"\nOriginal partition counts: $partitionCounts")
       val intersected = trimmedPartitionRange.intersect(range)
