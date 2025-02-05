@@ -570,8 +570,8 @@ def GroupBy(sources: Union[List[_ANY_SOURCE_TYPE], _ANY_SOURCE_TYPE],
         elif isinstance(source, ttypes.EntitySource):
             return ttypes.Source(entities=source)
         elif isinstance(source, ttypes.JoinSource):
-            if not source.join.metadata.isSetOutputNamespace():
-                source.join.metadata.setOutputNamespace(output_namespace)
+            if not source.join.metaData.outputNamespace:
+                source.join.metaData.outputNamespace = output_namespace
             return ttypes.Source(joinSource=source)
         elif isinstance(source, ttypes.Source):
             return source
@@ -582,28 +582,29 @@ def GroupBy(sources: Union[List[_ANY_SOURCE_TYPE], _ANY_SOURCE_TYPE],
         sources = [sources]
     sources = [_sanitize_columns(_normalize_source(source)) for source in sources]
 
-    deps = [
-        dep
-        for src in sources
-        for dep in utils.get_dependencies(src, dependencies, lag=lag)
-    ]
-
     kwargs.update({
         "lag": lag
     })
 
 
     # If this group by is being created from a notebook then we won't be able to extract the team name from the file path.
-    # In this case, we will require the user to provide the team name explicitly.
+    # Additionally, if a join source is used we won't be able to set_name here for that join.
+    # In this case, we will require the user to provide the team name explicitly and skip dep creation.
     file_name = sys._getframe().f_back.f_code.co_filename
     is_feature_being_created_in_a_databricks_notebook_cell = utils.is_feature_being_created_in_a_databricks_notebook_cell(file_name, repo.GROUP_BY_FOLDER_NAME)
     team = None
+    deps = []
     if is_feature_being_created_in_a_databricks_notebook_cell:
         assert team_slug is not None, "Please provide the team_slug when defining a GroupBy in a notebook cell."
         assert "-" not in team_slug and " " not in team_slug, "team_slug should not contain hyphens or spaces. Please use `_` instead."
         team = team_slug
     else:
         team = file_name.split("/")[-2]        
+        deps = [
+            dep
+            for src in sources
+            for dep in utils.get_dependencies(src, dependencies, lag=lag)
+    ]
 
     column_tags = {}
     if aggregations:

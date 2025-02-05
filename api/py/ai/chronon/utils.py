@@ -25,11 +25,8 @@ import subprocess
 import tempfile
 from collections.abc import Iterable
 from typing import List, Union, cast, Optional, Any, Dict
-from ai.chronon.repo import teams
-from ai.chronon.repo import TEAMS_FILE_PATH
-from ai.chronon.repo import NOTEBOOKS_LOG_FILE
 from ai.chronon.repo import ZOOLANDER_CHRONON_PATH
-import functools
+from math import ceil
 
 from pyspark.sql.types import (
     DataType,
@@ -476,31 +473,6 @@ def is_execution_environment_databricks():
 def is_feature_being_created_in_a_databricks_notebook_cell(caller_filename: str, obj_type_folder: str):
     return is_execution_environment_databricks() and obj_type_folder not in caller_filename
 
-def watch_logs():
-        log_size = os.path.getsize(NOTEBOOKS_LOG_FILE)
-
-        def print_logs():
-            with open(NOTEBOOKS_LOG_FILE, "r") as file_handler:
-                file_handler.seek(log_size)
-                print(file_handler.read())
-
-        return print_logs
-
-def print_logs_in_cell(func):
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        logs = watch_logs()
-        try:
-            result = func(*args, **kwargs)
-            logs()
-            return result
-        except Exception as e:
-            logs()
-            raise e
-
-    return wrapper
-
 def data_type_to_spark_type(data_type: api.TDataType) -> DataType:
     if data_type.kind == api.DataKind.BOOLEAN:
         return BooleanType()
@@ -536,3 +508,32 @@ def data_type_to_spark_type(data_type: api.TDataType) -> DataType:
         return StructType(fields)
     else:
         raise ValueError(f"Unsupported DataKind: {data_type.kind}")
+
+def get_max_window_for_gb_in_days(group_by: api.GroupBy) -> int:
+    result: int = 1
+    if group_by.aggregations: 
+        for agg in group_by.aggregations:
+            for window in agg.windows:
+                if window.timeUnit == api.TimeUnit.MINUTES:
+                    result = int(
+                        max(
+                            result,
+                            ceil(window.length / 60 * 24),
+                        )
+                    )
+                elif window.timeUnit == api.TimeUnit.HOURS:
+                    result = int(
+                        max(
+                            result,
+                            ceil(window.length / 24),
+                        )
+                    )
+                elif window.timeUnit == api.TimeUnit.DAYS:
+                    result = int(
+                        max(result, window.length)
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported time unit {window.timeUnit}. Please add logic above to handle the newly introduced time unit."
+                    )
+    return result    
