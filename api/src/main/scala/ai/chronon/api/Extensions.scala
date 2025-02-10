@@ -576,7 +576,7 @@ object Extensions {
           selects,
           streamingInputTable,
           baseWheres ++ timeWheres(timeColumn) :+ s"($keyWhereOption)",
-          true, // TODO(andrewlee) I don't think we ever call this, defaulting to localized to make things pass
+          None, // TODO(andrewlee) I don't think we ever call this, defaulting to localized to make things pass
           fillIfAbsent = if (selects == null) null else fillIfAbsent
         )
       } else {

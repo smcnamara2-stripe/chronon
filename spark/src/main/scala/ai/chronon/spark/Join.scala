@@ -506,7 +506,7 @@ class Join(joinConf: api.Join,
             Map(tableUtils.partitionColumn -> null),
             partitionColumnOverride,
             validBootstrapRanges,
-            tableUtils.isLocalized(part.table))
+            tableUtils.getLocalizationClause(part.table))
         )
 
         // attach semantic_hash for either log or regular table bootstrap

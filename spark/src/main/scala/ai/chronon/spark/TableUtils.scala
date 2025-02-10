@@ -86,6 +86,13 @@ trait BaseTableUtils {
   val aggregationParallelism: Int = sparkSession.conf.get("spark.chronon.group_by.parallelism", "1000").toInt
   val maxWait: Int = sparkSession.conf.get("spark.chronon.wait.hours", "48").toInt
 
+
+  val localityZone: Option[String] = sparkSession.conf.getOption("spark.chronon.locality_zone")
+  val localizationClause: String = localityZone match {
+    case Some("DEFAULT") | None => s"(${Constants.LocalityZoneColumn} = 'DEFAULT' or ${Constants.LocalityZoneColumn} is null)"
+    case Some(zone) => s"(${Constants.LocalityZoneColumn} = '$zone')"
+  }
+
   sparkSession.sparkContext.setLogLevel("ERROR")
 
   def preAggRepartition(df: DataFrame): DataFrame =
@@ -136,6 +143,13 @@ trait BaseTableUtils {
     val schema = getSchemaFromTable(tableName)
     schema.fieldNames.contains(Constants.LocalityZoneColumn)
   }
+
+  def getLocalizationClause(tableName: String): Option[String] =
+    if (isLocalized(tableName)) {
+      Some(localizationClause)
+    } else {
+      None
+    }
 
   // return all specified partition columns in a table in format of Map[partitionName, PartitionValue]
   def allPartitions(tableName: String, partitionColumnsFilter: Seq[String] = Seq.empty): Seq[Map[String, String]] = {
@@ -247,7 +261,7 @@ trait BaseTableUtils {
         // TODO(FCOMP-2242) We should factor out a provider for getting Iceberg partitions
         //  so we can inject a Stripe-specific one that takes into account locality_zone
         .select(s"partition.${partitionColumn}")
-        .where("partition.locality_zone == 'DEFAULT'")
+        .where(s"partition.locality_zone == '${localityZone.getOrElse("DEFAULT")}'")
         .collect()
         .map(_.getString(0))
         .toSeq

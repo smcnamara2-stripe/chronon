@@ -174,7 +174,7 @@ object GroupByUpload {
               selects,
               rootTable,
               query.wheres.toScala,
-              isLocalized = false // Don't filter by locality zone in streaming queries.
+              localizationClause = None // Don't filter by locality zone in streaming queries.
             )
           val reqColumns = tableUtils.getColumnsFromQuery(streamingQuery)
           types.StructType(fullInputSchema.filter(col => reqColumns.contains(col.name)))

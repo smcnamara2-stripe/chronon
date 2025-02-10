@@ -1190,7 +1190,7 @@ class JoinTest {
       viewsGroupByUnpartitioned.sources.asScala.head,
       Seq("item"),
       viewsGroupByUnpartitioned.inferredAccuracy,
-      false
+      None
     )
     // Only checking that the date logic is correct in the query
     assertFalse(s"[testSourceQueryRender][renderedUnpartitioned] ${renderedUnpartitioned}", renderedUnpartitioned.contains("ds"))

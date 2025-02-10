@@ -109,7 +109,7 @@ class DataRangeTest {
         selects = Builders.Selects("ts", "col_1", "col_2"),
         from = testTable,
         wheres = Seq("col_1 = 'TEST'", "ts >= 1709251200000", "ts < 1712016000000"),
-        isLocalized = false
+        localizationClause = None,
       )
 
     assertEquals(expected.stripMargin, result.stripMargin)

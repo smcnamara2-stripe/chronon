@@ -8,18 +8,18 @@ class QueryUtilsTest {
 
   @Test
   def testBuild_isLocalizedTrue(): Unit = {
-    assertEquals(QueryUtils.build(selects = Map("foo" -> "foo"), from = "foobar", isLocalized = true, wheres = Seq("bar")),
+    assertEquals(QueryUtils.build(selects = Map("foo" -> "foo"), from = "foobar", localizationClause = Some("locality_zone = 'INDIA'"), wheres = Seq("bar")),
       """SELECT
   foo as `foo`
 FROM foobar
 WHERE
-  (bar) AND ((locality_zone = 'DEFAULT' or locality_zone is null))"""
+  (bar) AND (locality_zone = 'INDIA')"""
     )
   }
 
   @Test
   def testBuild_isLocalizedFalse(): Unit = {
-    assertEquals(QueryUtils.build(selects = Map("foo" -> "foo"), from = "foobar", isLocalized = false, wheres = Seq("bar")),
+    assertEquals(QueryUtils.build(selects = Map("foo" -> "foo"), from = "foobar", localizationClause = None, wheres = Seq("bar")),
       """SELECT
   foo as `foo`
 FROM foobar

@@ -70,7 +70,7 @@ class GroupBy(inputStream: DataFrame,
       selects,
       inputTable,
       baseWheres ++ timeWheres :+ s"($keyWhereOption)",
-      isLocalized=false,  // Don't filter by locality zone in streaming queries.
+      localizationClause = None,  // Don't filter by locality zone in streaming queries.
       fillIfAbsent = if (selects == null) null else fillIfAbsent
     )
   }

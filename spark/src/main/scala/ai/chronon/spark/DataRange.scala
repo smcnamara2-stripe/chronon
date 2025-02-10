@@ -108,7 +108,7 @@ case class PartitionRange(start: String, end: String)(implicit tableUtils: BaseT
       selects = queryOpt.map(_.getQuerySelects).orNull,
       from = table,
       wheres = wheres,
-      isLocalized = tableUtils.isLocalized(table),
+      localizationClause = tableUtils.getLocalizationClause(table),
       fillIfAbsent = fillIfAbsent)
   }
 
@@ -122,7 +122,7 @@ case class PartitionRange(start: String, end: String)(implicit tableUtils: BaseT
       selects = queryOpt.map(_.getQuerySelects).orNull,
       from = table,
       wheres = wheres,
-      isLocalized = tableUtils.isLocalized(table),
+      localizationClause = tableUtils.getLocalizationClause(table),
       fillIfAbsent = fillIfAbsent)
   }
 
@@ -199,7 +199,7 @@ object PartitionRangeQueries {
                    fillIfAbsent: Map[String, String] = Map.empty,
                    partitionColumn: String,
                    partitionRanges: Seq[PartitionRange],
-                   isLocalized: Boolean): String = {
+                   localizationClause: Option[String]): String = {
     val queryOpt = Option(query)
     val partitionWheres = generateWhereClauses(partitionRanges, partitionColumn).map(Seq(_)).getOrElse(Seq())
     val queryWheres = queryOpt
@@ -209,7 +209,7 @@ object PartitionRangeQueries {
       selects = queryOpt.map(_.getQuerySelects).orNull,
       from = table,
       wheres = partitionWheres ++ queryWheres,
-      isLocalized = isLocalized,
+      localizationClause = localizationClause,
       fillIfAbsent = fillIfAbsent)
   }
 
