@@ -24,6 +24,5 @@ for f in /src/build/*; do
         --non-interactive \
         --username anonymous \
         --password '' \
-        --client-cert /etc/ssl/private/machine-cert-and-key.pem \
-        --repository-url https://"$base".stripe.build/artifactory/api/pypi/pypi-local-oss-forks/
+        --repository-url http://"$base".service.envoy:10081/artifactory/api/pypi/pypi-local-oss-forks/
 done

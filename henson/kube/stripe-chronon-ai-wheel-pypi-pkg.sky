@@ -7,5 +7,6 @@ def main(ctx):
         package_type = "pypi",
         package_image = "stripe-chronon-ai-wheel-image",
         packages = [],
+        shared_msp = True,
     )
     return [publish_job]

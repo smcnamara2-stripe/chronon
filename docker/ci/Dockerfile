@@ -13,11 +13,6 @@ RUN tar xzvf sbt-1.5.0.tgz -C /usr/share/
 ENV PATH $JAVA_HOME/bin:/opt/conda/bin:/usr/share/sbt/bin:$PATH
 RUN export JAVA_HOME
 
-RUN : \
-    && groupadd -g 998 ssl-cert \
-    && groupadd -g 3001 stripe-service \
-    && useradd -u 3001 -g 3001 -G 998 stripe-service
-
 # Install prereqs
 RUN apt-get update && apt-get -y -q install \
     automake \
