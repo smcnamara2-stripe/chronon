@@ -11,3 +11,50 @@ VECTOR_SIDECAR_CONTAINER_NAME = "vector-sidecar"
 CRED_PROXY_SHIM_CONTAINER_NAME = "credentials-proxy-shim-sidecar"
 
 GO_PROGRAMMING_LANGUAGE = "go"
+
+# List of shared msp, non daemonset/replicaset services that are deployed to multiple shards.
+MULTI_SHARD_SERVICES = [
+    "kube-cost-attribution",
+    "msp-fleet-manager",
+    "kube-orch-controller-manager",
+    "kube-state-metrics",
+    "kube-webhooks-test",
+    "kube-crd",
+    "kube-rbac",
+    "kubernetes-ui",
+    "msp-autoscaling-canary-srv",
+    "msp-canary-invoker",
+    "msp-gpu-canary-srv",
+    "msp-lifecycle-tracker",
+    "keda",
+    "msp-single-az-canary",
+    "msp-slc-tracker-srv",
+    "msp-slo-canary-srv",
+    "msp-slo-canary-srv-binpacked",
+    "kube-karpenter-nodepools",
+    "kube-state-metrics-prometheus",
+    "msp-dataland-export",
+    "msp-deploy-canary",
+    "karpenter-node-template-syncer",
+    "kube-metrics-server",
+    "msp-karpenter",
+    "java-restart-manager",
+    "vpc-resource-controller-webhook-config",
+]
+
+# List of daemonset services
+DAEMONSET_SERVICES = [
+    "credentials-proxy",
+    "msp-vector-daemonset",
+    "kube-node-problem-detector",
+]
+
+# CNI bandwidth limits constants
+# Copying over the defaults set on kata-clh for binpacking v1.
+# See https://git.corp.stripe.com/stripe-internal/gocode/blob/master/puppet-config/modules/microvm/manifests/init.pp#L17
+POD_INGRESS_BW = "5G"
+POD_EGRESS_BW = "5G"
+
+# Limit for main container's ephemeral storage. It matches the root volume for non-binpacked pods
+MAX_DISK_SIZE_LIMIT = "100Gi"
+

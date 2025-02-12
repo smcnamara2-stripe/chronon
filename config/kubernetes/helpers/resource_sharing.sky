@@ -1,8 +1,8 @@
 # DO NOT EDIT: http://go/vendor-skycfg
 load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME")
-load("config/kubernetes/helpers/context.sky", "is_bin_packing_enabled", "is_bin_packing_v1_enabled", "is_bin_packing_v2_enabled")
+load("config/kubernetes/helpers/context.sky", "get_binpacking_cpu_overcommit", "is_bin_packing_enabled", "is_bin_packing_v1_enabled", "is_bin_packing_v2_enabled")
 load("config/kubernetes/helpers/math.sky", "round_float_up")
-load("config/kubernetes/helpers/quantities.sky", "gibibytes", "mebibytes", "mebibytes_to_int", "millicores")
+load("config/kubernetes/helpers/quantities.sky", "mebibytes", "mebibytes_to_int", "millicores")
 load("config/kubernetes/helpers/warning.sky", "warn")
 load("config/kubernetes/plugins/types.sky", "pod_plugin")
 
@@ -10,7 +10,7 @@ def adjust_resources_for_sidecar():
     """
     Adjusts memory/CPU between the main application container and a sidecar.
     """
-    return pod_plugin(_adjust_resources_for_sidecar)
+    return pod_plugin(internal_adjust_resources_for_sidecar)
 
 def share_resources_with_envoy():
     """
@@ -42,9 +42,9 @@ def maybe_overcommit_resources():
     """
     If BinPacking v2 is enabled, reduce CPU and Memory requests so we can overcommit the nodes
     """
-    return pod_plugin(_maybe_overcommit_resources)
+    return pod_plugin(internal_maybe_overcommit_resources)
 
-def _adjust_resources_for_sidecar(ctx, _, pod_def):
+def internal_adjust_resources_for_sidecar(ctx, _, pod_def):
     # Currently only support memory overrides.
     return _adjust_memory_for_sidecar(ctx, pod_def)
 
@@ -60,7 +60,7 @@ def _adjust_memory_for_sidecar(ctx, pod_def):
     if main_memory == None:
         return
     sidecar_memory_overhead = 0
-    for container in pod_def.get("containers"):
+    for container in pod_def.get("containers", []):
         if container.get("name") == main_container["name"]:
             # Skip the main container
             continue
@@ -148,7 +148,7 @@ def _maybe_clear_sidecar_resources(ctx, _, pod_def):
         return
 
     main_container = pod_def.get("main_container")
-    for container in pod_def.get("containers"):
+    for container in pod_def.get("containers", []):
         if container.get("name") == main_container["name"]:
             continue
 
@@ -159,25 +159,30 @@ def _maybe_clear_sidecar_resources(ctx, _, pod_def):
             container["requests"] = None
             container["limits"] = None
 
-def _maybe_overcommit_resources(ctx, _, pod_def):
+def internal_maybe_overcommit_resources(ctx, _, pod_def):
+    if pod_def.get("shared_msp") != True:
+        return
     if not is_bin_packing_v2_enabled(ctx):
         return
+
+    cpu_overcommit_multiplier = 1 - get_binpacking_cpu_overcommit(ctx)
     main_container = pod_def.get("main_container")
     envoy_container = None
     container_resource_spec = main_container.get("container_resource_spec")
-    for container in pod_def.get("containers"):
+    for container in pod_def.get("containers", []):
         if container.get("name") == ENVOY_CONFIG_SRV_SIDECAR_NAME:
             envoy_container = container
 
     if container_resource_spec != None and container_resource_spec.get("requests") != None and container_resource_spec["requests"].get("cpu") != None:
-        container_resource_spec["requests"]["cpu"] = str(_truncate_cpu_value(float(container_resource_spec["requests"]["cpu"]) * 0.7))
+        container_resource_spec["requests"]["cpu"] = str(_truncate_cpu_value(float(container_resource_spec["requests"]["cpu"]) * cpu_overcommit_multiplier))
         main_container["container_resource_spec"] = container_resource_spec
     elif main_container.get("requests") != None and main_container["requests"].get("cpu") != None:
-        main_container["requests"]["cpu"] = str(_truncate_cpu_value(float(main_container["requests"]["cpu"]) * 0.7))
+        main_container["requests"]["cpu"] = str(_truncate_cpu_value(float(main_container["requests"]["cpu"]) * cpu_overcommit_multiplier))
     else:
         warn(ctx, "Could not determine CPU for overcommitting resources")
 
-    envoy_container["requests"]["cpu"] = str(_truncate_cpu_value(float(envoy_container["requests"]["cpu"]) * 0.7))
+    if envoy_container != None:
+        envoy_container["requests"]["cpu"] = str(_truncate_cpu_value(float(envoy_container["requests"]["cpu"]) * cpu_overcommit_multiplier))
 
 def _truncate_cpu_value(cpu_request):
     return int(cpu_request * 1000) / 1000.0
@@ -196,7 +201,7 @@ def _maybe_add_overhead_for_kata(ctx, _, pod_def):
     main_container = pod_def.get("main_container")
 
     envoy_cpu_requests = None
-    for container in pod_def.get("containers"):
+    for container in pod_def.get("containers", []):
         if container.get("name") == main_container["name"]:
             continue
 

@@ -60,7 +60,7 @@ def yjit_rollout_env_var(ctx, group):
 
         if get_env(ctx) == "prod":
             return {"STRIPE_BUNDLE_USE_YJIT_PCT_ENABLED": "100"}
-    return {}
+    return {"STRIPE_BUNDLE_USE_YJIT_PCT_ENABLED": "0"}
 
 def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
     formatted_isolation_group = config.monster_isolation_group.replace("_", "-")
@@ -282,9 +282,6 @@ def monster_deployment_shared_msp(ctx, config, port, suffix = ""):
         minReadySeconds = 5,
         shared_msp = True,
         strategy = config.strategy,
-        graviton_migration_enabled = config.graviton_migration_enabled,
-        graviton_migration_size = config.graviton_migration_size,
-        graviton_migration_target_6g = config.graviton_migration_target_6g,
         replicas = extract_replica_count(config.replicas),
         *make_deployment_options_plugins(config)
     )

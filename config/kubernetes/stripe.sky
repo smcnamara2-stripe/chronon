@@ -47,7 +47,8 @@ def stripe_pod(
         use_shared_msp_service_account = True,
         requires_consul = False,
         command_required = True,
-        resource_requirements_spec = None):
+        resource_requirements_spec = None,
+        programming_language = None):
     """
     Create a standard Stripe job or service with a main container.
 
@@ -160,6 +161,7 @@ def stripe_pod(
             command = command,
             storage = storage,
             command_required = command_required,
+            programming_language = programming_language,
         ),
         conditional_plugin(
             condition = is_shared_msp,
@@ -225,11 +227,11 @@ def use_shared_msp(ctx, *, namespace, name, instance_type, availability_tier, re
         "stripe.io/availability-tier": availability_tier.pod_tier,
         "stripe.io/bin-packing": "disabled",
     }
-    bin_packing_label = {"stripe.io/bin-packing": "disabled"}
+    bin_packing_labels = {"stripe.io/bin-packing": "disabled"}
     if bin_pack:
-        annotations_map["stripe.io/requested-instance-type"] = instance_type.name
         annotations_map["stripe.io/bin-packing"] = "enabled"
-        bin_packing_label["stripe.io/bin-packing"] = "enabled"
+        bin_packing_labels["stripe.io/bin-packing"] = "enabled"
+
         scheduler_name = "bin-packing-scheduler"
 
         node_selectors_map["stripe.io/bin-packing"] = "enabled"
@@ -238,9 +240,16 @@ def use_shared_msp(ctx, *, namespace, name, instance_type, availability_tier, re
         else:
             node_selectors_map["kubernetes.io/arch"] = "amd64"
 
+        requested_instance_type = instance_type.name
         if container_resource_spec != None:
-            annotations_map["stripe.io/original-instance-type"] = instance_type.name
-            annotations_map["stripe.io/requested-instance-type"] = "custom"
+            original_instance_type = instance_type.name
+            annotations_map["stripe.io/original-instance-type"] = original_instance_type
+            bin_packing_labels["stripe.io/original-instance-type"] = original_instance_type
+
+            requested_instance_type = "custom"
+
+        annotations_map["stripe.io/requested-instance-type"] = requested_instance_type
+        bin_packing_labels["stripe.io/requested-instance-type"] = requested_instance_type
     else:
         node_selectors_map["stripe.io/aws-instance-type"] = instance_type.name
 
@@ -255,7 +264,7 @@ def use_shared_msp(ctx, *, namespace, name, instance_type, availability_tier, re
         ),
         labels({"stripe.io/shared-msp": "true"}),
         labels({"stripe.io/availability-tier": availability_tier.pod_tier}),
-        labels(bin_packing_label),
+        labels(bin_packing_labels),
         annotations(annotations_map),
         container_resources(cpu = cpu, memory = memory, container_resource_spec = container_resource_spec),
         node_selectors(node_selectors_map),
@@ -410,8 +419,8 @@ def build_pod_resources(ctx, cpu, memory, storage, resource_requirements_spec):
                 # storage value if it's not specified in the current limit
                 specified_ephemeral_storage = specified_limit.get("limits", {}).get("ephemeral-storage", None)
                 if specified_ephemeral_storage == None and storage != None:
+                    specified_limit["requests"]["ephemeral-storage"] = storage
                     specified_limit["limits"]["ephemeral-storage"] = storage
-
                 return specified_limit, True
         else:
             warn(ctx, "resource_limits should only be specified when bin packing is enabled")

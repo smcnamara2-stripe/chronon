@@ -1,8 +1,7 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/helpers/context.sky", "get_env")
-load("config/kubernetes/helpers/msp_shard.sky", "msp_shard")
-load("config/kubernetes/meta/metadata.sky", "metadata", "render_metadata")
-load("config/kubernetes/plugins/compose.sky", "compose_plugins")
+load("config/kubernetes/helpers/context.sky", "get_env", "is_isolated_deploy")
+load("config/kubernetes/helpers/tags.sky", "default_isolated_deployment_labels")
+load("config/kubernetes/meta/metadata.sky", "render_metadata")
 load("config/kubernetes/plugins/types.sky", "any_resource_plugin")
 
 _sgp_scheme = {
@@ -95,6 +94,11 @@ def _render_sgp(ctx, sgp_mapping):
         match_labels["matchLabels"].update({
             "stripe.io/service-name": sgp_obj["metadata"]["labels"]["stripe.io/service-name"],
         })
+
+    if is_isolated_deploy(ctx):
+        match_labels["matchLabels"].update(
+            default_isolated_deployment_labels(ctx),
+        )
 
     spec["podSelector"] = match_labels
     sgp_obj["spec"] = spec

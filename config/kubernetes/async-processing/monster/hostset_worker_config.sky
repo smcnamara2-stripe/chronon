@@ -52,8 +52,8 @@ def common_autoscaling_config(
         memory_threshold = 90,
         scale_up_stabilization_window_seconds = 0,  # Make the decision to scale immediately, without waiting for a window
         scale_up_policy = scale_policy(
-            policy_type = "Percent",  # Scale up by 100% of the current count of replicas every 60 seconds
-            value = 100,
+            policy_type = "Percent",  # Scale up by 200% of the current count of replicas every 60 seconds
+            value = 200,
             period_seconds = 60,  # Add at most 2x current replica count every 60 seconds
         ),
         scale_down_stabilization_window_seconds = 300,  # The highest desired state from the past previous 5 minute window will be the new scaling target
@@ -311,15 +311,15 @@ A200_HOST_SETS = struct(
             },
             prod = {
                 "northwest": cluster(
-                    consume_replicas = 8,
+                    consume_replicas = 10,
                     fanout_replicas = 4,
                     mb_per_worker = 2600,
                     consume_autoscaling = common_autoscaling_config(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
                         cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
                         memory_threshold = 90,  # Scale up when we cross 90% Memory utilization
-                        min_replicas = 6,  # 75% of northwest replicas
-                        max_replicas = 8,
+                        min_replicas = 8,  # 75% of northwest replicas
+                        max_replicas = 10,
                     ),
                 ),
                 "bom": cluster(
@@ -327,7 +327,7 @@ A200_HOST_SETS = struct(
                     fanout_replicas = 2,
                 ),
                 "cmh": cluster(
-                    consume_replicas = 8,
+                    consume_replicas = 10,
                     fanout_replicas = 4,
                     mb_per_worker = 2600,
                     consume_autoscaling = common_autoscaling_config(
@@ -335,8 +335,8 @@ A200_HOST_SETS = struct(
                         availability_threshold = "0.50",
                         cpu_threshold = 50,
                         memory_threshold = 90,
-                        min_replicas = 4,  # 50% of northwest replicas
-                        max_replicas = 8,
+                        min_replicas = 5,  # 50% of northwest replicas
+                        max_replicas = 10,
                     ),
                 ),
             },
@@ -516,12 +516,9 @@ A200_HOST_SETS = struct(
             qa = {
                 "northwest": cluster(
                     consume_replicas = 6,
-                    graviton_migration_enabled = True,
-                    graviton_migration_size = "100%",
-                    graviton_migration_target_6g = True,
                 ),
                 "bom": empty_worker_cluster(),
-                "cmh": cluster(graviton_migration_enabled = True, graviton_migration_size = "100%", graviton_migration_target_6g = True),
+                "cmh": cluster(),
             },
             preprod = {
                 "northwest": empty_worker_cluster(),
@@ -532,23 +529,14 @@ A200_HOST_SETS = struct(
                 "northwest": cluster(
                     consume_replicas = 6,
                     fanout_replicas = 4,
-                    graviton_migration_enabled = True,
-                    graviton_migration_size = "100%",
-                    graviton_migration_target_6g = True,
                 ),
                 "bom": cluster(
                     consume_replicas = 2,
                     fanout_replicas = 2,
-                    graviton_migration_enabled = True,
-                    graviton_migration_size = "100%",
-                    graviton_migration_target_6g = True,
                 ),
                 "cmh": cluster(
                     consume_replicas = 6,
                     fanout_replicas = 4,
-                    graviton_migration_enabled = True,
-                    graviton_migration_size = "100%",
-                    graviton_migration_target_6g = True,
                 ),
             },
         ),
@@ -689,7 +677,7 @@ A200_HOST_SETS = struct(
             preprod = {
                 "northwest": empty_worker_cluster(),
                 "bom": empty_worker_cluster(),
-                "cmh": cluster(),
+                "cmh": cluster(consume_replicas = 3),
             },
             prod = {
                 "northwest": cluster(
@@ -853,9 +841,6 @@ A200_HOST_SETS = struct(
             suffix = "low-cpu",
             default = cluster(
                 mb_per_worker = 2600,
-                graviton_migration_enabled = True,
-                graviton_migration_size = "100%",
-                graviton_migration_target_6g = True,
             ),
             preprod = {
                 "cmh": cluster(
@@ -1056,6 +1041,11 @@ A200_HOST_SETS = struct(
                 ),
                 "bom": cluster(mb_per_worker = 2800),
                 "cmh": cluster(mb_per_worker = 2800),
+            },
+            preprod = {
+                "northwest": empty_worker_cluster(),
+                "bom": empty_worker_cluster(),
+                "cmh": cluster(mb_per_worker = 6300, instance_type = r7g_xlarge),
             },
             prod = {
                 "northwest": cluster(
@@ -1318,12 +1308,12 @@ A200_HOST_SETS = struct(
                 # We have large traffic spikes around end of month and we have carefully chosen config
                 # to support this
                 "northwest": cluster(
-                    consume_replicas = 16,  # This is scaled on a scheduled basis, see autoscaling config below
+                    consume_replicas = 20,  # This is scaled on a scheduled basis, see autoscaling config below
                     fanout_replicas = 2,
                     mb_per_worker = 2000,
                     instance_type = m6g_16xlarge,
                     consume_autoscaling = autoscaling(
-                        min_replicas = 16,
+                        min_replicas = 20,
                         max_replicas = 31,
                         schedule_triggers = [
                             # We need a rule for each month because the schedule crons dont work with wildcard or multiple months
@@ -1428,12 +1418,12 @@ A200_HOST_SETS = struct(
                     ),
                 ),
                 "cmh": cluster(
-                    consume_replicas = 10,  # This is scaled on a scheduled basis, see autoscaling config below
+                    consume_replicas = 14,  # This is scaled on a scheduled basis, see autoscaling config below
                     fanout_replicas = 2,
                     mb_per_worker = 2000,
                     instance_type = m6g_16xlarge,
                     consume_autoscaling = autoscaling(
-                        min_replicas = 10,
+                        min_replicas = 14,
                         max_replicas = 31,
                         schedule_triggers = [
                             # We need a rule for each month because the schedule crons dont work with wildcard or multiple months
@@ -1599,7 +1589,7 @@ A200_HOST_SETS = struct(
             "search-desc-connect",
             disable_preloading = True,  # This allows a smaller mb_per_worker. If re-enabling preloading, make sure to bump mb_per_worker
             qa = {
-                "northwest": cluster(mb_per_worker = 280),
+                "northwest": cluster(mb_per_worker = 2800),
                 "bom": cluster(mb_per_worker = 2800),
                 "cmh": cluster(mb_per_worker = 2800),
             },
@@ -1890,7 +1880,7 @@ A400_HOST_SETS = struct(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
                         cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
                         memory_threshold = 90,  # Scale up when we cross 90% Memory utilization
-                        min_replicas = 20,  # 30% of northwest replicas
+                        min_replicas = 10,  # 30% of northwest replicas
                         max_replicas = 100,
                     ),
                 ),
@@ -1925,7 +1915,7 @@ A400_HOST_SETS = struct(
                         availability_threshold = "0.70",  # Scale up when we cross 70% worker availability
                         cpu_threshold = 50,  # Scale up when we cross 50% CPU Utilization
                         memory_threshold = 90,  # Scale up when we cross 90% Memory utilization
-                        min_replicas = 50,  # 75% of northwest replicas
+                        min_replicas = 30,
                         max_replicas = 100,
                     ),
                 ),

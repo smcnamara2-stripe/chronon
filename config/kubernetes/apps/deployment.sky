@@ -7,24 +7,20 @@ we run long-running service workloads on Kubernetes.
 """
 
 load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
-load("config/kubernetes/autoscaling/horizontalpodautoscaler.sky", "horizontal_pod_autoscaler")
-load("config/kubernetes/core/container.sky", "container", "container_resources")
+load("config/kubernetes/core/container.sky", "container")
 load("config/kubernetes/core/env_var.sky", "all_containers_env_vars", "container_env_vars")
 load("config/kubernetes/core/generic.sky", "is_security_group_policy_enabled")
 load("config/kubernetes/core/lifecycle.sky", "DEFAULT_ENVOY_HEALTHCHECK_PROPAGATION_TIME", "DEFAULT_GRACE_PERIOD_SECONDS", "generate_prestop_sleep_action", "grace_period", "prestop_all_containers", "prestop_all_infra_sidecars")
 load("config/kubernetes/core/pod.sky", "all_containers", "main_container")
 load("config/kubernetes/core/volume.sky", "volume_mount_all_containers")
 load("config/kubernetes/helpers/aws_availability_zones.sky", "aws_az_valid")
-load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size", "get_graviton_eq_instance_type")
 load("config/kubernetes/helpers/binpacking.sky", "bin_packing")
 load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_strategy", "with_blue_green_traffic_shifting")
-load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME", "HOST_HEALTH_AGENT_SIDECAR_NAME")
-load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_cluster", "get_env", "get_name", "get_repo", "is_bin_packing_enabled", "is_horizontal_pod_autoscaling_enabled", "is_isolated_account_identity_enabled", "is_isolated_deploy", "is_onebox", "is_dedicated_msp_shard")
+load("config/kubernetes/helpers/constants.sky", "ENVOY_CONFIG_SRV_SIDECAR_NAME", "HOST_HEALTH_AGENT_SIDECAR_NAME", "MULTI_SHARD_SERVICES")
+load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_cluster", "get_env", "get_name", "get_repo", "is_bin_packing_enabled", "is_dedicated_msp_shard", "is_faas_managed", "is_isolated_account_identity_enabled", "is_isolated_deploy", "is_onebox")
 load("config/kubernetes/helpers/ldap.sky", "LDAP_MOUNT_NAME", "mount_ldap_host_volumes")
-load("config/kubernetes/helpers/multi_arch_deployment_transition.sky", "add_arch_suffix", "calculate_multi_arch_replica_split", "multi_arch_override_node_selector")
 load("config/kubernetes/helpers/onebox.sky", "add_onebox_original_max_replicas_label")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "Deployment", "DeploymentSpec")
-load("config/kubernetes/helpers/quantities.sky", "mebibytes", "millicores")
 load("config/kubernetes/helpers/resource_sharing.sky", "adjust_resources_for_sidecar", "maybe_add_overhead_for_kata", "maybe_clear_sidecar_resources", "maybe_overcommit_resources", "share_resources_with_envoy")
 load("config/kubernetes/helpers/rolling.sky", "add_rolling_speed_override")
 load("config/kubernetes/helpers/service_consul_services.sky", "add_service_consul_services")
@@ -41,22 +37,10 @@ load("config/kubernetes/sidecars/metrics.sky", "metrics")
 load("config/kubernetes/sidecars/sansshell.sky", "sansshell_sidecar")
 load("config/kubernetes/stripe.sky", "CONSUL_AGENT_ENABLED_LABEL", "CONSUL_AGENT_ENABLED_LABEL_DISABLED")
 
-SHARED_MSP_SERVICES_IN_DEDICATED_MSP_SHARDS = [
-    "autoscale-srv",
-    "kube-cost-attribution",
-    "msp-fleet-manager",
-    "kube-orch-controller-manager",
-    "kube-state-metrics",
-    "kube-webhooks-test",
-    "kube-crd",
-    "kube-rbac",
-    "kubernetes-ui",
-    "msp-canary-invoker",
-    "msp-dataland-export",
-    "msp-lifecycle-tracker",
-]
+# The number of replicaset version to keep for each deployment
+DEPLOYMENT_REVISION_HISTORY_LIMIT = 5
 
-def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, disable_default_metrics_sidecar = False, graviton_migration_enabled = False, graviton_migration_size = 0, graviton_migration_target_6g = False, set_require_zone_balance_with_skew = 1, set_require_node_balance_with_skew = -1, **kwargs):
+def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, disable_default_metrics_sidecar = False, set_require_zone_balance_with_skew = 1, set_require_node_balance_with_skew = -1, **kwargs):
     """
     Schedule one or more instances of a stateless service.
 
@@ -91,7 +75,9 @@ def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, dis
         "metadata": {},
         "shared_msp": shared_msp,
         "registered_services": [],
-        "kwargs": {},
+        "kwargs": {
+            "revisionHistoryLimit": DEPLOYMENT_REVISION_HISTORY_LIMIT,
+        },
         "networking_config": None,
         "metrics_config": None,
         "plugin_overrides": [],
@@ -106,21 +92,16 @@ def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, dis
             # Isolated deploys forces multi-replica deployments down to 1-pod
             kwargs["replicas"] = 1
 
+        # Make non-canary FaaS workers that have a replica count of 0 have a replica count of 1
+        if is_faas_managed(ctx) and not kwargs.get("is_canary_worker") and kwargs.get("replicas", 0) == 0:
+            kwargs["replicas"] = 1
+
         # If we're performing a onebox deployment, hard-code the replica count to 1
     elif is_onebox(ctx):
         onebox_original_replicas = kwargs.get("replicas")
         kwargs["replicas"] = 1
 
-    # Let's recompute the desired count for the non-graviton deployment
-    if graviton_migration_enabled:
-        replicas, graviton_replicas = calculate_multi_arch_replica_split(
-            kwargs["replicas"],
-            graviton_migration_size,
-        )
-
-        kwargs["replicas"] = replicas
-
-    amd_64_deployment = _deployment_impl(
+    deployment = _deployment_impl(
         ctx = ctx,
         deployment = deployment,
         plugins = plugins,
@@ -133,30 +114,7 @@ def deployment(ctx, *plugins, shared_msp = False, mount_ldap_volumes = True, dis
         onebox_original_replicas = onebox_original_replicas,
     )
 
-    if graviton_migration_enabled:
-        original_instance_type = deployment.get("pod").get("node_selectors").get("stripe.io/aws-instance-type")
-        if original_instance_type == None:
-            metadata = deployment.get("pod").get("resource").get("metadata")
-            if metadata != None and metadata.annotations != None:
-                original_instance_type = metadata.annotations.get("stripe.io/requested-instance-type")
-
-        graviton_deployment = _graviton_deployment(
-            ctx = ctx,
-            plugins = plugins,
-            original_instance_type = original_instance_type,
-            shared_msp = shared_msp,
-            mount_ldap_volumes = mount_ldap_volumes,
-            disable_default_metrics_sidecar = disable_default_metrics_sidecar,
-            graviton_replicas = graviton_replicas,
-            graviton_migration_target_6g = graviton_migration_target_6g,
-            set_require_node_balance_with_skew = set_require_node_balance_with_skew,
-            set_require_zone_balance_with_skew = set_require_zone_balance_with_skew,
-            kwargs = kwargs,
-            onebox_original_replicas = onebox_original_replicas,
-        )
-
-        return [amd_64_deployment, graviton_deployment]
-    return amd_64_deployment
+    return deployment
 
 def _deployment_impl(
         ctx,
@@ -210,7 +168,7 @@ def _deployment_impl(
         if k8s_workload_name == None:
             fail("A Kubernetes workload name was not found for this shared MSP deployment.")
 
-        if is_shared_msp_service_in_dedicated_msp_shard(ctx, get_name(ctx)) :
+        if is_shared_msp_service_in_dedicated_msp_shard(ctx, get_name(ctx)):
             fail("Shared MSP service %s cannot be deployed to a dedicated MSP shard" % get_name(ctx))
 
         # If the service is using host isolation, we set an environment variable
@@ -315,10 +273,6 @@ def _deployment_impl(
                 ),
                 deployment,
             )
-
-        if is_horizontal_pod_autoscaling_enabled(ctx) == True and deployment["kwargs"]["replicas"] > 2:
-            # Feature flag opt in is only available for services with 3 or more replicas.
-            _apply_plugin(ctx, compose_plugins(horizontal_pod_autoscaler()), deployment)
 
         if is_isolated_account_identity_enabled(ctx):
             deployment["pod"]["resource"]["metadata"]["annotations"]["stripe.io/iam-role-account-affinity"] = "FROM_ENVIRONMENT"
@@ -607,62 +561,10 @@ def _validate_strategy_max_unavailable_warning(ctx, name, replicas, percent, lit
                 "Please reduce the MaxUnavailable percent below the threshold.",
             ]))
 
-def _graviton_deployment(
-        ctx,
-        plugins,
-        original_instance_type,
-        kwargs,
-        shared_msp = False,
-        mount_ldap_volumes = True,
-        disable_default_metrics_sidecar = False,
-        graviton_replicas = 0,
-        graviton_migration_target_6g = False,
-        set_require_zone_balance_with_skew = -1,
-        set_require_node_balance_with_skew = -1,
-        onebox_original_replicas = None):
-    graviton_deployment_def = {
-        "render": _render_deployment,
-        "type": "deployment",
-        "metadata": {},
-        "shared_msp": shared_msp,
-        "registered_services": [],
-        "kwargs": {},
-        "networking_config": None,
-        "metrics_config": None,
-        "plugin_overrids": [],
-    }
-
-    graviton_eq = get_graviton_eq_instance_type(ctx, original_instance_type, graviton_migration_target_6g)
-    graviton_eq_resources = aws_instance_size(graviton_eq)
-
-    cpu = millicores(ctx, graviton_eq_resources.cpu_millicores - graviton_eq_resources.slack_cpu_millicores)
-    memory = mebibytes(ctx, graviton_eq_resources.memory_mib)
-
-    graviton_deployment_def["plugin_overrides"] = [
-        add_arch_suffix("graviton"),
-        multi_arch_override_node_selector(graviton_eq),
-        container_resources(cpu = cpu, memory = memory),
-    ]
-
-    kwargs["replicas"] = graviton_replicas
-
-    return _deployment_impl(
-        ctx = ctx,
-        deployment = graviton_deployment_def,
-        plugins = plugins,
-        kwargs = kwargs,
-        shared_msp = shared_msp,
-        mount_ldap_volumes = mount_ldap_volumes,
-        disable_default_metrics_sidecar = disable_default_metrics_sidecar,
-        set_require_node_balance_with_skew = set_require_node_balance_with_skew,
-        set_require_zone_balance_with_skew = set_require_zone_balance_with_skew,
-        onebox_original_replicas = onebox_original_replicas,
-    )
-
 def is_shared_msp_service_in_dedicated_msp_shard(ctx, service_name):
     if not is_dedicated_msp_shard(ctx):
         return False
-    for srv in SHARED_MSP_SERVICES_IN_DEDICATED_MSP_SHARDS:
+    for srv in MULTI_SHARD_SERVICES:
         if service_name.startswith(srv):
             return False
     return True

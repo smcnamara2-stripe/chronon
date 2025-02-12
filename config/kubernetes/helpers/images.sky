@@ -81,8 +81,8 @@ If you wanted to deploy the default image, add \"%s\" to the container_images in
     availability_tier = get_availability_tier(ctx)
     context_env = get_env(ctx)
 
-    # Enable noble upgrade for all A400/A300/A200 services and A1** in QA:
-    if (availability_tier in ["A400", "A300", "A200"] or (availability_tier[0:2], context_env.lower()) in [("A1", "qa")]) and artifact != None:
+    # Enable noble upgrade for all A400/A300/A200/A150 services and A1** in QA:
+    if (availability_tier in ["A400", "A300", "A200", "A150"] or (availability_tier[0:2], context_env.lower()) in [("A1", "qa")]) and artifact != None:
         if artifact == "pay-server-image":
             for container_image in container_images:
                 if container_image == "pay-server-image-noble-linux-amd64":

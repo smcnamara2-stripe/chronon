@@ -28,14 +28,14 @@ def add_worker_sidecar(
         hack_kick_restart_only = None,
         hack_kick_start_jitter = None):
     # TODO: make einhorn_socket_dir optional when mode is 'puma-cluster'
-    if mode == "einhorn":
+    if mode == "einhorn" or mode == "einhorn-workflow":
         if einhorn_socket_name == None:
             fail("einhorn_socket_name must be provided when mode is 'einhorn'")
     elif mode == "puma-cluster":
         if puma_statefile_name == None:
             fail("puma_statefile_name must be provided when mode is 'puma_cluster'")
     else:
-        fail("Mode must be one of 'einhorn' or 'puma-cluster', got '{}'".format(mode))
+        fail("Mode must be one of 'einhorn', 'puma-cluster' or 'einhorn-workflow', got '{}'".format(mode))
 
     config = {
         "service": service,

@@ -3,6 +3,7 @@
 Plugins for applying metadata to Kubernetes resources.
 """
 
+load("config/kubernetes/helpers/constants.sky", "POD_EGRESS_BW", "POD_INGRESS_BW")
 load("config/kubernetes/helpers/context.sky", "get_blue_green_color", "get_function_name", "get_henson_git_commit", "get_name", "get_owner", "is_isolated_deploy")
 load("config/kubernetes/helpers/proto_or_yaml.sky", "LabelSelector", "ObjectMeta")
 load("config/kubernetes/helpers/tags.sky", "DEPRECATED_OWNER_LABEL", "default_annotations", "default_isolated_deployment_labels", "default_labels", "service_selectors")
@@ -121,6 +122,48 @@ def annotations(dict):
         _add_annotations,
         annotations = dict,
     )
+
+def set_cni_network_bandwidth_limits_annotations(ingress_bandwidth = POD_INGRESS_BW, egress_bandwidth = POD_EGRESS_BW):
+    """
+    Set the CNI network bandwidth limits for a pod. Useful when the service is
+    expected to have high network traffic and is binpacked and needs to override
+    the default values.
+    Args:
+        ingress_bandwidth: The ingress bandwidth limit for the pod. Defaults to 5G.
+        egress_bandwidth: The egress bandwidth limit for the pod. Defaults to 5G.
+    Returns:
+        A plugin that sets the CNI network bandwidth limits annotations for a pod.
+    """
+    nw_bw_limits = {
+        "kubernetes.io/ingress-bandwidth": ingress_bandwidth,
+        "kubernetes.io/egress-bandwidth": egress_bandwidth,
+    }
+    return compose_plugins(
+        any_resource_plugin(
+            _set_cni_network_bandwidth_limits_annotations,
+            nw_bw_limits = nw_bw_limits,
+        ),
+    )
+
+def _set_cni_network_bandwidth_limits_annotations(ctx, plugin, resource_def):
+    annotations = resource_def["metadata"].get("annotations", {})
+    ingress_bandwidth = annotations.get("kubernetes.io/ingress-bandwidth")
+    egress_bandwidth = annotations.get("kubernetes.io/egress-bandwidth")
+    for key, value in plugin.nw_bw_limits.items():
+        # Do not reset the ingress annotation to the default value if it is already set
+        # to a non default value
+        if key == "kubernetes.io/ingress-bandwidth":
+            if value == POD_INGRESS_BW and ingress_bandwidth != None:
+                continue
+            else:
+                annotations[key] = value
+        # Do not reset the egress annotation to the default value if it is already set
+        # to a non default value
+        if key == "kubernetes.io/egress-bandwidth":
+            if value == POD_EGRESS_BW and egress_bandwidth != None:
+                continue
+            else:
+                annotations[key] = value
 
 def iam_role(prefix, host_credentials = True):
     """

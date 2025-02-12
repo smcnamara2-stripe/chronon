@@ -88,9 +88,14 @@ def job(ctx, *plugins, shared_msp = False, shared_msp_networking_plugin = False,
         if enable_native_sidecar_support:
             _apply_plugin(ctx, compose_plugins(native_sidecar_support()), job)
 
-            # Update the grace period to the default for shared MSP jobs which is greater than the normal mspworker default of 5 min
-            # This ensures long running shared MSP jobs with native sidecars do not get terminated prematurely
-            pod_termination_grace_period_seconds = DEFAULT_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS
+            if is_bin_packing_enabled(ctx) != True:
+                # Update the grace period to the default for shared MSP jobs on non-binpacked instances which is greater than the normal mspworker default of 5 min
+                # This ensures long running shared MSP jobs with native sidecars do not get terminated prematurely
+                pod_termination_grace_period_seconds = DEFAULT_SHARED_MSP_JOB_GRACE_PERIOD_SECONDS
+
+        # If no grace period is set, use the default. If binpacking is enabled for the service, overwrite any termination grace period
+        # passed in by the caller to use the default value of 5 minutes.
+        _apply_plugin(ctx, compose_plugins(grace_period(pod_termination_grace_period_seconds, overwrite = is_bin_packing_enabled(ctx))), job)
 
         # for shared msp, services get registered at update time, but the plugin needs them
         # at create time, so we init and update the networking plugin after all the others
@@ -102,8 +107,6 @@ def job(ctx, *plugins, shared_msp = False, shared_msp_networking_plugin = False,
             # NOTE: Include metrics-sidecar for networking plugin as envoy-config-srv needs it.
             _apply_plugin(ctx, metrics(ctx, config = job["metrics_config"]), job)
 
-            # If no grace period is set, use the default
-            _apply_plugin(ctx, compose_plugins(grace_period(pod_termination_grace_period_seconds, overwrite = False)), job)
             pod_termination_grace_period_seconds = job["pod"]["grace_period"]
 
             consul_deprecated_in_pod = job["metadata"].get("labels", {}).get(CONSUL_AGENT_ENABLED_LABEL, "")

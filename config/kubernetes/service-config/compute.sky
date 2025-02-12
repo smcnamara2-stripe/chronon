@@ -61,5 +61,14 @@ def get_num_replicas(compute_config, is_canary = False):
         compute_config["resources"].get("num_replicas")
     ):
         num_replicas = int(compute_config["resources"]["num_replicas"])
+    elif (
+        compute_config.get("resources") and
+        compute_config["resources"].get("autoscaling") and
+        compute_config["resources"].get("autoscaling").get("min_replicas") and
+        compute_config["resources"].get("autoscaling").get("max_replicas")
+    ):
+        # If a service is using autoscaling and specifies both min and max replicas,
+        # set num replicas to min_replicas
+        num_replicas = int(compute_config["resources"]["autoscaling"]["min_replicas"])
 
     return num_replicas

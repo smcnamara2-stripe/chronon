@@ -1158,3 +1158,25 @@ def _get_prometheus_server_address(ctx):
         server_address = _prod_prom_proxy_address
 
     return server_address
+
+def get_max_replicas_by_workers(min_replicas, workers_per_instance, max_additional_workers):
+    """
+    Calculate the max replicas based on the number of workers per instance and the max additional workers.
+
+    Args:
+        min_replicas: The minimum number of replicas for the deployment.
+        workers_per_instance: The number of workers per instance.
+        max_additional_workers: The maximum number of additional workers.
+
+    Returns:
+        The calculated max replicas.
+    """
+    return min_replicas + ceil_division(max_additional_workers, workers_per_instance)
+
+def ceil_division(numerator, denominator):
+    # Perform integer division and check for exact result
+    division = numerator / denominator
+    if division == int(division):
+        return int(division)
+    else:
+        return int(division) + 1

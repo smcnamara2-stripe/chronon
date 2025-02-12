@@ -4,6 +4,7 @@ load("config/kubernetes/core/env_var.sky", "container_env_vars")
 load("config/kubernetes/core/pod.sky", "pod_share_pid_namespace")
 load("config/kubernetes/core/probe.sky", "conditional_http_probe", "http_probe", "probes")
 load("config/kubernetes/core/volume.sky", "mount_host_volume", "mount_pod_volume")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
 load(
     "config/kubernetes/helpers/context.sky",
     "get_env",
@@ -335,6 +336,7 @@ def envoy_config_srv_container(ctx, self, namespace, local_consul_services, conf
         command = command,
         sidecar_service = envoy_config_srv_sidecar_service(user_overrides),
         plugins = plugins,
+        programming_language = GO_PROGRAMMING_LANGUAGE,
     )
 
 def _envoy_config_srv_image(ctx, config_target, user_overrides):

@@ -24,7 +24,6 @@ SUPPORTED_MSP_INSTANCE_TYPES = [
     "c5n.4xlarge",
     "c5n.9xlarge",
     "c5n.xlarge",
-    "c6a.12xlarge",
     "c6g.12xlarge",
     "c6g.16xlarge",
     "c6g.2xlarge",
@@ -56,6 +55,7 @@ SUPPORTED_MSP_INSTANCE_TYPES = [
     "c7gd.xlarge",
     "g4dn.2xlarge",
     "g4dn.xlarge",
+    "g6.4xlarge",
     "i3.2xlarge",
     "i3.4xlarge",
     "i3.xlarge",
@@ -79,7 +79,6 @@ SUPPORTED_MSP_INSTANCE_TYPES = [
     "m5d.8xlarge",
     "m5d.large",
     "m5d.xlarge",
-    "m6a.12xlarge",
     "m6a.24xlarge",
     "m6g.12xlarge",
     "m6g.16xlarge",
@@ -251,11 +250,6 @@ _AWS_INSTANCE_SIZES = {
         "memory_mib": 10752,
         "vcpu": 4,
     },
-    "c6a.12xlarge": {
-        "instance_storage_gib": 0,
-        "memory_mib": 98304,
-        "vcpu": 48,
-    },
     "c6g.12xlarge": {
         "instance_storage_gib": 0,
         "memory_mib": 98304,
@@ -404,12 +398,17 @@ _AWS_INSTANCE_SIZES = {
     "g4dn.2xlarge": {
         "instance_storage_gib": 225,
         "memory_mib": 32768,
-        "vcpu": 8
+        "vcpu": 8,
     },
     "g4dn.xlarge": {
         "instance_storage_gib": 125,
         "memory_mib": 16384,
         "vcpu": 4,
+    },
+    "g6.4xlarge": {
+        "instance_storage_gib": 600,
+        "memory_mib": 65536,
+        "vcpu": 16,
     },
     "i3.2xlarge": {
         "instance_storage_gib": 1900,
@@ -525,11 +524,6 @@ _AWS_INSTANCE_SIZES = {
         "instance_storage_gib": 150,
         "memory_mib": 16384,
         "vcpu": 4,
-    },
-    "m6a.12xlarge": {
-        "instance_storage_gib": 0,
-        "memory_mib": 196608,
-        "vcpu": 48,
     },
     "m6a.24xlarge": {
         "instance_storage_gib": 0,
@@ -975,11 +969,6 @@ c5n_xlarge = struct(
     slack_cpu_millicores = 1000,
 )
 
-c6a_12xlarge = struct(
-    name = "c6a.12xlarge",
-    slack_cpu_millicores = 1000,
-)
-
 c6g_12xlarge = struct(
     name = "c6g.12xlarge",
     slack_cpu_millicores = 1000,
@@ -1126,12 +1115,17 @@ c7gd_xlarge = struct(
 )
 
 g4dn_2xlarge = struct(
-    name="g4dn.2xlarge",
-    slack_cpu_millicores=1000,
+    name = "g4dn.2xlarge",
+    slack_cpu_millicores = 1000,
 )
 
 g4dn_xlarge = struct(
     name = "g4dn.xlarge",
+    slack_cpu_millicores = 1000,
+)
+
+g6_4xlarge = struct(
+    name = "g6.4xlarge",
     slack_cpu_millicores = 1000,
 )
 
@@ -1247,11 +1241,6 @@ m5d_large = struct(
 
 m5d_xlarge = struct(
     name = "m5d.xlarge",
-    slack_cpu_millicores = 1000,
-)
-
-m6a_12xlarge = struct(
-    name = "m6a.12xlarge",
     slack_cpu_millicores = 1000,
 )
 
@@ -1621,7 +1610,6 @@ _INSTANCE_TYPES_BY_NAME = {
     c5n_4xlarge.name: c5n_4xlarge,
     c5n_9xlarge.name: c5n_9xlarge,
     c5n_xlarge.name: c5n_xlarge,
-    c6a_12xlarge.name: c6a_12xlarge,
     c6g_12xlarge.name: c6g_12xlarge,
     c6g_16xlarge.name: c6g_16xlarge,
     c6g_2xlarge.name: c6g_2xlarge,
@@ -1653,6 +1641,7 @@ _INSTANCE_TYPES_BY_NAME = {
     c7gd_xlarge.name: c7gd_xlarge,
     g4dn_2xlarge.name: g4dn_2xlarge,
     g4dn_xlarge.name: g4dn_xlarge,
+    g6_4xlarge.name: g6_4xlarge,
     i3_2xlarge.name: i3_2xlarge,
     i3_4xlarge.name: i3_4xlarge,
     i3_xlarge.name: i3_xlarge,
@@ -1676,7 +1665,6 @@ _INSTANCE_TYPES_BY_NAME = {
     m5d_8xlarge.name: m5d_8xlarge,
     m5d_large.name: m5d_large,
     m5d_xlarge.name: m5d_xlarge,
-    m6a_12xlarge.name: m6a_12xlarge,
     m6a_24xlarge.name: m6a_24xlarge,
     m6g_12xlarge.name: m6g_12xlarge,
     m6g_16xlarge.name: m6g_16xlarge,
@@ -2093,7 +2081,7 @@ _X86_TO_GRAVITON_INSTANCE_TYPE_MAPPINGS = {
 }
 
 #6. Mapping from Instance Type to Appropriate Override Type.
-_OVERRIDE_INSTANCE_TYPE_MAPPINGS = {"c5.12xlarge": {"graviton_2": "c6g.12xlarge", "graviton_3": "c7g.12xlarge", "intel_6": "c6i.12xlarge"}, "c5.24xlarge": {"intel_6": "c6i.24xlarge"}, "c5.2xlarge": {"graviton_2": "c6g.2xlarge", "graviton_3": "c7g.2xlarge", "intel_6": "c6i.2xlarge"}, "c5.4xlarge": {"graviton_2": "c6g.4xlarge", "graviton_3": "c7g.4xlarge", "intel_6": "c6i.4xlarge"}, "c5.xlarge": {"graviton_2": "c6g.xlarge", "graviton_3": "c7g.xlarge", "intel_6": "c6i.xlarge"}, "c6a.12xlarge": {"graviton_2": "c6g.12xlarge", "graviton_3": "c7g.12xlarge", "intel_6": "c6i.12xlarge", "intel_5": "c5.12xlarge"}, "c6g.12xlarge": {"graviton_3": "c7g.12xlarge", "intel_6": "c6i.12xlarge", "intel_5": "c5.12xlarge"}, "c6g.16xlarge": {"graviton_3": "c7g.16xlarge", "intel_6": "c6i.16xlarge", "intel_5": "c5.18xlarge"}, "c6g.2xlarge": {"graviton_3": "c7g.2xlarge", "intel_6": "c6i.2xlarge", "intel_5": "c5.2xlarge"}, "c6g.4xlarge": {"graviton_3": "c7g.4xlarge", "intel_6": "c6i.4xlarge", "intel_5": "c5.4xlarge"}, "c6g.8xlarge": {"graviton_3": "c7g.8xlarge", "intel_6": "c6i.8xlarge", "intel_5": "c5.9xlarge"}, "c6g.xlarge": {"graviton_3": "c7g.xlarge", "intel_6": "c6i.xlarge", "intel_5": "c5.xlarge"}, "c6i.12xlarge": {"graviton_2": "c6g.12xlarge", "graviton_3": "c7g.12xlarge", "intel_5": "c5.12xlarge"}, "c6i.16xlarge": {"graviton_2": "c6g.16xlarge", "graviton_3": "c7g.16xlarge", "intel_5": "c5.18xlarge"}, "c6i.24xlarge": {"intel_5": "c5.24xlarge"}, "c6i.2xlarge": {"graviton_2": "c6g.2xlarge", "graviton_3": "c7g.2xlarge", "intel_5": "c5.2xlarge"}, "c6i.4xlarge": {"graviton_2": "c6g.4xlarge", "graviton_3": "c7g.4xlarge", "intel_5": "c5.4xlarge"}, "c6i.8xlarge": {"graviton_2": "c6g.8xlarge", "graviton_3": "c7g.8xlarge", "intel_5": "c5.9xlarge"}, "c6i.xlarge": {"graviton_2": "c6g.xlarge", "graviton_3": "c7g.xlarge", "intel_5": "c5.xlarge"}, "c7a.2xlarge": {"graviton_2": "c6g.2xlarge", "graviton_3": "c7g.2xlarge", "intel_6": "c6i.2xlarge", "intel_5": "c5.2xlarge"}, "c7a.4xlarge": {"graviton_2": "c6g.4xlarge", "graviton_3": "c7g.4xlarge", "intel_6": "c6i.4xlarge", "intel_5": "c5.4xlarge"}, "c7a.xlarge": {"graviton_2": "c6g.xlarge", "graviton_3": "c7g.xlarge", "intel_6": "c6i.xlarge", "intel_5": "c5.xlarge"}, "c7g.12xlarge": {"graviton_2": "c6g.12xlarge", "intel_6": "c6i.12xlarge", "intel_5": "c5.12xlarge"}, "c7g.16xlarge": {"graviton_2": "c6g.16xlarge", "intel_6": "c6i.16xlarge", "intel_5": "c5.18xlarge"}, "c7g.2xlarge": {"graviton_2": "c6g.2xlarge", "intel_6": "c6i.2xlarge", "intel_5": "c5.2xlarge"}, "c7g.4xlarge": {"graviton_2": "c6g.4xlarge", "intel_6": "c6i.4xlarge", "intel_5": "c5.4xlarge"}, "c7g.8xlarge": {"graviton_2": "c6g.8xlarge", "intel_6": "c6i.8xlarge", "intel_5": "c5.9xlarge"}, "c7g.xlarge": {"graviton_2": "c6g.xlarge", "intel_6": "c6i.xlarge", "intel_5": "c5.xlarge"}, "m5.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge"}, "m5.16xlarge": {"graviton_2": "m6g.16xlarge", "graviton_3": "m7g.16xlarge", "intel_6": "m6i.16xlarge"}, "m5.24xlarge": {"intel_6": "m6i.24xlarge"}, "m5.2xlarge": {"graviton_2": "m6g.2xlarge", "graviton_3": "m7g.2xlarge", "intel_6": "m6i.2xlarge"}, "m5.4xlarge": {"graviton_2": "m6g.4xlarge", "graviton_3": "m7g.4xlarge", "intel_6": "m6i.4xlarge"}, "m5.8xlarge": {"graviton_2": "m6g.8xlarge", "graviton_3": "m7g.8xlarge", "intel_6": "m6i.8xlarge"}, "m5.large": {"graviton_2": "m6g.large", "graviton_3": "m7g.large", "intel_6": "m6i.large"}, "m5.metal": {"graviton_3": "m7g.metal"}, "m5.xlarge": {"graviton_2": "m6g.xlarge", "graviton_3": "m7g.xlarge", "intel_6": "m6i.xlarge"}, "m6a.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "m6a.24xlarge": {"intel_6": "m6i.24xlarge", "intel_5": "m5.24xlarge"}, "m6g.12xlarge": {"graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "m6g.16xlarge": {"graviton_3": "m7g.16xlarge", "intel_6": "m6i.16xlarge", "intel_5": "m5.16xlarge"}, "m6g.2xlarge": {"graviton_3": "m7g.2xlarge", "intel_6": "m6i.2xlarge", "intel_5": "m5.2xlarge"}, "m6g.4xlarge": {"graviton_3": "m7g.4xlarge", "intel_6": "m6i.4xlarge", "intel_5": "m5.4xlarge"}, "m6g.8xlarge": {"graviton_3": "m7g.8xlarge", "intel_6": "m6i.8xlarge", "intel_5": "m5.8xlarge"}, "m6g.large": {"graviton_3": "m7g.large", "intel_6": "m6i.large", "intel_5": "m5.large"}, "m6g.xlarge": {"graviton_3": "m7g.xlarge", "intel_6": "m6i.xlarge", "intel_5": "m5.xlarge"}, "m6i.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_5": "m5.12xlarge"}, "m6i.16xlarge": {"graviton_2": "m6g.16xlarge", "graviton_3": "m7g.16xlarge", "intel_5": "m5.16xlarge"}, "m6i.24xlarge": {"intel_5": "m5.24xlarge"}, "m6i.2xlarge": {"graviton_2": "m6g.2xlarge", "graviton_3": "m7g.2xlarge", "intel_5": "m5.2xlarge"}, "m6i.4xlarge": {"graviton_2": "m6g.4xlarge", "graviton_3": "m7g.4xlarge", "intel_5": "m5.4xlarge"}, "m6i.8xlarge": {"graviton_2": "m6g.8xlarge", "graviton_3": "m7g.8xlarge", "intel_5": "m5.8xlarge"}, "m6i.large": {"graviton_2": "m6g.large", "graviton_3": "m7g.large", "intel_5": "m5.large"}, "m6i.xlarge": {"graviton_2": "m6g.xlarge", "graviton_3": "m7g.xlarge", "intel_5": "m5.xlarge"}, "m7a.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "m7a.24xlarge": {"intel_6": "m6i.24xlarge", "intel_5": "m5.24xlarge"}, "m7a.2xlarge": {"graviton_2": "m6g.2xlarge", "graviton_3": "m7g.2xlarge", "intel_6": "m6i.2xlarge", "intel_5": "m5.2xlarge"}, "m7a.large": {"graviton_2": "m6g.large", "graviton_3": "m7g.large", "intel_6": "m6i.large", "intel_5": "m5.large"}, "m7a.xlarge": {"graviton_2": "m6g.xlarge", "graviton_3": "m7g.xlarge", "intel_6": "m6i.xlarge", "intel_5": "m5.xlarge"}, "m7g.12xlarge": {"graviton_2": "m6g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "m7g.16xlarge": {"graviton_2": "m6g.16xlarge", "intel_6": "m6i.16xlarge", "intel_5": "m5.16xlarge"}, "m7g.2xlarge": {"graviton_2": "m6g.2xlarge", "intel_6": "m6i.2xlarge", "intel_5": "m5.2xlarge"}, "m7g.4xlarge": {"graviton_2": "m6g.4xlarge", "intel_6": "m6i.4xlarge", "intel_5": "m5.4xlarge"}, "m7g.8xlarge": {"graviton_2": "m6g.8xlarge", "intel_6": "m6i.8xlarge", "intel_5": "m5.8xlarge"}, "m7g.large": {"graviton_2": "m6g.large", "intel_6": "m6i.large", "intel_5": "m5.large"}, "m7g.metal": {"intel_5": "m5.metal"}, "m7g.xlarge": {"graviton_2": "m6g.xlarge", "intel_6": "m6i.xlarge", "intel_5": "m5.xlarge"}, "m7i.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "r5.12xlarge": {"graviton_2": "r6g.12xlarge", "graviton_3": "r7g.12xlarge", "intel_6": "r6i.12xlarge"}, "r5.16xlarge": {"graviton_2": "r6g.16xlarge", "graviton_3": "r7g.16xlarge", "intel_6": "r6i.16xlarge"}, "r5.24xlarge": {"intel_6": "r6i.24xlarge"}, "r5.2xlarge": {"graviton_2": "r6g.2xlarge", "graviton_3": "r7g.2xlarge", "intel_6": "r6i.2xlarge"}, "r5.4xlarge": {"graviton_2": "r6g.4xlarge", "graviton_3": "r7g.4xlarge", "intel_6": "r6i.4xlarge"}, "r5.8xlarge": {"graviton_2": "r6g.8xlarge", "graviton_3": "r7g.8xlarge", "intel_6": "r6i.8xlarge"}, "r5.large": {"graviton_2": "r6g.large", "graviton_3": "r7g.large", "intel_6": "r6i.large"}, "r5.xlarge": {"graviton_2": "r6g.xlarge", "graviton_3": "r7g.xlarge", "intel_6": "r6i.xlarge"}, "r6g.12xlarge": {"graviton_3": "r7g.12xlarge", "intel_6": "r6i.12xlarge", "intel_5": "r5.12xlarge"}, "r6g.16xlarge": {"graviton_3": "r7g.16xlarge", "intel_6": "r6i.16xlarge", "intel_5": "r5.16xlarge"}, "r6g.2xlarge": {"graviton_3": "r7g.2xlarge", "intel_6": "r6i.2xlarge", "intel_5": "r5.2xlarge"}, "r6g.4xlarge": {"graviton_3": "r7g.4xlarge", "intel_6": "r6i.4xlarge", "intel_5": "r5.4xlarge"}, "r6g.8xlarge": {"graviton_3": "r7g.8xlarge", "intel_6": "r6i.8xlarge", "intel_5": "r5.8xlarge"}, "r6g.large": {"graviton_3": "r7g.large", "intel_6": "r6i.large", "intel_5": "r5.large"}, "r6g.xlarge": {"graviton_3": "r7g.xlarge", "intel_6": "r6i.xlarge", "intel_5": "r5.xlarge"}, "r6i.12xlarge": {"graviton_2": "r6g.12xlarge", "graviton_3": "r7g.12xlarge", "intel_5": "r5.12xlarge"}, "r6i.16xlarge": {"graviton_2": "r6g.16xlarge", "graviton_3": "r7g.16xlarge", "intel_5": "r5.16xlarge"}, "r6i.24xlarge": {"intel_5": "r5.24xlarge"}, "r6i.2xlarge": {"graviton_2": "r6g.2xlarge", "graviton_3": "r7g.2xlarge", "intel_5": "r5.2xlarge"}, "r6i.4xlarge": {"graviton_2": "r6g.4xlarge", "graviton_3": "r7g.4xlarge", "intel_5": "r5.4xlarge"}, "r6i.8xlarge": {"graviton_2": "r6g.8xlarge", "graviton_3": "r7g.8xlarge", "intel_5": "r5.8xlarge"}, "r6i.large": {"graviton_2": "r6g.large", "graviton_3": "r7g.large", "intel_5": "r5.large"}, "r6i.xlarge": {"graviton_2": "r6g.xlarge", "graviton_3": "r7g.xlarge", "intel_5": "r5.xlarge"}, "r7g.12xlarge": {"graviton_2": "r6g.12xlarge", "intel_6": "r6i.12xlarge", "intel_5": "r5.12xlarge"}, "r7g.16xlarge": {"graviton_2": "r6g.16xlarge", "intel_6": "r6i.16xlarge", "intel_5": "r5.16xlarge"}, "r7g.2xlarge": {"graviton_2": "r6g.2xlarge", "intel_6": "r6i.2xlarge", "intel_5": "r5.2xlarge"}, "r7g.4xlarge": {"graviton_2": "r6g.4xlarge", "intel_6": "r6i.4xlarge", "intel_5": "r5.4xlarge"}, "r7g.8xlarge": {"graviton_2": "r6g.8xlarge", "intel_6": "r6i.8xlarge", "intel_5": "r5.8xlarge"}, "r7g.large": {"graviton_2": "r6g.large", "intel_6": "r6i.large", "intel_5": "r5.large"}, "r7g.xlarge": {"graviton_2": "r6g.xlarge", "intel_6": "r6i.xlarge", "intel_5": "r5.xlarge"}, "c5.9xlarge": {"graviton_2": "c6g.12xlarge", "graviton_3": "c7g.12xlarge", "intel_6": "c6i.12xlarge"}}
+_OVERRIDE_INSTANCE_TYPE_MAPPINGS = {"c5.12xlarge": {"graviton_2": "c6g.12xlarge", "graviton_3": "c7g.12xlarge", "intel_6": "c6i.12xlarge"}, "c5.24xlarge": {"intel_6": "c6i.24xlarge"}, "c5.2xlarge": {"graviton_2": "c6g.2xlarge", "graviton_3": "c7g.2xlarge", "intel_6": "c6i.2xlarge"}, "c5.4xlarge": {"graviton_2": "c6g.4xlarge", "graviton_3": "c7g.4xlarge", "intel_6": "c6i.4xlarge"}, "c5.xlarge": {"graviton_2": "c6g.xlarge", "graviton_3": "c7g.xlarge", "intel_6": "c6i.xlarge"}, "c6g.12xlarge": {"graviton_3": "c7g.12xlarge", "intel_6": "c6i.12xlarge", "intel_5": "c5.12xlarge"}, "c6g.16xlarge": {"graviton_3": "c7g.16xlarge", "intel_6": "c6i.16xlarge", "intel_5": "c5.18xlarge"}, "c6g.2xlarge": {"graviton_3": "c7g.2xlarge", "intel_6": "c6i.2xlarge", "intel_5": "c5.2xlarge"}, "c6g.4xlarge": {"graviton_3": "c7g.4xlarge", "intel_6": "c6i.4xlarge", "intel_5": "c5.4xlarge"}, "c6g.8xlarge": {"graviton_3": "c7g.8xlarge", "intel_6": "c6i.8xlarge", "intel_5": "c5.9xlarge"}, "c6g.xlarge": {"graviton_3": "c7g.xlarge", "intel_6": "c6i.xlarge", "intel_5": "c5.xlarge"}, "c6i.12xlarge": {"graviton_2": "c6g.12xlarge", "graviton_3": "c7g.12xlarge", "intel_5": "c5.12xlarge"}, "c6i.16xlarge": {"graviton_2": "c6g.16xlarge", "graviton_3": "c7g.16xlarge", "intel_5": "c5.18xlarge"}, "c6i.24xlarge": {"intel_5": "c5.24xlarge"}, "c6i.2xlarge": {"graviton_2": "c6g.2xlarge", "graviton_3": "c7g.2xlarge", "intel_5": "c5.2xlarge"}, "c6i.4xlarge": {"graviton_2": "c6g.4xlarge", "graviton_3": "c7g.4xlarge", "intel_5": "c5.4xlarge"}, "c6i.8xlarge": {"graviton_2": "c6g.8xlarge", "graviton_3": "c7g.8xlarge", "intel_5": "c5.9xlarge"}, "c6i.xlarge": {"graviton_2": "c6g.xlarge", "graviton_3": "c7g.xlarge", "intel_5": "c5.xlarge"}, "c7a.2xlarge": {"graviton_2": "c6g.2xlarge", "graviton_3": "c7g.2xlarge", "intel_6": "c6i.2xlarge", "intel_5": "c5.2xlarge"}, "c7a.4xlarge": {"graviton_2": "c6g.4xlarge", "graviton_3": "c7g.4xlarge", "intel_6": "c6i.4xlarge", "intel_5": "c5.4xlarge"}, "c7a.xlarge": {"graviton_2": "c6g.xlarge", "graviton_3": "c7g.xlarge", "intel_6": "c6i.xlarge", "intel_5": "c5.xlarge"}, "c7g.12xlarge": {"graviton_2": "c6g.12xlarge", "intel_6": "c6i.12xlarge", "intel_5": "c5.12xlarge"}, "c7g.16xlarge": {"graviton_2": "c6g.16xlarge", "intel_6": "c6i.16xlarge", "intel_5": "c5.18xlarge"}, "c7g.2xlarge": {"graviton_2": "c6g.2xlarge", "intel_6": "c6i.2xlarge", "intel_5": "c5.2xlarge"}, "c7g.4xlarge": {"graviton_2": "c6g.4xlarge", "intel_6": "c6i.4xlarge", "intel_5": "c5.4xlarge"}, "c7g.8xlarge": {"graviton_2": "c6g.8xlarge", "intel_6": "c6i.8xlarge", "intel_5": "c5.9xlarge"}, "c7g.xlarge": {"graviton_2": "c6g.xlarge", "intel_6": "c6i.xlarge", "intel_5": "c5.xlarge"}, "m5.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge"}, "m5.16xlarge": {"graviton_2": "m6g.16xlarge", "graviton_3": "m7g.16xlarge", "intel_6": "m6i.16xlarge"}, "m5.24xlarge": {"intel_6": "m6i.24xlarge"}, "m5.2xlarge": {"graviton_2": "m6g.2xlarge", "graviton_3": "m7g.2xlarge", "intel_6": "m6i.2xlarge"}, "m5.4xlarge": {"graviton_2": "m6g.4xlarge", "graviton_3": "m7g.4xlarge", "intel_6": "m6i.4xlarge"}, "m5.8xlarge": {"graviton_2": "m6g.8xlarge", "graviton_3": "m7g.8xlarge", "intel_6": "m6i.8xlarge"}, "m5.large": {"graviton_2": "m6g.large", "graviton_3": "m7g.large", "intel_6": "m6i.large"}, "m5.metal": {"graviton_3": "m7g.metal"}, "m5.xlarge": {"graviton_2": "m6g.xlarge", "graviton_3": "m7g.xlarge", "intel_6": "m6i.xlarge"}, "m6a.24xlarge": {"intel_6": "m6i.24xlarge", "intel_5": "m5.24xlarge"}, "m6g.12xlarge": {"graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "m6g.16xlarge": {"graviton_3": "m7g.16xlarge", "intel_6": "m6i.16xlarge", "intel_5": "m5.16xlarge"}, "m6g.2xlarge": {"graviton_3": "m7g.2xlarge", "intel_6": "m6i.2xlarge", "intel_5": "m5.2xlarge"}, "m6g.4xlarge": {"graviton_3": "m7g.4xlarge", "intel_6": "m6i.4xlarge", "intel_5": "m5.4xlarge"}, "m6g.8xlarge": {"graviton_3": "m7g.8xlarge", "intel_6": "m6i.8xlarge", "intel_5": "m5.8xlarge"}, "m6g.large": {"graviton_3": "m7g.large", "intel_6": "m6i.large", "intel_5": "m5.large"}, "m6g.xlarge": {"graviton_3": "m7g.xlarge", "intel_6": "m6i.xlarge", "intel_5": "m5.xlarge"}, "m6i.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_5": "m5.12xlarge"}, "m6i.16xlarge": {"graviton_2": "m6g.16xlarge", "graviton_3": "m7g.16xlarge", "intel_5": "m5.16xlarge"}, "m6i.24xlarge": {"intel_5": "m5.24xlarge"}, "m6i.2xlarge": {"graviton_2": "m6g.2xlarge", "graviton_3": "m7g.2xlarge", "intel_5": "m5.2xlarge"}, "m6i.4xlarge": {"graviton_2": "m6g.4xlarge", "graviton_3": "m7g.4xlarge", "intel_5": "m5.4xlarge"}, "m6i.8xlarge": {"graviton_2": "m6g.8xlarge", "graviton_3": "m7g.8xlarge", "intel_5": "m5.8xlarge"}, "m6i.large": {"graviton_2": "m6g.large", "graviton_3": "m7g.large", "intel_5": "m5.large"}, "m6i.xlarge": {"graviton_2": "m6g.xlarge", "graviton_3": "m7g.xlarge", "intel_5": "m5.xlarge"}, "m7a.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "m7a.24xlarge": {"intel_6": "m6i.24xlarge", "intel_5": "m5.24xlarge"}, "m7a.2xlarge": {"graviton_2": "m6g.2xlarge", "graviton_3": "m7g.2xlarge", "intel_6": "m6i.2xlarge", "intel_5": "m5.2xlarge"}, "m7a.large": {"graviton_2": "m6g.large", "graviton_3": "m7g.large", "intel_6": "m6i.large", "intel_5": "m5.large"}, "m7a.xlarge": {"graviton_2": "m6g.xlarge", "graviton_3": "m7g.xlarge", "intel_6": "m6i.xlarge", "intel_5": "m5.xlarge"}, "m7g.12xlarge": {"graviton_2": "m6g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "m7g.16xlarge": {"graviton_2": "m6g.16xlarge", "intel_6": "m6i.16xlarge", "intel_5": "m5.16xlarge"}, "m7g.2xlarge": {"graviton_2": "m6g.2xlarge", "intel_6": "m6i.2xlarge", "intel_5": "m5.2xlarge"}, "m7g.4xlarge": {"graviton_2": "m6g.4xlarge", "intel_6": "m6i.4xlarge", "intel_5": "m5.4xlarge"}, "m7g.8xlarge": {"graviton_2": "m6g.8xlarge", "intel_6": "m6i.8xlarge", "intel_5": "m5.8xlarge"}, "m7g.large": {"graviton_2": "m6g.large", "intel_6": "m6i.large", "intel_5": "m5.large"}, "m7g.metal": {"intel_5": "m5.metal"}, "m7g.xlarge": {"graviton_2": "m6g.xlarge", "intel_6": "m6i.xlarge", "intel_5": "m5.xlarge"}, "m7i.12xlarge": {"graviton_2": "m6g.12xlarge", "graviton_3": "m7g.12xlarge", "intel_6": "m6i.12xlarge", "intel_5": "m5.12xlarge"}, "r5.12xlarge": {"graviton_2": "r6g.12xlarge", "graviton_3": "r7g.12xlarge", "intel_6": "r6i.12xlarge"}, "r5.16xlarge": {"graviton_2": "r6g.16xlarge", "graviton_3": "r7g.16xlarge", "intel_6": "r6i.16xlarge"}, "r5.24xlarge": {"intel_6": "r6i.24xlarge"}, "r5.2xlarge": {"graviton_2": "r6g.2xlarge", "graviton_3": "r7g.2xlarge", "intel_6": "r6i.2xlarge"}, "r5.4xlarge": {"graviton_2": "r6g.4xlarge", "graviton_3": "r7g.4xlarge", "intel_6": "r6i.4xlarge"}, "r5.8xlarge": {"graviton_2": "r6g.8xlarge", "graviton_3": "r7g.8xlarge", "intel_6": "r6i.8xlarge"}, "r5.large": {"graviton_2": "r6g.large", "graviton_3": "r7g.large", "intel_6": "r6i.large"}, "r5.xlarge": {"graviton_2": "r6g.xlarge", "graviton_3": "r7g.xlarge", "intel_6": "r6i.xlarge"}, "r6g.12xlarge": {"graviton_3": "r7g.12xlarge", "intel_6": "r6i.12xlarge", "intel_5": "r5.12xlarge"}, "r6g.16xlarge": {"graviton_3": "r7g.16xlarge", "intel_6": "r6i.16xlarge", "intel_5": "r5.16xlarge"}, "r6g.2xlarge": {"graviton_3": "r7g.2xlarge", "intel_6": "r6i.2xlarge", "intel_5": "r5.2xlarge"}, "r6g.4xlarge": {"graviton_3": "r7g.4xlarge", "intel_6": "r6i.4xlarge", "intel_5": "r5.4xlarge"}, "r6g.8xlarge": {"graviton_3": "r7g.8xlarge", "intel_6": "r6i.8xlarge", "intel_5": "r5.8xlarge"}, "r6g.large": {"graviton_3": "r7g.large", "intel_6": "r6i.large", "intel_5": "r5.large"}, "r6g.xlarge": {"graviton_3": "r7g.xlarge", "intel_6": "r6i.xlarge", "intel_5": "r5.xlarge"}, "r6i.12xlarge": {"graviton_2": "r6g.12xlarge", "graviton_3": "r7g.12xlarge", "intel_5": "r5.12xlarge"}, "r6i.16xlarge": {"graviton_2": "r6g.16xlarge", "graviton_3": "r7g.16xlarge", "intel_5": "r5.16xlarge"}, "r6i.24xlarge": {"intel_5": "r5.24xlarge"}, "r6i.2xlarge": {"graviton_2": "r6g.2xlarge", "graviton_3": "r7g.2xlarge", "intel_5": "r5.2xlarge"}, "r6i.4xlarge": {"graviton_2": "r6g.4xlarge", "graviton_3": "r7g.4xlarge", "intel_5": "r5.4xlarge"}, "r6i.8xlarge": {"graviton_2": "r6g.8xlarge", "graviton_3": "r7g.8xlarge", "intel_5": "r5.8xlarge"}, "r6i.large": {"graviton_2": "r6g.large", "graviton_3": "r7g.large", "intel_5": "r5.large"}, "r6i.xlarge": {"graviton_2": "r6g.xlarge", "graviton_3": "r7g.xlarge", "intel_5": "r5.xlarge"}, "r7g.12xlarge": {"graviton_2": "r6g.12xlarge", "intel_6": "r6i.12xlarge", "intel_5": "r5.12xlarge"}, "r7g.16xlarge": {"graviton_2": "r6g.16xlarge", "intel_6": "r6i.16xlarge", "intel_5": "r5.16xlarge"}, "r7g.2xlarge": {"graviton_2": "r6g.2xlarge", "intel_6": "r6i.2xlarge", "intel_5": "r5.2xlarge"}, "r7g.4xlarge": {"graviton_2": "r6g.4xlarge", "intel_6": "r6i.4xlarge", "intel_5": "r5.4xlarge"}, "r7g.8xlarge": {"graviton_2": "r6g.8xlarge", "intel_6": "r6i.8xlarge", "intel_5": "r5.8xlarge"}, "r7g.large": {"graviton_2": "r6g.large", "intel_6": "r6i.large", "intel_5": "r5.large"}, "r7g.xlarge": {"graviton_2": "r6g.xlarge", "intel_6": "r6i.xlarge", "intel_5": "r5.xlarge"}, "c5.9xlarge": {"graviton_2": "c6g.12xlarge", "graviton_3": "c7g.12xlarge", "intel_6": "c6i.12xlarge"}}
 
 def get_instance_type_by_name(name):
     instance_type_from_name = _INSTANCE_TYPES_BY_NAME.get(name)
@@ -2242,6 +2230,7 @@ def aws_instance_size(instance_type):
         # types.
         "m6a": 700,
         "g4": 700,
+        "g6": 700,
     }
 
     reduction_basis_points = base_instance_family_memory_reduction_basis_points.get(base_instance_family(instance_type), 0)

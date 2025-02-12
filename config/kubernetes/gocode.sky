@@ -5,6 +5,8 @@ load("config/kubernetes/core/volume.sky", "mount_host_volume")
 load("config/kubernetes/helpers/images.sky", "image_defaults")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
 load("config/kubernetes/stripe.sky", "stripe_pod")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+
 
 def gocode_pod(ctx, **kwargs):
     """
@@ -46,6 +48,7 @@ def gocode_pod(ctx, **kwargs):
         stripe_pod(
             ctx,
             image = image,
+            programming_language = GO_PROGRAMMING_LANGUAGE,
             **kwargs
         ),
         pay_health_mount,

@@ -1,23 +1,17 @@
 # DO NOT EDIT: http://go/vendor-skycfg
-load("config/kubernetes/core/env_var.sky", "container_env_vars")
-load("config/kubernetes/core/ha.sky", "prefer_zone_balance", "require_node_balance", "require_zone_balance", "require_node_balance_by_henson_service")
+load("config/kubernetes/core/ha.sky", "prefer_zone_balance", "require_node_balance", "require_node_balance_by_henson_service", "require_zone_balance")
 load("config/kubernetes/core/pod.sky", "pod_runtime_class")
 load("config/kubernetes/core/volume.sky", "mount_pod_volume", "volume_mount_all_containers")
 load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
-load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE")
+load("config/kubernetes/helpers/constants.sky", "GO_PROGRAMMING_LANGUAGE", "MAX_DISK_SIZE_LIMIT", "POD_EGRESS_BW", "POD_INGRESS_BW")
 load("config/kubernetes/helpers/context.sky", "get_env", "is_bin_packing_v1_enabled", "is_bin_packing_v2_enabled")
 load("config/kubernetes/helpers/node_selectors.sky", "node_selectors")
 load("config/kubernetes/helpers/shards_list.sky", "BINPACKING_VERSION")
 load("config/kubernetes/helpers/tolerations.sky", "add_toleration")
-load("config/kubernetes/meta/metadata.sky", "labels", "annotations")
+load("config/kubernetes/meta/metadata.sky", "labels", "set_cni_network_bandwidth_limits_annotations")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
-load("config/kubernetes/plugins/types.sky", "pod_plugin")
+load("config/kubernetes/plugins/types.sky", "container_plugin", "pod_plugin")
 load("config/kubernetes/sidecars/credentials_proxy_shim.sky", "credentials_proxy_shim_sidecar")
-
-# Copying over the defaults set on kata-clh for binpacking v1.
-# See https://git.corp.stripe.com/stripe-internal/gocode/blob/master/puppet-config/modules/microvm/manifests/init.pp#L17
-POD_INGRESS_BW = "5G"
-POD_EGRESS_BW = "5G"
 
 def get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew, replicas = None):
     """
@@ -26,6 +20,7 @@ def get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew, rep
     """
     if replicas != None:
         replicas = int(replicas)
+
         # If replica is 1, spread by henson service name with minDomains = 2 such that
         # canary and main deployment are on different nodes
         if replicas == 1:
@@ -47,7 +42,7 @@ def get_require_zone_balance_plugin(ctx, set_require_zone_balance_with_skew):
             min_domains = 3
         return compose_plugins(require_zone_balance(set_require_zone_balance_with_skew, min_domains = min_domains))
 
-def _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, version, replicas):
+def _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, version):
     plugins = [
         # For tracking, attach an extra label when we use soft constraints
         labels({
@@ -57,13 +52,12 @@ def _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set
 
         # We want to automatically spread BinPacked workloads across Availability Zones
         # however we do not want this to be a hard constraint, unless specified.
-        get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew, replicas),
         get_require_zone_balance_plugin(ctx, set_require_zone_balance_with_skew),
     ]
     return plugins
 
 def get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier, replicas):
-    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V1, replicas)
+    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V1)
     common_plugins.extend(
         [
             # Set the proper runtime for this pod, which is kata runtime. Which will enclose the pod in a MicroVM
@@ -77,12 +71,13 @@ def get_bin_packing_v1_plugins(ctx, set_require_zone_balance_with_skew, set_requ
             # transparently copy the requests/responses through a vsocket to the credentials-proxy daemonset
             # which lives outside of the pod and handles requests for all multi-tenant pods.
             credentials_proxy_shim_sidecar(),
+            get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew),
         ],
     )
     return common_plugins
 
 def get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, deployment_availability_tier, instance_type, replicas):
-    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V2, replicas)
+    common_plugins = _get_bin_packing_common_plugins(ctx, set_require_zone_balance_with_skew, set_require_node_balance_with_skew, BINPACKING_VERSION.V2)
     common_plugins.extend(
         [
             node_selectors({
@@ -101,15 +96,14 @@ def get_bin_packing_v2_plugins(ctx, set_require_zone_balance_with_skew, set_requ
                 effect = "NoSchedule",
             ),
             update_sidecar_env_vars(ctx, instance_type),
+            update_main_container_storage(ctx),
             # TODO: Once PoC is completed, we can move this in to a helper plugin to customize setting the limit.
             # Bandwidth limit annotations for the pod can be found here
             # https://kubernetes.io/docs/reference/labels-annotations-taints/#kubernetes-io-ingress-bandwidth
-            annotations(
-                {
-                    "kubernetes.io/ingress-bandwidth": POD_INGRESS_BW,
-                    "kubernetes.io/egress-bandwidth": POD_EGRESS_BW,
-                },
-            ),
+            set_cni_network_bandwidth_limits_annotations(ingress_bandwidth = POD_INGRESS_BW, egress_bandwidth = POD_EGRESS_BW),
+            # Spread the pods across Nodes by accounting for replicas allowing to spread the canary and main service
+            # across different nodes
+            get_require_node_balance_plugin(ctx, set_require_node_balance_with_skew, replicas),
         ],
     )
     return common_plugins
@@ -123,6 +117,7 @@ def bin_packing(ctx, set_require_zone_balance_with_skew = -1, set_require_node_b
         set_require_zone_balance_with_skew: Set the require_zone_balance flag on the deployment with the provided skew
         set_require_node_balance_with_skew: Set the require_node_balance flag on the deployment with the provided skew
         deployment_availability_tier: The availability tier of the deployment
+        instance_type: The type of instance for the deployment
         replicas: The number of replicas for the deployment
 
     Returns:
@@ -139,6 +134,34 @@ def bin_packing(ctx, set_require_zone_balance_with_skew = -1, set_require_node_b
 
 def update_sidecar_env_vars(ctx, instance_type):
     return pod_plugin(updater = _update_pod, instance_type = instance_type)
+
+def update_main_container_storage(ctx):
+    """
+    Update the main container's storage limits to the default value if not set.
+    """
+
+    # container_name = None means main container
+    return container_plugin(updater = _update_container, container_name = None)
+
+def _update_container(ctx, plugin, container_def):
+    container = struct(**container_def)
+    if hasattr(container, "container_resource_spec") and container.container_resource_spec != None:
+        # Only assign a default if the key doesn't exist
+        if container.container_resource_spec.get("limits", None) != None:
+            # If the limit is already set, don't override it
+            if container.container_resource_spec["limits"].get("ephemeral-storage", None) != None:
+                return
+
+        # Ensure limits is a dictionary
+        if container.container_resource_spec.get("limits", None) == None:
+            container.container_resource_spec["limits"] = {}
+
+        # Set the default limit for the main container
+        container.container_resource_spec["limits"]["ephemeral-storage"] = MAX_DISK_SIZE_LIMIT
+    else:
+        if container.limits == None:
+            container.limits = {}
+        container.limits["ephemeral-storage"] = MAX_DISK_SIZE_LIMIT
 
 def _update_pod(ctx, plugin, pod_def):
     containers = pod_def["containers"]

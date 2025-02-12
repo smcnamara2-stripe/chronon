@@ -55,7 +55,7 @@ sum(
 
 RUBY_WORKER_UTILIZATION = '''
 100 - min (
-  max_over_time(
+  min_over_time(
     avg (
       sys_workers_availability_percent{{
         henson_service="{henson_service_name}",

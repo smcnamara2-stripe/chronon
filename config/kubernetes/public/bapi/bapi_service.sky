@@ -2,6 +2,7 @@
 load("config/kubernetes/apps/deployment.sky", "context_aware_deployment_options")
 load("config/kubernetes/apps/strategy.sky", "rolling_update_strategy")
 load("config/kubernetes/core/env_var.sky", "container_env_vars")
+load("config/kubernetes/crds/keda/scaledobject.sky", "cpu_trigger", "memory_trigger", "ruby_worker_scaling_trigger", "scale_policy", "scaled_object")
 load("config/kubernetes/helpers/availability_tiers.sky", "A100", "A110", "A120", "A130", "A140", "A150")
 load("config/kubernetes/helpers/aws_instance_sizes.sky", "aws_instance_size")
 load("config/kubernetes/helpers/bluegreen.sky", "add_blue_green_metrics_tagging")
@@ -66,6 +67,21 @@ PRIORITIES_BY_NAME = {
     P4.name: P4,
     P5.name: P5,
 }
+
+BAPI_AUTOSCALING_DEFAULT_MEMORY_TRIGGER = 98
+BAPI_AUTOSCALING_DEFAULT_CPU_TRIGGER = 85
+BAPI_AUTOSCALING_DEFAULT_WORKER_TRIGGER = 80
+BAPI_MAX_ADDITIONAL_WORKERS_PROD = 300
+BAPI_MAX_ADDITIONAL_WORKERS_PREPROD = 50
+
+# 5 replicas for m6i_12xlarge type instance
+BAPI_AUTOSCALING_POLICY_ADDITIONAL_WORKERS_PROD = 260
+
+# 4 replicas for r5_2xlarge type instance
+BAPI_AUTOSCALING_POLICY_ADDITIONAL_WORKERS_PREPROD = 32
+
+def get_autoscaling_policy_value_by_worker_count(workers_per_replica, additional_workers):
+    return ceil_division(additional_workers, workers_per_replica)
 
 def priority_by_name(name):
     priority_from_name = PRIORITIES_BY_NAME.get(name)
@@ -249,3 +265,74 @@ def bapi_service(
             strategy = rolling_update_strategy(ctx, max_unavailable = "100%", max_surge = max_surge(ctx, replicas)),
         ),
     )
+
+def get_scaled_object_config(env, replicas, workers):
+    """
+    Get the configuration for a scaled object for autoscaling based on the number of replicas and workers.
+
+    Args:
+        env: The environment of the deployment.
+        replicas: The number of replicas in the deployment.
+        workers: The number of workers for each replica.
+
+    Returns:
+        A scaled_object configuration or None if replicas is 0.
+    """
+    if replicas == 0:
+        return None
+
+    # maximum num of workers allowed when reaching max replicas
+    if env == "prod":
+        max_additional_workers = BAPI_MAX_ADDITIONAL_WORKERS_PROD
+    else:
+        max_additional_workers = BAPI_MAX_ADDITIONAL_WORKERS_PREPROD
+
+    # scale down by 1 replica every 60 seconds
+    scale_down_scaling_policies = [scale_policy(policy_type = "Pods", value = 1, period_seconds = 60)]
+
+    # the highest desired state from the past previous 15 minute window will be the new scaling target
+    scale_down_stabilization_window_seconds = 900
+
+    # scale up by 1 replica every 15 seconds
+    scale_up_scaling_policies = [scale_policy(policy_type = "Pods", value = 1, period_seconds = 15)]
+
+    # scale up immediately, without waiting for a window
+    scale_up_stabilization_window_seconds = 0
+
+    cpu = cpu_trigger(value = BAPI_AUTOSCALING_DEFAULT_CPU_TRIGGER)
+    memory = memory_trigger(value = BAPI_AUTOSCALING_DEFAULT_MEMORY_TRIGGER)
+    ruby_worker = ruby_worker_scaling_trigger(utilization = BAPI_AUTOSCALING_DEFAULT_WORKER_TRIGGER)
+
+    return scaled_object(
+        min_replicas = replicas,
+        max_replicas = get_max_replicas_by_workers(replicas, workers, max_additional_workers),
+        scale_down_scaling_policies = scale_down_scaling_policies,
+        scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds,
+        scale_up_scaling_policies = scale_up_scaling_policies,
+        scale_down_stabilization_window_seconds = scale_down_stabilization_window_seconds,
+        cpu_trigger = cpu,
+        memory_trigger = memory,
+        ruby_worker_scaling_trigger = ruby_worker,
+    )
+
+def get_max_replicas_by_workers(min_replicas, workers_per_instance, max_additional_workers):
+    """
+    Calculate the max replicas based on the number of workers per instance and the max additional workers.
+
+    Args:
+        min_replicas: The minimum number of replicas for the deployment.
+        workers_per_instance: The number of workers per instance.
+        max_additional_workers: The maximum number of additional workers.
+
+    Returns:
+        The calculated max replicas.
+    """
+    return min_replicas + ceil_division(max_additional_workers, workers_per_instance)
+
+def ceil_division(numerator, denominator):
+    # Perform integer division and check for exact result
+    division = numerator / denominator
+    if division == int(division):
+        return int(division)
+    else:
+        return int(division) + 1

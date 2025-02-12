@@ -164,6 +164,7 @@ def einhorn_service(
         meta = {},
         container_name = None,
         manage_workers = True,
+        worker_sidecar_mode = "einhorn",
         worker_availability_threshold = "0.7",  # skycfg doesn't support floats
         startup_failure_threshold = 600,
         hack_kick_interval = None,
@@ -243,6 +244,7 @@ def einhorn_service(
     worker_plugin = compose_plugins()
     if manage_workers:
         worker_plugin = add_worker_sidecar(
+            mode = worker_sidecar_mode,
             einhorn_socket_dir = _einhorn_socket_dir,
             einhorn_socket_name = _einhorn_socket_name,
             puma_statefile_dir = _einhorn_socket_dir,

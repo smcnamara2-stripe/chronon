@@ -3,7 +3,7 @@ load("config/kubernetes/core/container.sky", "sidecar_container")
 load("config/kubernetes/core/generic.sky", "is_dedicated_msp")
 load("config/kubernetes/core/lifecycle.sky", "DEFAULT_GRACE_PERIOD_SECONDS", "exec_action", "generate_infra_sidecar_prestop_command_args", "pre_stop")
 load("config/kubernetes/core/volume.sky", "mount_host_volume")
-load("config/kubernetes/helpers/context.sky", "get_env", "get_name")
+load("config/kubernetes/helpers/context.sky", "get_availability_tier", "get_env", "get_name")
 load("config/kubernetes/helpers/ldap.sky", "mount_ldap_host_volumes")
 load("config/kubernetes/helpers/security.sky", "mount_host_credentials_proxy", "mount_host_stripe_ca_certs")
 load("config/kubernetes/plugins/compose.sky", "compose_plugins")
@@ -19,7 +19,12 @@ memcontainer_always_enabled_services = [
 ]
 
 def memento_sidecar(ctx):
-    if not (get_env(ctx) == "qa" or get_env(ctx) == "preprod" or get_name(ctx) in memcontainer_always_enabled_services):
+    if not (
+        get_env(ctx) == "qa" or
+        get_env(ctx) == "preprod" or
+        get_name(ctx) in memcontainer_always_enabled_services or
+        (get_env(ctx) == "prod" and (get_availability_tier(ctx) == "A400" or get_availability_tier(ctx) == "A300" or get_availability_tier(ctx) == "A200"))
+    ):
         # returning empty means memcontainer will not be included in the deployment
         return compose_plugins()
 

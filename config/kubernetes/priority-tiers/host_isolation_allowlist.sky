@@ -64,4 +64,6 @@ HOST_ISOLATION_ALLOWLIST = [
     "off-session-payments-srv",
     "payments-warehouse-worker-srv",
     "payment-method-credentials-srv",
+    "workbench-vtwo-srv",
+    "tax-product-catalog-vtwo-srv",
 ]

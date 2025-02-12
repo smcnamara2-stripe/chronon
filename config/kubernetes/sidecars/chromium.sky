@@ -36,6 +36,8 @@ def chromium_sidecar(ctx):
                 # and triggering unwanted egress denials
                 # https://source.chromium.org/chromium/chromium/src/+/main:components/autofill/core/common/autofill_features.cc
                 "--disable-features=AutofillServerCommunication",
+                # Set a default user agent that doesn't contain HeadlessChrome so that when new pages open we are less identifiable as a bot
+                "--user-agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'",
             ],
             container_image = chromium_container_image,
             fallback_label = chromium_fallback_digest,
