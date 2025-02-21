@@ -374,7 +374,19 @@ struct Join {
     **/
     9: optional list<Derivation> derivations
     10: optional ModelTransformation modelTransformation
+
+    // Stripe-specific V2 Label API
+    2001: optional list<Label> labels
 }
+
+// Stripe-specific V2 Label API
+struct Label {
+    1: optional Source source
+    2: optional string labelColumn
+    3: optional string labelName
+    4: optional i64 labelDelayMs // Delay for labels. Do not populate the last labelDelayMs of labels
+}
+
 
 enum BatchPartitionCadence {
     DAILY = 0,
