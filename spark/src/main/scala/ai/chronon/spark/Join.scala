@@ -275,7 +275,7 @@ class Join(joinConf: api.Join,
                 df
               }
           }
-          val rightResults = Await.result(Future.sequence(rightResultsFuture), Duration.Inf).flatten
+          val rightResults = Await.result(Future.sequence(rightResultsFuture), Duration.Inf)
 
           // early exit if selectedJoinParts is defined. Otherwise, we combine all join parts
           if (selectedJoinParts.isDefined) return None
@@ -284,7 +284,10 @@ class Join(joinConf: api.Join,
           // sequentially join bootstrap table and each join part table. some column may exist both on left and right because
           // a bootstrap source can cover a partial date range. we combine the columns using coalesce-rule
           Success(
-            rightResults.zipWithIndex
+            rightResults
+              .flatten
+              .filter { case (_, df) => !df.isEmpty }
+              .zipWithIndex
               .foldLeft(bootstrapDf) {
                 case (partialDf, ((rightPart, rightDf), i)) =>
                   val next = joinWithLeft(partialDf, rightDf, rightPart)
