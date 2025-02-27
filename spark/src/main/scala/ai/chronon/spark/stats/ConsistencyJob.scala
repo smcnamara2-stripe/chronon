@@ -48,7 +48,8 @@ class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, sta
     val loggedSource: Source = new Source()
     val loggedEvents: EventSource = new EventSource()
     val query = new Query()
-    val mapping = (joinConf.leftKeyCols.toList ++ joinConf.getExternalFeatureCols.toList ++ (if (joinConf.rowIds == null) List() else joinConf.rowIds.toScala)).map(k => k -> k)
+    val rowIdsKeys = if (joinConf.rowIds == null || !tableUtils.consistencyJoinKeysRowIdsEnabled) List() else joinConf.rowIds.toScala
+    val mapping = (joinConf.leftKeyCols.toList ++ joinConf.getExternalFeatureCols.toList ++ rowIdsKeys).map(k => k -> k)
     val selects = new util.HashMap[String, String]()
     mapping.foreach { case (key, value) => selects.put(key, value) }
     query.setSelects(selects)
@@ -135,7 +136,7 @@ class ConsistencyJob(session: SparkSession, joinConf: Join, endDate: String, sta
       // there could be external columns that are logged during online env, therefore they could not be used for computing OOC
       val loggedDfNoExternalCols = loggedDf.select(comparisonDfNoExternalCols.columns.map(org.apache.spark.sql.functions.col): _*)
       logger.info("Starting compare job for stats")
-      val joinKeys = if (joinConf.isSetRowIds) {
+      val joinKeys = if (tableUtils.consistencyJoinKeysRowIdsEnabled && joinConf.isSetRowIds) {
         joinConf.rowIds.toScala ++ timeFields.map(_.name).toList
       } else {
         timeFields.map(_.name).toList ++ joinConf.leftKeyCols

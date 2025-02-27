@@ -64,6 +64,7 @@ trait BaseTableUtils {
   val bloomFilterThreshold: Long =
     sparkSession.conf.get("spark.chronon.backfill.bloomfilter.threshold", "1000000").toLong
   val forceBloomFilter: Boolean = sparkSession.conf.get("spark.chronon.backfill.bloomfilter.force", "false").toBoolean
+  val consistencyJoinKeysRowIdsEnabled: Boolean = sparkSession.conf.get("spark.chronon.consistency.join_keys.row_ids.enabled", "true").toBoolean
   val bloomFilterBits: Option[Long] = sparkSession.conf.getOption("spark.chronon.backfill.bloomfilter.maxbits").map(_.toLong)
   val bloomFilterError: Option[Double] = sparkSession.conf.getOption("spark.chronon.backfill.bloomfilter.error").map(_.toDouble)
 
