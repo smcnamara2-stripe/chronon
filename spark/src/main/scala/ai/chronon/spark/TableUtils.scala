@@ -64,6 +64,8 @@ trait BaseTableUtils {
   val bloomFilterThreshold: Long =
     sparkSession.conf.get("spark.chronon.backfill.bloomfilter.threshold", "1000000").toLong
   val forceBloomFilter: Boolean = sparkSession.conf.get("spark.chronon.backfill.bloomfilter.force", "false").toBoolean
+  // Turning off `spark.chronon.consistency.join_keys.row_ids.enabled` will allow the consistency pipeline to succeed for Joins that have
+  // rowIds defined (likely to enable bootstrapping), when the feature serving API doesn't log rowIds
   val consistencyJoinKeysRowIdsEnabled: Boolean = sparkSession.conf.get("spark.chronon.consistency.join_keys.row_ids.enabled", "true").toBoolean
   val bloomFilterBits: Option[Long] = sparkSession.conf.getOption("spark.chronon.backfill.bloomfilter.maxbits").map(_.toLong)
   val bloomFilterError: Option[Double] = sparkSession.conf.getOption("spark.chronon.backfill.bloomfilter.error").map(_.toDouble)
