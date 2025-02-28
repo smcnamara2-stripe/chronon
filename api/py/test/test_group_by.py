@@ -264,3 +264,30 @@ def test_additional_metadata():
         name="test.additional_metadata_gb"
     )
     assert json.loads(gb.metaData.customJson)['groupby_tags']['to_deprecate']
+
+def test_invalid_source_type_assignment():
+    source = ttypes.Source(
+        entities=ttypes.EventSource(
+                table="event_table1",
+                query=query.Query(
+                    selects=None,
+                    time_column="ts"
+                )
+            ),
+    )
+    try:
+        group_by.GroupBy(
+            sources=[source],
+            keys=["key1"],
+            aggregations=group_by.Aggregations(
+                random=ttypes.Aggregation(inputColumn="event_id", operation=ttypes.Operation.SUM, windows=[
+                    ttypes.Window(1, ttypes.TimeUnit.HOURS),
+                ]),
+            ),
+            backfill_start_date="2021-01-04",
+            name="test.snapshot_with_hour_aggregation"
+        )
+    except AssertionError as e:
+        assert "Source.entities must be of type EntitySource" in str(e), f"Unexpected assertion error message: {e}"
+        return
+    assert False, "Expected an assertion error"

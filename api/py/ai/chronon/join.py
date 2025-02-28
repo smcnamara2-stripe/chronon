@@ -23,6 +23,8 @@ import importlib
 import json
 import logging
 import sys
+
+from ai.chronon.source import validate_source
 from typing import List, Dict, Tuple
 
 logging.basicConfig(level=logging.INFO)
@@ -508,7 +510,7 @@ def Join(
     :return:
         A join object that can be used to backfill or serve data. For ML use-cases this should map 1:1 to model.
     """
-
+    validate_source(left)
     # create a deep copy for case: multiple LeftOuterJoin use the same left,
     # validation will fail after the first iteration
     updated_left = copy.deepcopy(left)

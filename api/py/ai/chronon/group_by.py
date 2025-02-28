@@ -18,6 +18,8 @@ import ai.chronon.repo as repo
 import logging
 import json
 import sys
+
+from ai.chronon.source import ANY_SOURCE_TYPE, validate_source
 from typing import List, Optional, Union, Dict, Callable, Tuple
 
 OperationType = int  # type(zthrift.Operation.FIRST)
@@ -208,7 +210,6 @@ def contains_windowed_aggregation(aggregations: Optional[List[ttypes.Aggregation
             return True
     return False
 
-
 def validate_group_by(group_by: ttypes.GroupBy):
     sources = group_by.sources
     keys = group_by.keyColumns
@@ -345,11 +346,6 @@ def validate_agg_window_cadence_accuracy(agg, batchPartitionCadence, accuracy, b
     )
 
 
-_ANY_SOURCE_TYPE = Union[
-    ttypes.Source, ttypes.EventSource, ttypes.EntitySource, ttypes.JoinSource
-]
-
-
 def _get_op_suffix(operation, argmap):
     op_str = op_to_str(operation)
     if operation in [
@@ -386,7 +382,7 @@ def get_output_col_names(aggregation):
     return bucketed_names
 
 
-def GroupBy(sources: Union[List[_ANY_SOURCE_TYPE], _ANY_SOURCE_TYPE],
+def GroupBy(sources: Union[List[ANY_SOURCE_TYPE], ANY_SOURCE_TYPE],
             keys: List[str],
             aggregations: Optional[List[ttypes.Aggregation]],
             online: bool = DEFAULT_ONLINE,
@@ -530,6 +526,12 @@ def GroupBy(sources: Union[List[_ANY_SOURCE_TYPE], _ANY_SOURCE_TYPE],
         A GroupBy object containing specified aggregations.
     """
     assert sources, "Sources are not specified"
+
+    if isinstance(sources, list):
+        for source in sources:
+            validate_source(source)
+    else:
+        validate_source(sources)
 
     agg_inputs = []
     if aggregations is not None:

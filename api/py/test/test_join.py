@@ -109,3 +109,23 @@ def test_dependencies_propagation():
         ("wait_for_table_2_ds_ds_key_value", "table_2/ds={{ ds }}/key=value")
     ]
     assert expected == actual
+
+def test_invalid_source_type_assignment():
+    source = api.Source(
+        entities=api.EventSource(
+            table="sample_namespace.sample_table",
+            query=api.Query(
+                startPartition="2020-04-09",
+                selects={
+                    "subject": "subject_sql",
+                    "event_id": "event_sql",
+                },
+                timeColumn="CAST(ts AS DOUBLE)",
+            ),
+        ),
+    )
+    with pytest.raises(AssertionError) as e:
+        Join(
+            left=source,
+            right_parts=[right_part(event_source("sample_namespace.sample_table"))])
+    assert "Source.entities must be of type EntitySource" in str(e)
