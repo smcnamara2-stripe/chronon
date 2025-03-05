@@ -31,6 +31,10 @@ class DatabricksExecutable:
         # Start date / end date defaults for analyze + validate operations
         self._default_start_date = (datetime.now() - timedelta(days=8)).strftime('%Y%m%d')
         self._default_end_date = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
+
+        # Until DEP-8245 is resolved, we need to register Shepherd scala UDFs here during initialization of the DatabricksExecutable.
+        # Once we can register UDFs during cluster init we can remove this code.
+        self._jvm.com.stripe.shepherd.udfs.ShepherdUdfRegistry.registerAllUdfs(spark_session._jsparkSession)
     
     def _pretty_print_jvm_logs(self, start_stream_position:int, job_name: str) -> None:
         print("\n\n", "*" * 10, f" BEGIN LOGS FOR {job_name} ", "*" * 10)
