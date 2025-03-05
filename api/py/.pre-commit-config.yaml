@@ -19,16 +19,3 @@ repos:
         - pyi
         files: ^(ai)/
         args: [--profile=black]
-      - id: autoflake
-        name: autoflake
-        entry: autoflake
-        language: python
-        "types": [ python ]
-        files: ^(ai)/
-        args:
-          - "--in-place"
-          - "--remove-unused-variables"
-          - "--expand-star-imports"
-          - "--remove-all-unused-imports"
-          - "--ignore-init-module-imports"
-          - "--remove-duplicate-keys"

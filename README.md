@@ -4,7 +4,7 @@ _These docs are very WIP. Please don't hesitate to make PRs with changes
 to the instructions, or to get in touch with us in #shepherd on Slack!_
 
 ## Step 1: Install Docker
-You can install from Managed Software Center. 
+You can install from Managed Software Center.
 
 ## Step 2: Build a local image from `docker/local/Dockerfile`
 
@@ -26,12 +26,12 @@ so folks won't have to go through this step)
 
 ## Step 3: Building and testing!
 
-To get a shell for your container, run `docker run -v ~/stripe/chronon/:/chronon --rm -it chronon_local`
+To get a shell for your container, run `docker run -v ~/stripe/chronon/:/src --rm -it chronon_local`
 
 ### Compiling and testing Scala
 
-On your container shell, run `sbt "++ 2.12.12 compile"`. (Scala 2.12.12 is preinstalled on the container, without it `sbt` will try to 
-download a different Scala version) 
+On your container shell, run `sbt "++ 2.12.12 compile"`. (Scala 2.12.12 is preinstalled on the container, without it `sbt` will try to
+download a different Scala version)
 
 Compiling took about a minute on an M1 Max Macbook Pro.
 
@@ -42,10 +42,10 @@ Running `compile` in the container will generate Thrift classes on your laptop a
 
 ### Setting up and testing Python
 
-Run the following setup script, which will generate Python code for thrifts and 
+Run the following setup script, which will generate Python code for thrifts and
 install Python packages for tests:
 ```
-bash /py_container_setup.sh  
+bash /py_container_setup.sh
 ```
 
-To run the Python tests, run `tox` from `/chronon/api/py`.
+To run the Python tests, run `tox` from `/src/api/py`.

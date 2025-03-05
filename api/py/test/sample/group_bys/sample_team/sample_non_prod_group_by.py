@@ -30,7 +30,7 @@ v1 = GroupBy(
         Aggregation(input_column="event", operation=Operation.SUM, windows=[Window(7, TimeUnit.DAYS)]),
         Aggregation(input_column="event", operation=Operation.SUM)
     ],
-    online=False,
+    online=True,
     production=False,
     output_namespace="sample_namespace"
 )

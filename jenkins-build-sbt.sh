@@ -8,7 +8,7 @@
 # Increase if we see OOMs
 export SBT_OPTS="-XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xmx4G -Xms2G"
 
-# Set inside CI 
+# Set inside CI
 export INSIDE_CI=true
 
 # Grab current project version (stripping out the -SNAPSHOT)
@@ -28,6 +28,15 @@ sbt "++ 2.12.12 test"
 echo "Kicking off Chronon artifactory publish"
 export CHRONON_SNAPSHOT_REPO='https://artifactory-content.stripe.build/artifactory/maven-snapshots-local'
 sbt "++ 2.12.12 publish"
+
+# Run Python tests
+# TODO: Currently, two tests in test_pyspark.py fail due to
+# java.lang.ClassNotFoundException: org.apache.log4j.spi.Filter.
+# Disabling the tests for now.
+# sbt "++ 2.12.12 publishLocal"
+# bash /src/py_container_setup.sh
+# cd /src/api/py && tox
+# cd /src
 
 # Create build directory
 mkdir -p /src/build

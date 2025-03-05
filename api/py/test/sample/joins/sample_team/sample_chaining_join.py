@@ -55,7 +55,7 @@ parent_join = Join(
 
 chaining_group_by_v1 = GroupBy(
     name="sample_team.sample_chaining_group_by",
-    sources=ttypes.Source(joinSource=ttypes.JoinSource(
+    sources=ttypes.JoinSource(
         join=parent_join,
         query=Query(
             selects=select(
@@ -64,7 +64,7 @@ chaining_group_by_v1 = GroupBy(
             ),
             start_partition="2023-04-15",
             time_column="ts",
-        ))),
+        )),
     keys=["user_id"],
     aggregations=[
         Aggregation(input_column="event", operation=Operation.LAST),

@@ -69,9 +69,13 @@ RUN conda install -y -q -n zipline_py --no-deps virtualenv
 RUN  /opt/conda/envs/zipline_py/bin/pip install \
    flake8==5.0.4 build wheel twine flake8-quotes==3.3.1 thrift==0.11.0 click==7.0 thrift_json==0.1.0 nose>=1.3.7 distlib>=0.3.4 filelock>=3.7.0 platformdirs>=2.5.2
 
+# Currently the Python tests use pyspark 3.1.3 which doesn't support newer Python versions such as 3.11
+# The default Python version installed by Miniconda is 3.12
+RUN conda create -y -n zoolander_py python=3.8
+
 COPY / /src
-WORKDIR /src
 ENV PATH $PATH:/src/
 
+WORKDIR /src
 RUN /src/jenkins-build-sbt.sh
 CMD /bin/bash

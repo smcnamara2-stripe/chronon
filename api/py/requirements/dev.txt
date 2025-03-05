@@ -6,27 +6,18 @@
 #    pip-compile-multi
 #
 -r base.txt
-autoflake==2.3.1
+black==23.12.1
     # via -r requirements/dev.in
-black==24.3.0
-    # via -r requirements/dev.in
-cachetools==5.3.3
-    # via tox
-cfgv==3.4.0
+cfgv==3.2.0
     # via pre-commit
-chardet==5.2.0
-    # via tox
-colorama==0.4.6
-    # via tox
-coverage[toml]==7.4.4
+coverage[toml]==7.4.3
     # via pytest-cov
-distlib==0.3.8
+distlib==0.3.9
     # via virtualenv
-filelock==3.13.3
+filelock==3.13.4
     # via
-    #   tox
     #   virtualenv
-identify==2.5.35
+identify==2.5.36
     # via pre-commit
 iniconfig==2.0.0
     # via pytest
@@ -34,43 +25,33 @@ isort==5.13.2
     # via -r requirements/dev.in
 mypy-extensions==1.0.0
     # via black
-nodeenv==1.8.0
+nodeenv==1.7.0
     # via pre-commit
 packaging==24.0
     # via
     #   black
     #   pyproject-api
     #   pytest
-    #   tox
 pathspec==0.12.1
     # via black
-platformdirs==4.2.0
+platformdirs==4.2.2
     # via
     #   black
-    #   tox
     #   virtualenv
 pluggy==1.4.0
     # via
     #   pytest
-    #   tox
-pre-commit==3.7.0
+pre-commit==3.5.0
     # via -r requirements/dev.in
-pyflakes==3.2.0
-    # via autoflake
-pyproject-api==1.6.1
-    # via tox
 pytest==8.1.1
     # via pytest-cov
-pytest-cov==5.0.0
+pytest-cov==4.0.0
     # via -r requirements/dev.in
-pyyaml==6.0.1
+pyyaml==6.0
     # via pre-commit
-tox==4.14.2
-    # via -r requirements/dev.in
-virtualenv==20.25.1
+virtualenv==20.28.0
     # via
     #   pre-commit
-    #   tox
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

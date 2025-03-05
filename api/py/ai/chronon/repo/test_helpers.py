@@ -12,9 +12,9 @@ from pyspark.sql.dataframe import DataFrame
 def create_mock_group_by(gb: GroupBy, input_df: DataFrame, spark: SparkSession) -> JavaClass:
     """
     Creates the scala spark GroupBy equivalent of the passed in python GroupBy.
-    The resulting scala spark GroupBy can be used to run a group by. 
-    Note that this only creates a group by with the same aggregations and key columns as the python GroupBy, 
-    and does not include other properties or things such as derivations. 
+    The resulting scala spark GroupBy can be used to run a group by.
+    Note that this only creates a group by with the same aggregations and key columns as the python GroupBy,
+    and does not include other properties or things such as derivations.
 
     :param gb: The python GroupBy that we will mock the aggregations and key columns from
     :param input_df: The input dataframe that will represent our event source
@@ -31,7 +31,7 @@ def create_mock_group_by(gb: GroupBy, input_df: DataFrame, spark: SparkSession) 
         group_by_json
     )
 
-    # We do not support mutation dataframes and currently only support group bys that use event sources and temporal accuracy 
+    # We do not support mutation dataframes and currently only support group bys that use event sources and temporal accuracy
     java_spark_group_by: JavaClass = jvm.ai.chronon.spark.GroupBy.usingArrayList(
         java_thrift_group_by.getAggregations(),
         java_thrift_group_by.getKeyColumns(),
@@ -46,18 +46,18 @@ def create_mock_group_by(gb: GroupBy, input_df: DataFrame, spark: SparkSession) 
 
 def run_group_by_with_inputs(gb: GroupBy, input_df: DataFrame, query_df: DataFrame, spark: SparkSession) -> DataFrame:
     """
-    Generates a group by result by converting the input python GroupBy to a scala spark GroupBy 
+    Generates a group by result by converting the input python GroupBy to a scala spark GroupBy
     and then aggregating on it using the provided input and query dataframes.
-    Note that this only processes a group by with the same aggregations and key columns as the python GroupBy, 
-    and does not include other properties or things such as derivations. 
+    Note that this only processes a group by with the same aggregations and key columns as the python GroupBy,
+    and does not include other properties or things such as derivations.
 
-    :param gb: The python GroupBy that we will mock the aggregations and key columns from 
+    :param gb: The python GroupBy that we will mock the aggregations and key columns from
     :param input_df: The input dataframe that will represent our event source
     :param query_df: The query dataframe that will represent our queries
     :param spark: The spark session that we will use to run the group by
 
 
-    Example usage: 
+    Example usage:
 
     gb = GroupBy(<a group by keyed by merchant that finds the last currency, count and sum of charges over a few different time windows>)
     input_df =
@@ -76,7 +76,7 @@ def run_group_by_with_inputs(gb: GroupBy, input_df: DataFrame, query_df: DataFra
         |merchant2|1640995500000|20220101|
         +---------+-------------+--------+
 
-    results -> 
+    results ->
         +---------+-------------+--------+---------------+---------------+----------------+----------------+
         | merchant|           ts|      ds|charge_count_1d|charge_count_7d|charge_count_30d|currency_last_1d|
         +---------+-------------+--------+---------------+---------------+----------------+----------------+
@@ -96,7 +96,7 @@ def run_group_by_with_inputs(gb: GroupBy, input_df: DataFrame, query_df: DataFra
             jvm.ai.chronon.spark.PySparkUtils.getFiveMinuteResolution(),
         )
 
-        result_df = DataFrame(temporal_events_result_jdf.toDF(), spark._wrapped)
+        result_df = DataFrame(temporal_events_result_jdf.toDF(), spark)
 
         return result_df
 
@@ -104,19 +104,19 @@ def run_group_by_with_inputs(gb: GroupBy, input_df: DataFrame, query_df: DataFra
         raise NotImplementedError(
             "Only group bys with accuracy of ai.chronon.group_by.Accuracy.Temporal are supported currently."
         )
-    
 
-def create_mock_source(source: Source, accuracy: Accuracy, key_columns: List[str], mock_underlying_table_df: DataFrame, spark: SparkSession): 
+
+def create_mock_source(source: Source, accuracy: Accuracy, key_columns: List[str], mock_underlying_table_df: DataFrame, spark: SparkSession):
     """
     Generates the query and applies it to a mock underlying table so that users can create tests to make sure sources are working as expected.
 
-    :param source: The source that we will mock the query from 
+    :param source: The source that we will mock the query from
     :param accuracy: Accuracy.TEMPORAL or Accuracy.SNAPSHOT
     :param key_columns: The query dataframe that will represent our queries
-    :param mock_underlying_table_df: Dataframe that represents the underlying table that we will apply the query to. The schema should be equal to the schema of the source's events or entities snapshot table. 
+    :param mock_underlying_table_df: Dataframe that represents the underlying table that we will apply the query to. The schema should be equal to the schema of the source's events or entities snapshot table.
     :param spark: The spark session that we can use to access the JVM
-    """ 
-    
+    """
+
     java_gateway = spark._sc._gateway
     jvm = java_gateway.jvm
 

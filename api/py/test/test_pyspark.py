@@ -13,23 +13,31 @@ import pytest
 import tempfile
 import os
 import re
+import sys
+from pathlib import Path
 
 @pytest.fixture
 def spark() -> SparkSession:
-    cwd = os.getcwd()
-    chronon_root = cwd[0: cwd.find("chronon") + len("chronon")]
+    chronon_root = Path(__file__).parents[3]
 
     chronon_version = None
 
-    with open("{}/version.sbt".format(chronon_root), 'r') as file:  
-        data = file.read().replace(' ', '')  
+    with open(chronon_root / "version.sbt", 'r') as file:
+        data = file.read().replace(' ', '')
         version_match = re.search(r'version:="(.*?)"', data)
 
-        if version_match:  
+        if version_match:
             chronon_version = version_match.group(1)
-        else: 
+        else:
             raise Exception("Unable to find version in {}/version.sbt".format(chronon_root))
-            
+
+    # when run in CI the files contain "-SNAPSHOT" after the version number, check for it
+    if not Path(f"{chronon_root}/api/target/scala-2.12/api_2.12-{chronon_version}.jar").exists():
+        if Path(f"{chronon_root}/api/target/scala-2.12/api_2.12-{chronon_version}-SNAPSHOT.jar").exists():
+            chronon_version += "-SNAPSHOT"
+        else:
+            print(f"Did not find jar file; directory contents: {os.listdir(f'{chronon_root}/api/target/scala-2.12')}", file=sys.stderr)
+
     temp_jars_dir = tempfile.TemporaryDirectory()
     jars = [
         "{}/api/target/scala-2.12/api_2.12-{}.jar".format(chronon_root, chronon_version),
@@ -48,7 +56,7 @@ def spark() -> SparkSession:
         jar_symlink = os.path.join(temp_jars_dir.name, f"{n}{split_name[1]}")
         os.symlink(os.path.abspath(jar), jar_symlink)
         n += 1
-    
+
     spark_conf = (
             SparkConf()
             .set("spark.stripe.testMode.enabled", "true")
@@ -133,7 +141,7 @@ def sample_raw_underlying_table(spark: SparkSession) -> DataFrame:
     return spark.createDataFrame(data=data, schema=schema)
 
 @pytest.fixture
-def sample_source() -> Source: 
+def sample_source() -> Source:
     return Source(
         events=EventSource(
             table="events.payments",
@@ -171,7 +179,8 @@ def sample_group_by(sample_source: Source) -> GroupBy:
                 windows=[Window(length=1, timeUnit=TimeUnit.DAYS)],
             ),
         ],
-        accuracy=Accuracy.TEMPORAL
+        accuracy=Accuracy.TEMPORAL,
+        name="sample_group_by",
     )
 
 def test_group_by(spark: SparkSession, input_df: DataFrame, query_df: DataFrame, sample_group_by: GroupBy):

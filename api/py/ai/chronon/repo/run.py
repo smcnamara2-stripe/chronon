@@ -208,7 +208,7 @@ def download_jar(version, jar_type="uber", release_tag=None, spark_version="2.4.
                 for node in meta_tree.findall("./versioning/versions/")
                 if re.search(
                     r"^\d+\.\d+\.\d+{}$".format(
-                        "\_{}\d*".format(release_tag) if release_tag else ""
+                        r"\_{}\d*".format(release_tag) if release_tag else ""
                     ),
                     node.text,
                 )

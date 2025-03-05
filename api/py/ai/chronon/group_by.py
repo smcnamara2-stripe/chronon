@@ -519,7 +519,7 @@ def GroupBy(sources: Union[List[ANY_SOURCE_TYPE], ANY_SOURCE_TYPE],
     :param team_slug:
         Specifiying the team slug is required when defining a GroupBy in a notebook cell since we cannot infer it from the file name.
     :param name:
-        Name of the GroupBy. If not provided, the name is inferred from the module name. 
+        Name of the GroupBy. If not provided, the name is inferred from the module name.
         Name should only be used for GroupBys defined in a notebook cell.
     :type kwargs: Dict[str, str]
     :return:
@@ -601,7 +601,7 @@ def GroupBy(sources: Union[List[ANY_SOURCE_TYPE], ANY_SOURCE_TYPE],
         assert "-" not in team_slug and " " not in team_slug, "team_slug should not contain hyphens or spaces. Please use `_` instead."
         team = team_slug
     else:
-        team = file_name.split("/")[-2]        
+        team = file_name.split("/")[-2]
         deps = [
             dep
             for src in sources
@@ -639,7 +639,7 @@ def GroupBy(sources: Union[List[ANY_SOURCE_TYPE], ANY_SOURCE_TYPE],
     # The module name of the GroupBy is found by finding the module that corresponds to the frame
     # before the frame that has the module name importlib._bootstrap. We only need to do this
     # if a name was not specified.
-    if not name and not is_feature_being_created_in_a_databricks_notebook_cell: 
+    if not name and not is_feature_being_created_in_a_databricks_notebook_cell:
         module_name = ''
         i = 1
         while True:
@@ -648,7 +648,7 @@ def GroupBy(sources: Union[List[ANY_SOURCE_TYPE], ANY_SOURCE_TYPE],
                 break
             module_name = cur_module_name
             i = i + 1
-        
+
     group_by = ttypes.GroupBy(
         sources=sources,
         keyColumns=keys,

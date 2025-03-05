@@ -89,10 +89,14 @@ RUN conda install -y -q -n zipline_py --no-deps virtualenv
 RUN  /opt/conda/envs/zipline_py/bin/pip install \
    flake8==5.0.4 build flake8-quotes==3.3.1 thrift==0.11.0 click==7.0 thrift_json==0.1.0 nose>=1.3.7 distlib>=0.3.4 filelock>=3.7.0 platformdirs>=2.5.2
 
+# Currently the Python tests use pyspark 3.1.3 which doesn't support newer Python versions such as 3.11
+# The default Python version installed by Miniconda is 3.12
+RUN conda create -y -n zoolander_py python=3.8
+
 # Env var setup + copying over setup helper scripts
 # putting this at the bottom so a change doesn't force regenerating the entire image
 ENV SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M"
 ENV INSIDE_DOCKER_LOCAL=true
 ADD py_container_setup.sh .
-WORKDIR /chronon
+WORKDIR /src
 CMD /bin/bash

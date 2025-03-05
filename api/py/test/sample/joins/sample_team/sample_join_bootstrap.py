@@ -62,7 +62,8 @@ v1 = Join(
                 selects=select(field_a="field_a", field_b="field_b"),
             )
         )
-    ]
+    ],
+    output_namespace="sample_namespace",
 )
 
 v2 = Join(

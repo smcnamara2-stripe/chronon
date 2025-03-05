@@ -12,7 +12,7 @@
     "tableProperties": {
       "source": "chronon"
     },
-    "outputNamespace": "chronon_db",
+    "outputNamespace": "sample_namespace",
     "team": "sample_team",
     "samplePercent": 100.0,
     "consistencySamplePercent": 5.0,
