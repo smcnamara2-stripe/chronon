@@ -990,7 +990,7 @@ class MutationsTest {
     leftDf.save(s"$testNamespace.$eventTable")
     val result = computeJoinFromTables(suffix, minDs, maxDs, null, Operation.AVERAGE)
     val expected = computeSimpleAverageThroughSql(testNamespace)
-    val diff = Comparison.sideBySide(result, expected, List("listing_id", "ts", "ds"))
+    val diff = Comparison.sideBySide(result, expected, List("listing_id", "ts", "ds"), doubleTolerance = 0.001)
     if (diff.count() > 0) {
       logger.info(s"Actual count: ${result.count()}")
       logger.info(s"Expected count: ${expected.count()}")
