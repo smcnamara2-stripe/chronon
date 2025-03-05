@@ -403,6 +403,7 @@ def Join(
     name: str = None,
     team_slug: str = None,
     model_transformation: api.ModelTransformation = None,
+    labels: List[api.Label] = None,
     **kwargs,
 ) -> api.Join:
     """
@@ -507,6 +508,8 @@ def Join(
         The desired name of the output table when running in a Databricks notebook. 
     :param model_transformation:
         Model transformation to be applied to the output of the Join.
+    :param labels:
+        Labels to be joined to the Join.
     :return:
         A join object that can be used to backfill or serve data. For ML use-cases this should map 1:1 to model.
     """
@@ -669,6 +672,7 @@ def Join(
         labelPart=label_part,
         derivations=derivations,
         modelTransformation=model_transformation,
+        labels=labels,
     )
 
 def InferenceSpec(
@@ -709,4 +713,21 @@ def ModelTransformation(
         outputMappings = output_mappings,
         passThroughFields = pass_through_fields,
         inputMappings = input_mappings
+    )
+
+def Label(
+        label_column: str,
+        label_name: str,
+        source: api.Source,
+        label_delay_ms: int
+) -> api.Label:
+    assert label_name, "A label_name must be specified for a label"
+    assert label_column, "A label_column must be specified for a label"
+    assert source, "A Source must be specified for a label"
+    assert labelDelayMs >= 0, "labelDelayMs should be non-negative"
+    return api.Label(
+        labelColumn=label_column,
+        labelName=label_name,
+        source = source,
+        labelDelayMs = label_delay_ms
     )
