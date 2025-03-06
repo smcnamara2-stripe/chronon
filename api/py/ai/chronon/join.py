@@ -719,12 +719,12 @@ def Label(
         label_column: str,
         label_name: str,
         source: api.Source,
-        label_delay_ms: int
+        label_delay_ms: int = 0
 ) -> api.Label:
     assert label_name, "A label_name must be specified for a label"
     assert label_column, "A label_column must be specified for a label"
     assert source, "A Source must be specified for a label"
-    assert labelDelayMs >= 0, "labelDelayMs should be non-negative"
+    assert label_delay_ms >= 0, "label_delay_ms should be non-negative"
     return api.Label(
         labelColumn=label_column,
         labelName=label_name,
