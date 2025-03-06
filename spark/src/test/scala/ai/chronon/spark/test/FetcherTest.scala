@@ -21,7 +21,7 @@ import ai.chronon.aggregator.test.Column
 import ai.chronon.aggregator.windowing.TsUtils
 import ai.chronon.api
 import ai.chronon.api.Constants.ChrononMetadataKey
-import ai.chronon.api.Extensions.{JoinOps, MetadataOps, DerivationOps}
+import ai.chronon.api.Extensions.{DerivationOps, JoinOps, MetadataOps}
 import ai.chronon.api._
 import ai.chronon.online.Fetcher.{Request, Response, StatsRequest}
 import ai.chronon.online.KVStore.GetRequest
@@ -45,6 +45,7 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext}
 import scala.io.Source
+import scala.util.Random
 import scala.util.ScalaJavaConversions._
 
 class FetcherTest extends TestCase {
@@ -253,7 +254,11 @@ class FetcherTest extends TestCase {
         )
       ),
       accuracy = Accuracy.TEMPORAL,
-      metaData = Builders.MetaData(name = "unit_test/fetcher_mutations_gb", namespace = namespace, team = "chronon")
+      metaData = Builders.MetaData(name = "unit_test/fetcher_mutations_gb", namespace = namespace, team = "chronon"),
+      derivations=Seq(
+        Builders.Derivation(name = "*", expression = "*"),
+        Builders.Derivation(name = "rating_average_1d_same", expression = "rating_average_1d")
+      )
     )
 
     val joinConf = Builders.Join(
@@ -613,6 +618,38 @@ class FetcherTest extends TestCase {
     // validates the schema for all features in the given GroupBy
     val groupByResult: Map[String, DataType] = mockApi.fetcher.retrieveGroupBySchema(TestUtils.vendorRatingsGroupByName)
     assertEquals(TestUtils.expectedSchemaForVendorRatingsGroupBy, groupByResult)
+  }
+
+  def testTemporalFetchGroupByNonExistKey(): Unit = {
+    val namespace = "non_exist_key_group_by_fetch"
+    val joinConf = generateMutationData(namespace)
+    val endDs = "2021-04-10"
+    val spark: SparkSession = SparkSessionBuilder.build(sessionName + "_" + Random.alphanumeric.take(6).mkString, local = true)
+    val tableUtils = TableUtils(spark)
+    val kvStoreFunc = () => OnlineUtils.buildInMemoryKVStore("FetcherTest")
+    val inMemoryKvStore = kvStoreFunc()
+    val mockApi = new MockApi(kvStoreFunc, namespace)
+    @transient lazy val fetcher = mockApi.buildFetcher(debug=false)
+
+    joinConf.joinParts.toScala.foreach(jp =>
+      OnlineUtils.serve(tableUtils,
+        inMemoryKvStore,
+        kvStoreFunc,
+        namespace,
+        endDs,
+        jp.groupBy,
+        dropDsOnWrite = true))
+
+    // a random key that doesn't exist
+    val nonExistKey = 123L
+    val request = Request("unit_test/fetcher_mutations_gb",
+      Map("listing_id" -> nonExistKey.asInstanceOf[AnyRef]))
+    val response = fetcher.fetchGroupBys(Seq(request))
+    val result = Await.result(response, Duration(10, SECONDS))
+
+    // result should be "null" if the key is not found
+    val expected: Map[String, AnyRef] = Map("rating_average_1d_same" -> null)
+    assertEquals(expected, result.head.values.get)
   }
 }
 

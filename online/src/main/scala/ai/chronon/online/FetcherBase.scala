@@ -79,7 +79,7 @@ class FetcherBase(kvStore: KVStore,
                                        context: Metrics.Context,
                                        totalResponseValueBytes: Int,
                                        keys: Map[String, Any] // The keys is used only for caching
-  ): Map[String, AnyRef] = {
+  ): Option[Map[String, AnyRef]] = {
     val servingInfo = getServingInfo(oldServingInfo, batchResponses)
 
     // Batch metrics
@@ -122,7 +122,7 @@ class FetcherBase(kvStore: KVStore,
       ) {
         if (debug) logger.info("Both batch and streaming data are null")
         context.histogramTagged("group_by.latency.millis", System.currentTimeMillis() - startTimeMs)
-        return null
+        return None
       }
 
       // Streaming metrics
@@ -221,7 +221,7 @@ class FetcherBase(kvStore: KVStore,
 
     }
     context.histogramTagged("group_by.latency.millis", System.currentTimeMillis() - startTimeMs)
-    responseMap
+    Some(responseMap)
   }
 
   // At Stripe, these metrics are redundant because our KV Stores already report their own. We make this function a
@@ -446,7 +446,7 @@ class FetcherBase(kvStore: KVStore,
                         context,
                         totalResponseValueBytes,
                         request.keys
-                      )
+                      ).getOrElse(Map.empty)
                   } catch {
                     case ex: Exception =>
                       // not all exceptions are due to stale schema, so we want to control how often we hit kv store
