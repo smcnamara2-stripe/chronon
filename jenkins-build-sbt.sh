@@ -14,14 +14,14 @@ export INSIDE_CI=true
 # Grab current project version (stripping out the -SNAPSHOT)
 # We manually override the version.sbt instead of using the sbt-release plugin for
 # our Stripe customizations to continue using the upstream versioning as a base
-current_version=`cat version.sbt | cut -d '"' -f2 | cut -d '-' -f1`
+current_version=$(cat version.sbt | cut -d '"' -f2 | cut -d '-' -f1)
 git_sha=$(git rev-parse --short HEAD)
-date_str=`date "+%Y%m%d"`
+date_str=$(date "+%Y%m%d")
 
 echo "Current Chronon version: $current_version; we are on git sha: $git_sha"
-release_version="$current_version-$date_str-$git_sha"
+release_version="$current_version-$date_str-$git_sha-SNAPSHOT"
 echo "Setting version to $release_version for release."
-echo "version := \"$release_version\"" > version.sbt
+echo "ThisBuild / version := \"$release_version\"" > version.sbt
 
 echo "Kicking off Chronon sbt build & tests"
 sbt "++ 2.12.12 test"
