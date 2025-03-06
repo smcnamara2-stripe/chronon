@@ -75,6 +75,7 @@ trait BaseTableUtils {
   val blockingCacheEviction: Boolean =
     sparkSession.conf.get("spark.chronon.table_write.cache.blocking", "false").toBoolean
 
+  val streamlinedWrites: Boolean = sparkSession.conf.get("spark.chronon.table_write.streamlined", "false").toBoolean
   val useIceberg: Boolean = sparkSession.conf.get("spark.chronon.table_write.iceberg", "false").toBoolean
   val cacheLevel: Option[StorageLevel] = Try {
     if (cacheLevelString == "NONE") None
@@ -509,8 +510,8 @@ trait BaseTableUtils {
                                           tableProperties: Map[String, String] = null,
                                           allowEmpty: Boolean = false
                                          ): Unit = {
-    val emptyResults = stats.exists(_.count == 0) || df.head(1).isEmpty
-    if (allowEmpty && emptyResults) {
+    lazy val emptyResults = stats.exists(_.count == 0) || df.head(1).isEmpty
+    if (streamlinedWrites || (allowEmpty && emptyResults)) {
       writeDf(df, tableName, saveMode, partition, tableProperties) // side-effecting- this actually writes the table
       logger.info(s"[repartitionAndWriteInternal] Finished writing to $tableName")
     } else if (!emptyResults) {
