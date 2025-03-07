@@ -24,10 +24,11 @@ import ai.chronon.spark.PartitionRangeQueries.generateWhereClauses
 import org.apache.avro.Schema
 import org.apache.spark.sql
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.catalyst.planning.ExtractEquiJoinKeys
+import org.apache.spark.sql.expressions.{UserDefinedFunction, Window}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataType, LongType, StructType}
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{Column, DataFrame, Row}
 import org.apache.spark.util.sketch.BloomFilter
 import org.slf4j.LoggerFactory
 

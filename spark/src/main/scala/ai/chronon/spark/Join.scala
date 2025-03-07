@@ -529,8 +529,12 @@ class Join(joinConf: api.Join,
 
         bootstrapDf = bootstrapDf
           .select(includedColumns.map(col): _*)
-          // TODO: allow customization of deduplication logic
-          .dropDuplicates(part.keys(joinConf, tableUtils.partitionColumn).toArray)
+
+        val dedupedBootstrap = dropDuplicatesUsingJoinShuffle(
+          bootstrapDf,
+          partialDf,
+          part.keys(joinConf, tableUtils.partitionColumn)
+        )
 
         val enableSplitExternalPartsBootstrap = tableUtils.sparkSession.conf
           .get(SparkConstants.ChrononSplitExternalPartsBootstrap, "false")
@@ -542,10 +546,10 @@ class Join(joinConf: api.Join,
                |it bootstraps only external parts. Will process this bootstrap after joins"""
               .stripMargin
               .replaceAll("\n", " "))
-          (partialDf, partialExternalBootstraps :+ (bootstrapDf, part.keys(joinConf, tableUtils.partitionColumn)))
+          (partialDf, partialExternalBootstraps :+ (dedupedBootstrap, part.keys(joinConf, tableUtils.partitionColumn)))
         } else {
           logger.info(s"Bootstrap table ${part.table} provides the following precomputed values: ${precomputedValues.mkString(", ")}")
-          val joinedDf = coalescedJoin(partialDf, bootstrapDf, part.keys(joinConf, tableUtils.partitionColumn).toSeq)
+          val joinedDf = coalescedJoin(partialDf, dedupedBootstrap, part.keys(joinConf, tableUtils.partitionColumn).toSeq)
             // as part of the left outer join process, we update and maintain matched_hashes for each record
             // that summarizes whether there is a join-match for each bootstrap source.
             // later on we use this information to decide whether we still need to re-run the backfill logic

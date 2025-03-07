@@ -17,7 +17,6 @@
 package ai.chronon.spark
 
 import java.util
-
 import org.slf4j.LoggerFactory
 import ai.chronon.api.Constants
 import ai.chronon.api.DataModel.Events
@@ -25,16 +24,16 @@ import ai.chronon.api.Extensions.{JoinOps, _}
 import ai.chronon.api.QueryUtils
 import ai.chronon.spark.Extensions._
 import com.google.gson.Gson
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.functions.lit
-import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{coalesce, col, udf}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
+import org.apache.spark.sql.functions.{coalesce, col, lit, row_number, udf}
+import org.apache.spark.sql.expressions.{UserDefinedFunction, Window}
 import org.apache.spark.util.sketch.BloomFilter
+
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 import scala.util.ScalaJavaConversions.MapOps
-
 import ai.chronon.api
+import org.apache.spark.sql.catalyst.planning.ExtractEquiJoinKeys
 
 object JoinUtils {
   @transient lazy val logger = LoggerFactory.getLogger(getClass)
@@ -149,6 +148,42 @@ object JoinUtils {
     val leftStart = overrideStart.getOrElse(defaultLeftStart)
     val leftEnd = Option(leftSource.query.endPartition).getOrElse(endPartition)
     PartitionRange(leftStart, leftEnd)(tableUtils)
+  }
+
+  /**
+   * Deduplicate the given [[toDedup]] dataframe using the same shuffle as
+   * would be used when joining to the [[joinPartner]] dataframe.
+   *
+   * This is an optimization for the scenario where a caller is deduplicating
+   * the dataframe before joining:
+   * joinPartner.join(toDedup.dropDuplicates(keys), keys)
+   *
+   * By default, spark does a poor job of reusing the deduplication shuffle in
+   * this scenario -- the join query plan will normalize floating point numbers
+   * but dropDuplicates will not, resulting in subtly different shuffles.
+   *
+   * This function plans a fake join and extracts the exact expressions which
+   * will be used in the join. Then it uses the join expressions to deduplicate
+   * so that the same shuffle can be reused.
+   */
+  def dropDuplicatesUsingJoinShuffle(toDedup: DataFrame, joinPartner: DataFrame, keys: Seq[String]): DataFrame = {
+    val condition = keys.map(key => joinPartner(key) === toDedup(key)).reduce(_ && _)
+    val plannedJoin = joinPartner.join(toDedup, condition)
+
+    plannedJoin.queryExecution.logical match {
+      case ExtractEquiJoinKeys(_, _, rightKeys, _, _, _, _) =>
+
+        val cols = rightKeys.map(new Column(_))
+        val w = Window.partitionBy(cols: _*).orderBy(cols: _*)
+        toDedup
+          .withColumn("dedup_row_number", row_number().over(w))
+          .filter(col("dedup_row_number") === lit(1))
+          .drop("dedup_row_number")
+      case _ =>
+        // This should never happen
+        logger.warn(s"Couldn't plan an equijoin for $condition. Falling back to dropDuplicates.")
+        toDedup.dropDuplicates(keys)
+    }
   }
 
   /***
